@@ -1,0 +1,40 @@
+qt-5.6.3-static
+qt-5.6.3-static.7z
+releases
+test
+src/backup/
+src/*txt.bat
+src/*combined*.txt
+
+# CMake / build output
+build/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.pdb
+
+# Qt / IDE
+*.user
+*.user.*
+.vs/
+.idea/
+*.autosave
+
+# Runtime settings
+b0s-settings.ini
+b0s-settings.json
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
