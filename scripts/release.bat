@@ -52,39 +52,39 @@ if errorlevel 1 (
 echo [ok] README.md
 
 REM --- sample-tim (extract sample-tim.zip into release sample-tim) ---
-if exist "%SRC_SAMPLES%" (
-    if not exist "%SRC_SAMPLES_ZIP%" (
-        echo ERROR: %SRC_SAMPLES_ZIP% not found.
-        pause & exit /b 1
-    )
+REM if exist "%SRC_SAMPLES%" (
+    REM if not exist "%SRC_SAMPLES_ZIP%" (
+        REM echo ERROR: %SRC_SAMPLES_ZIP% not found.
+        REM pause & exit /b 1
+    REM )
 
-    if exist "%DEST_SAMPLES%" rmdir /S /Q "%DEST_SAMPLES%"
-    mkdir "%DEST_SAMPLES%"
-    if not exist "%DEST_SAMPLES%" (
-        echo ERROR: failed to create "%DEST_SAMPLES%"
-        pause & exit /b 1
-    )
+    REM if exist "%DEST_SAMPLES%" rmdir /S /Q "%DEST_SAMPLES%"
+    REM mkdir "%DEST_SAMPLES%"
+    REM if not exist "%DEST_SAMPLES%" (
+        REM echo ERROR: failed to create "%DEST_SAMPLES%"
+        REM pause & exit /b 1
+    REM )
 
-    where tar >nul 2>&1
-    if errorlevel 1 (
-        echo [--] tar not found, trying PowerShell Expand-Archive...
-        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-            "Expand-Archive -LiteralPath '%SRC_SAMPLES_ZIP%' -DestinationPath '%DEST_SAMPLES%' -Force"
-        if errorlevel 1 (
-            echo ERROR: failed to extract sample-tim.zip with PowerShell
-            pause & exit /b 1
-        )
-    ) else (
-        tar -xf "%SRC_SAMPLES_ZIP%" -C "%DEST_SAMPLES%"
-        if errorlevel 1 (
-            echo ERROR: failed to extract sample-tim.zip with tar
-            pause & exit /b 1
-        )
-    )
-    echo [ok] sample-tim extracted
-) else (
-    echo [--] sample-tim folder not found, skipped
-)
+    REM where tar >nul 2>&1
+    REM if errorlevel 1 (
+        REM echo [--] tar not found, trying PowerShell Expand-Archive...
+        REM powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+            REM "Expand-Archive -LiteralPath '%SRC_SAMPLES_ZIP%' -DestinationPath '%DEST_SAMPLES%' -Force"
+        REM if errorlevel 1 (
+            REM echo ERROR: failed to extract sample-tim.zip with PowerShell
+            REM pause & exit /b 1
+        REM )
+    REM ) else (
+        REM tar -xf "%SRC_SAMPLES_ZIP%" -C "%DEST_SAMPLES%"
+        REM if errorlevel 1 (
+            REM echo ERROR: failed to extract sample-tim.zip with tar
+            REM pause & exit /b 1
+        REM )
+    REM )
+    REM echo [ok] sample-tim extracted
+REM ) else (
+    REM echo [--] sample-tim folder not found, skipped
+REM )
 
 REM --- byte0scope.exe (copy + UPX brute) ---
 copy /Y "%SRC_EXE%" "%DEST%\byte0scope.exe" >nul

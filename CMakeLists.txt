@@ -1,4 +1,4 @@
-# Byte-o-scope — binary file visualizer
+# Byte-0-scope — binary file visualizer
 # File: CMakeLists.txt
 # Copyright (C) 2026 pav13
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -107,22 +107,24 @@ endif()
 # =========================================================================
 set(BS_SOURCES
     "${BS_SRC_DIR}/main.cpp"
-	"${BS_SRC_DIR}/fileassoc.cpp"
+    "${BS_SRC_DIR}/aboutdialog.cpp"
+    "${BS_SRC_DIR}/bitpackedreader.cpp"
+    "${BS_SRC_DIR}/byteinfo.cpp"
     "${BS_SRC_DIR}/bytesource.cpp"
+    "${BS_SRC_DIR}/canvaswidget.cpp"
+    "${BS_SRC_DIR}/controlspanel.cpp"
+    "${BS_SRC_DIR}/demobuilder.cpp"
+    "${BS_SRC_DIR}/fileassoc.cpp"
+    "${BS_SRC_DIR}/palettemanager.cpp"
+    "${BS_SRC_DIR}/palettesettings.cpp"
+    "${BS_SRC_DIR}/panoramawidget.cpp"
     "${BS_SRC_DIR}/pixeldecoder.cpp"
     "${BS_SRC_DIR}/pngwriter.cpp"
-    "${BS_SRC_DIR}/bitpackedreader.cpp"
-    "${BS_SRC_DIR}/thememanager.cpp"
     "${BS_SRC_DIR}/settingsmanager.cpp"
-    "${BS_SRC_DIR}/palettemanager.cpp"
+    "${BS_SRC_DIR}/thememanager.cpp"
     "${BS_SRC_DIR}/tilemanager.cpp"
-    "${BS_SRC_DIR}/canvaswidget.cpp"
-    "${BS_SRC_DIR}/byteinfo.cpp"
-    "${BS_SRC_DIR}/panoramawidget.cpp"
-    "${BS_SRC_DIR}/palettesettings.cpp"
-    "${BS_SRC_DIR}/controlspanel.cpp"
     "${BS_SRC_DIR}/mainwindow.cpp"
-	"${BS_SRC_DIR}/resources/resources.qrc"
+    "${BS_SRC_DIR}/resources/resources.qrc"
 )
 
 if(WIN32)
@@ -133,6 +135,119 @@ else()
 endif()
 
 target_link_libraries(byte0scope PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+
+# =========================================================================
+# Localization (Qt Linguist)
+# =========================================================================
+
+# Locate Qt5LinguistTools (lupdate / lrelease). Optional — if missing,
+# translation targets are simply not created.
+find_package(Qt5LinguistTools QUIET)
+
+set(BS_TRANSLATIONS "en" CACHE STRING
+    "Semicolon-separated list of language codes to build .qm for")
+set(BS_TS_DIR "${BS_SRC_DIR}/translations")
+
+# Create the translations directory at configure time so lupdate can write
+# new .ts files into it without extra steps.
+file(MAKE_DIRECTORY "${BS_TS_DIR}")
+
+set(BS_TS_FILES "")
+foreach(_lang ${BS_TRANSLATIONS})
+    list(APPEND BS_TS_FILES "${BS_TS_DIR}/byte0scope_${_lang}.ts")
+endforeach()
+
+# Languages whose .ts file already exists. Only these are compiled by
+# lrelease; new languages must first be created by running update_translations.
+set(_existing_ts "")
+foreach(_ts ${BS_TS_FILES})
+    if(EXISTS "${_ts}")
+        list(APPEND _existing_ts "${_ts}")
+    else()
+        message(STATUS "Translation not found yet (run update_translations): ${_ts}")
+    endif()
+endforeach()
+
+if(Qt5LinguistTools_FOUND AND _existing_ts)
+    qt5_add_translation(BS_QM_FILES ${_existing_ts})
+
+    add_custom_target(translations DEPENDS ${BS_QM_FILES})
+    add_dependencies(byte0scope translations)
+
+    # --- Embed .qm files into the executable as Qt resources ---
+    # A small .qrc is generated at configure time listing every .qm
+    # (app translations + Qt base translations). rcc compiles it into
+    # the binary, so no loose files are needed next to the .exe.
+    set(_tr_qrc "${CMAKE_CURRENT_BINARY_DIR}/byte0scope_translations.qrc")
+    file(WRITE "${_tr_qrc}" "<RCC>\n<qresource prefix=\"/translations\">\n")
+
+    # App translations (byte0scope_<lang>.qm, produced by lrelease)
+    foreach(_qm ${BS_QM_FILES})
+        get_filename_component(_qm_name "${_qm}" NAME)
+        file(APPEND "${_tr_qrc}"
+            "  <file alias=\"${_qm_name}\">${_qm}</file>\n")
+    endforeach()
+
+    # Qt base translations (qtbase_<lang>.qm from the Qt SDK)
+    foreach(_lang ${BS_TRANSLATIONS})
+        set(_qtbase "${QT_ROOT}/translations/qtbase_${_lang}.qm")
+        if(EXISTS "${_qtbase}")
+            file(APPEND "${_tr_qrc}"
+                "  <file alias=\"qtbase_${_lang}.qm\">${_qtbase}</file>\n")
+        endif()
+    endforeach()
+
+    file(APPEND "${_tr_qrc}" "</qresource>\n</RCC>\n")
+
+    qt5_add_resources(BS_TR_RESOURCES "${_tr_qrc}")
+    target_sources(byte0scope PRIVATE ${BS_TR_RESOURCES})
+
+    # Make sure rcc does not run before lrelease has produced the .qm files.
+    set_property(SOURCE "${_tr_qrc}" PROPERTY OBJECT_DEPENDS "${BS_QM_FILES}")
+
+    message(STATUS "Translations embedded into the executable via byte0scope_translations.qrc")
+endif()
+
+# lupdate / lrelease drivers. Run manually:
+#   cmake --build build --target update_translations
+#   cmake --build build --target release_translations
+if(Qt5LinguistTools_FOUND)
+    # Files to skip when feeding sources to lupdate:
+    #   - .qrc / .rc — not C++ sources.
+    #   - thememanager.cpp — may contain a C++11 raw string literal for QSS
+    #     which lupdate 5.6.3 cannot parse. If it has no tr() strings anyway,
+    #     skipping it is safe. Remove the skip below if you add tr() there
+    #     (and convert the raw string to a regular literal, or use a newer
+    #     lupdate from a separate Qt tools package).
+    set(_lupdate_sources "")
+    foreach(_src ${BS_SOURCES})
+        if(_src MATCHES "\\.(qrc|rc)$")
+            continue()
+        endif()
+        if(_src MATCHES "thememanager\\.cpp$")
+            continue()
+        endif()
+        list(APPEND _lupdate_sources "${_src}")
+    endforeach()
+
+    # CORRECT SYNTAX: lupdate [options] source-files -ts ts-files
+    # The -ts flag MUST come after the source files. Without it lupdate
+    # warns "no TS files specified" and produces only diagnostics.
+    add_custom_target(update_translations
+        COMMAND Qt5::lupdate
+                -locations relative
+                ${_lupdate_sources}
+                -ts ${BS_TS_FILES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Updating .ts translation files via lupdate"
+        VERBATIM)
+
+    add_custom_target(release_translations
+        COMMAND Qt5::lrelease ${BS_TS_FILES}
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Compiling .ts into .qm via lrelease"
+        VERBATIM)
+endif()
 
 # =========================================================================
 # Static Qt components (Windows/MinGW-only paths)

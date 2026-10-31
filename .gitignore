@@ -1,10 +1,12 @@
 qt-5.6.3-static
 qt-5.6.3-static.7z
+byte-o-scope-0.2.0b.7z
 releases
 test
 src/backup/
 src/*txt.bat
 src/*combined*.txt
+*.b0s
 
 # CMake / build output
 build/

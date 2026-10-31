@@ -1,0 +1,36 @@
+// File: win_app.rc
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include <windows.h>
+
+#define IDI_ICON_APP  1
+
+IDI_ICON_APP   ICON   "icon.ico"
+
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION     1,0,0,0
+    PRODUCTVERSION  1,0,0,0
+    FILEFLAGSMASK   0x3fL
+    FILEFLAGS       0x0L
+    FILEOS          VOS_NT_WINDOWS32
+    FILETYPE        VFT_APP
+    FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "pav13"
+            VALUE "FileDescription",  "Byte-0-scope - binary file visualizer"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "byte0scope"
+            VALUE "OriginalFilename", "byte0scope.exe"
+            VALUE "ProductName",      "Byte-0-scope"
+            VALUE "ProductVersion",   "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
