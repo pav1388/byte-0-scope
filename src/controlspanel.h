@@ -72,7 +72,6 @@ private:
     void updateBitSettingsEnabled(int bpp);
     void applyHexModeToSpins(bool useHex);
 
-    // Владелец
     MainWindow *m_main = nullptr;
 
     // Формат пикселей

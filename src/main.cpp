@@ -108,19 +108,18 @@ static void installTranslators(QApplication &app)
 {
     QSettings settings(settingsFilePath(), QSettings::IniFormat);
 
-    QString language = settings.value(QStringLiteral("language")).toString();
+    QString language;
+    if (settings.contains(QStringLiteral("language")))
+        language = settings.value(QStringLiteral("language")).toString();
     if (language.isEmpty())
-        language = QLocale::system().name();   // напр. "ru_RU"
+        language = QStringLiteral(MAIN_LANG_DEFAULT);
 
-    // "en" (или пусто) — базовый язык, переводы не нужны
-    if (language.isEmpty() || language == QLatin1String(MAIN_LANG_DEFAULT))
+    if (language == QLatin1String(MAIN_LANG_DEFAULT))
         return;
 
     const QString appTrDir = QDir(QCoreApplication::applicationDirPath())
                                  .filePath(QStringLiteral(MAIN_TRANSLATIONS_DIR));
 
-    // Порядок важен: qtbase_* первым, чтобы переопределения Qt
-    // перекрывались приложением при совпадении строк.
     loadTranslator(app, QStringLiteral(MAIN_TR_QT_PREFIX),  language, appTrDir);
     loadTranslator(app, QStringLiteral(MAIN_TR_APP_PREFIX), language, appTrDir);
 }

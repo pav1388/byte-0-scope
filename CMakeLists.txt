@@ -144,7 +144,7 @@ target_link_libraries(byte0scope PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
 # translation targets are simply not created.
 find_package(Qt5LinguistTools QUIET)
 
-set(BS_TRANSLATIONS "en" CACHE STRING
+set(BS_TRANSLATIONS "ru" CACHE STRING
     "Semicolon-separated list of language codes to build .qm for")
 set(BS_TS_DIR "${BS_SRC_DIR}/translations")
 

@@ -5,6 +5,7 @@
 
 #include "aboutdialog.h"
 
+#include <QCoreApplication>
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -29,68 +30,69 @@
 
 #define AD_HOMEPAGE_URL         "https://github.com/pav1388/byte-0-scope"
 
-static const char *kAboutTitle =
-    "Байт-0-скоп (Byte-0-scope) v" APP_VERSION " by pav13";
+static const char *kAboutTitle = QT_TRANSLATE_NOOP("AboutDialog",
+    "Byte-0-scope v%1 by pav13");
 
-static const char *kAboutSubtitle =
-    "Интерактивный визуализатор бинарных данных.\n"
-    "Лицензия: GPL-3.0-or-later";
+static const char *kAboutSubtitle = QT_TRANSLATE_NOOP("AboutDialog",
+    "Interactive binary data visualizer.\n"
+    "License: GPL-3.0-or-later");
 
-static const char *kAboutFeatures =
-    "Основные возможности:\n"
-    "  * Визуализация файлов любого размера (КБ – ГБ)\n"
-    "  * Палитры для 1/2/3/4/8/16/24/32/64 бит на пиксель\n"
-    "  * Многобайтовые форматы: RGB, RGBA, ABGR, RGB565/555, целые, float\n"
-    "  * Масштабирование и панорамирование, панорамный обзор\n"
-    "  * Информационная панель с детализацией байта и пикселя\n"
-    "  * Экспорт в PNG\n"
-    "  * Сравнение двух файлов через XOR\n"
-    "  * Сохранение/загрузка настроек отображение в .b0s рядом с файлом\n"
-    "  * Тёмная и светлая темы\n"
-    "  * Зеркальное отражение по горизонтали и вертикали\n"
-    "  * Настройка размера тайлов и лимита кэша";
+static const char *kAboutFeatures = QT_TRANSLATE_NOOP("AboutDialog",
+    "Key features:\n"
+    "  * Visualization of files of any size (KB – GB)\n"
+    "  * Palettes for 1/2/3/4/8/16/24/32/64 bits per pixel\n"
+    "  * Multi-byte formats: RGB, RGBA, ABGR, RGB565/555, integers, float\n"
+    "  * Zooming and panning, panorama overview\n"
+    "  * Info panel with byte and pixel details\n"
+    "  * PNG export\n"
+    "  * Compare two files via XOR\n"
+    "  * Save/load display settings to .b0s next to the file\n"
+    "  * Dark and light themes\n"
+    "  * Horizontal and vertical mirroring\n"
+    "  * Configurable tile size and cache limit");
 
-static const char *kAboutControls =
-    "Управление:\n"
-    "  * ЛКМ по пикселю — закрепить байт\n"
-    "  * ПКМ + перемещение — панорамирование\n"
-    "  * Колесо — масштаб\n"
-    "  * Ctrl + колесо — ширина строки (в ручном режиме)\n"
-    "  * Ctrl+O — открыть файл\n"
-    "  * Ctrl+S — сохранить .b0s рядом с файлом\n"
-    "  * Ctrl+L — загрузить .b0s\n"
-    "  * Ctrl+R — сбросить настройки отображения\n"
-    "  * Ctrl+E — экспорт в PNG\n"
-    "  * Ctrl+X — сравнить два файла (XOR)\n"
-    "  * Ctrl+W — закрыть текущий файл\n"
-    "  * Drag & drop — открыть файл перетаскиванием";
+static const char *kAboutControls = QT_TRANSLATE_NOOP("AboutDialog",
+    "Controls:\n"
+    "  * Left-click a pixel — lock the byte\n"
+    "  * Right-click + drag — pan\n"
+    "  * Wheel — zoom\n"
+    "  * Ctrl + wheel — row width (in manual mode)\n"
+    "  * Ctrl+O — open file\n"
+    "  * Ctrl+S — save .b0s next to the file\n"
+    "  * Ctrl+L — load .b0s\n"
+    "  * Ctrl+R — reset display settings\n"
+    "  * Ctrl+E — export to PNG\n"
+    "  * Ctrl+X — compare two files (XOR)\n"
+    "  * Ctrl+W — close current file\n"
+    "  * Drag & drop — open a file by dragging");
 
-static const char *kAboutFormats =
-    "Форматы и настройки:\n"
-    "  * b0s-settings.ini — глобальные настройки (тема, геометрия окна,\n"
-    "    производительность, последние файлы). Хранится рядом\n"
-    "    с исполняемым файлом; если запись невозможна —\n"
-    "    в пользовательском каталоге конфигурации.\n"
-    "  * *.b0s — настройки отображения конкретного файла (JSON).\n"
-    "    Хранится рядом с исходным файлом и подхватывается\n"
-    "    автоматически при открытии.";
+static const char *kAboutFormats = QT_TRANSLATE_NOOP("AboutDialog",
+    "Formats and settings:\n"
+    "  * b0s-settings.ini — global settings (theme, window geometry,\n"
+    "    performance, recent files). Stored next to the\n"
+    "    executable; if writing is not possible —\n"
+    "    in the user configuration directory.\n"
+    "  * *.b0s — display settings for a specific file (JSON).\n"
+    "    Stored next to the source file and picked up\n"
+    "    automatically on open.");
 
-static const char *kAboutPerformance =
-    "Производительность:\n"
-    "  * Memory-mapping (mmap) для больших файлов\n"
-    "  * Тайловый рендеринг только видимой области\n"
-    "  * LRU-кэш тайлов с автоматической очисткой\n"
-    "  * Prefetching соседних тайлов\n"
-    "  * Размер тайла 128–1024 px, лимит кэша 180–2000 МБ";
+static const char *kAboutPerformance = QT_TRANSLATE_NOOP("AboutDialog",
+    "Performance:\n"
+    "  * Memory-mapping (mmap) for large files\n"
+    "  * Tile rendering of the visible region only\n"
+    "  * LRU tile cache with automatic eviction\n"
+    "  * Prefetching of neighboring tiles\n"
+    "  * Tile size 128–1024 px, cache limit 180–2000 MB");
 
-static const char *kAboutAi =
-    "Примечание: часть кода была сгенерирована или доработана\n"
-    "с использованием ИИ.";
+static const char *kAboutAi = QT_TRANSLATE_NOOP("AboutDialog",
+    "Note: part of the code was generated or refined\n"
+    "using AI.");
 
 void showAboutDialog(QWidget *parent)
 {
     QDialog dlg(parent);
-    dlg.setWindowTitle(QObject::tr("О программе"));
+    dlg.setWindowTitle(
+        QCoreApplication::translate("AboutDialog", "About"));
     dlg.setWindowIcon(parent ? parent->windowIcon() : QIcon());
     dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
     dlg.resize(AD_DIALOG_WIDTH, AD_DIALOG_HEIGHT);
@@ -113,14 +115,16 @@ void showAboutDialog(QWidget *parent)
     auto *headerColumn = new QVBoxLayout();
 
     auto *titleLabel = new QLabel(
-        QStringLiteral("<b>%1</b>").arg(QString::fromUtf8(kAboutTitle)),
+        QStringLiteral("<b>%1</b>")
+            .arg(QCoreApplication::translate("AboutDialog", kAboutTitle)
+                     .arg(QStringLiteral(APP_VERSION))),
         &dlg);
     titleLabel->setTextFormat(Qt::RichText);
     titleLabel->setWordWrap(true);
     headerColumn->addWidget(titleLabel);
 
     auto *subtitleLabel = new QLabel(
-        QString::fromUtf8(kAboutSubtitle), &dlg);
+        QCoreApplication::translate("AboutDialog", kAboutSubtitle), &dlg);
     subtitleLabel->setWordWrap(true);
     headerColumn->addWidget(subtitleLabel);
 
@@ -142,11 +146,11 @@ void showAboutDialog(QWidget *parent)
     txt->setReadOnly(true);
 
     const QString aboutText = QStringList{
-        QString::fromUtf8(kAboutFeatures),
-        QString::fromUtf8(kAboutControls),
-        QString::fromUtf8(kAboutFormats),
-        QString::fromUtf8(kAboutPerformance),
-        QString::fromUtf8(kAboutAi),
+        QCoreApplication::translate("AboutDialog", kAboutFeatures),
+        QCoreApplication::translate("AboutDialog", kAboutControls),
+        QCoreApplication::translate("AboutDialog", kAboutFormats),
+        QCoreApplication::translate("AboutDialog", kAboutPerformance),
+        QCoreApplication::translate("AboutDialog", kAboutAi),
     }.join("\n\n");
 
     txt->setPlainText(aboutText);
@@ -155,7 +159,7 @@ void showAboutDialog(QWidget *parent)
     // --- Кнопка «Закрыть» ---
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
     if (auto *b = bb->button(QDialogButtonBox::Close))
-        b->setText(QObject::tr("Закрыть"));
+        b->setText(QCoreApplication::translate("AboutDialog", "Close"));
     QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     layout->addWidget(bb);
 

@@ -96,7 +96,7 @@ void PanoramaWidget::paintEvent(QPaintEvent *)
 
     if (!m_main || m_main->imageWidth() <= 0) {
         p.setPen(m_text);
-        p.drawText(rect(), Qt::AlignCenter, tr("Нет изображения"));
+        p.drawText(rect(), Qt::AlignCenter, tr("No image"));
         return;
     }
 

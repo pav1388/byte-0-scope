@@ -278,53 +278,53 @@ void MainWindow::initDemo()
 
 void MainWindow::buildMenus()
 {
-    QMenu *fileMenu = menuBar()->addMenu(tr("Файл"));
+    QMenu *fileMenu = menuBar()->addMenu(tr("File"));
 
-    QAction *openAct = fileMenu->addAction(tr("Открыть…"));
+    QAction *openAct = fileMenu->addAction(tr("Open…"));
     openAct->setShortcut(QKeySequence("Ctrl+O"));
     connect(openAct, &QAction::triggered, this, &MainWindow::openFileDialog);
 
-    m_recentMenu = fileMenu->addMenu(tr("Недавние файлы"));
+    m_recentMenu = fileMenu->addMenu(tr("Recent files"));
     connect(m_recentMenu, &QMenu::aboutToShow, this, &MainWindow::rebuildRecentMenu);
 
     fileMenu->addSeparator();
 
     QAction *cmpAct = fileMenu->addAction(
-        tr("Сравнить два файла (XOR) и показать различия…"));
+        tr("Compare two files (XOR) and show differences…"));
     cmpAct->setShortcut(QKeySequence("Ctrl+X"));
     connect(cmpAct, &QAction::triggered, this, &MainWindow::compareFiles);
 
     QAction *saveCfgAct = fileMenu->addAction(
-        tr("Сохранить .b0s настройки для файла"));
+        tr("Save .b0s settings for file"));
     saveCfgAct->setShortcut(QKeySequence("Ctrl+S"));
     connect(saveCfgAct, &QAction::triggered, this, &MainWindow::saveCurrentConfig);
 
     QAction *loadCfgAct = fileMenu->addAction(
-        tr("Загрузить .b0s настройки для файла"));
+        tr("Load .b0s settings for file"));
     loadCfgAct->setShortcut(QKeySequence("Ctrl+L"));
     connect(loadCfgAct, &QAction::triggered, this, &MainWindow::loadConfigFromFile);
 
-    QAction *resetCfgAct = fileMenu->addAction(tr("Сбросить настройки отображения"));
+    QAction *resetCfgAct = fileMenu->addAction(tr("Reset display settings"));
     resetCfgAct->setShortcut(QKeySequence("Ctrl+R"));
     connect(resetCfgAct, &QAction::triggered, this, &MainWindow::resetConfig);
 
-    QAction *exportAct = fileMenu->addAction(tr("Экспорт в PNG…"));
+    QAction *exportAct = fileMenu->addAction(tr("Export to PNG…"));
     exportAct->setShortcut(QKeySequence("Ctrl+E"));
     connect(exportAct, &QAction::triggered, this, &MainWindow::exportPng);
 
     fileMenu->addSeparator();
 
-    QAction *closeFileAct = fileMenu->addAction(tr("Закрыть текущий файл"));
+    QAction *closeFileAct = fileMenu->addAction(tr("Close current file"));
     closeFileAct->setShortcut(QKeySequence("Ctrl+W"));
     connect(closeFileAct, &QAction::triggered, this, &MainWindow::closeCurrentFile);
 
-    QAction *quitAct = fileMenu->addAction(tr("Выход"));
+    QAction *quitAct = fileMenu->addAction(tr("Exit"));
     quitAct->setShortcut(QKeySequence("Ctrl+Q"));
     connect(quitAct, &QAction::triggered, this, &QWidget::close);
 
-    QMenu *viewMenu = menuBar()->addMenu(tr("Вид"));
+    QMenu *viewMenu = menuBar()->addMenu(tr("View"));
 
-    m_mirrorHAct = viewMenu->addAction(tr("Отразить по горизонтали"));
+    m_mirrorHAct = viewMenu->addAction(tr("Flip horizontally"));
     m_mirrorHAct->setCheckable(true);
     m_mirrorHAct->setChecked(m_mirrorH);
     connect(m_mirrorHAct, &QAction::toggled, this, [this](bool checked) {
@@ -332,7 +332,7 @@ void MainWindow::buildMenus()
         onMirrorChanged();
     });
 
-    m_mirrorVAct = viewMenu->addAction(tr("Отразить по вертикали"));
+    m_mirrorVAct = viewMenu->addAction(tr("Flip vertically"));
     m_mirrorVAct->setCheckable(true);
     m_mirrorVAct->setChecked(m_mirrorV);
     connect(m_mirrorVAct, &QAction::toggled, this, [this](bool checked) {
@@ -341,16 +341,16 @@ void MainWindow::buildMenus()
     });
 
     viewMenu->addSeparator();
-    viewMenu->addAction(tr("Сбросить отражения"), this, &MainWindow::resetMirror);
+    viewMenu->addAction(tr("Reset flips"), this, &MainWindow::resetMirror);
 
-    m_settingsMenu = menuBar()->addMenu(tr("Настройки"));
+    m_settingsMenu = menuBar()->addMenu(tr("Settings"));
 
     m_themeAction = m_settingsMenu->addAction(
-        m_theme->isDark() ? tr("Светлая тема") : tr("Тёмная тема"));
+        m_theme->isDark() ? tr("Light theme") : tr("Dark theme"));
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::toggleTheme);
 	m_settingsMenu->addSeparator();
 
-	QMenu *langMenu = m_settingsMenu->addMenu(tr("Язык"));
+	QMenu *langMenu = m_settingsMenu->addMenu(tr("Language"));
 
 	auto *langGroup = new QActionGroup(this);
 	langGroup->setExclusive(true);
@@ -358,24 +358,23 @@ void MainWindow::buildMenus()
 	QAction *langEn = langMenu->addAction(tr("English"));
 	langEn->setCheckable(true);
 	langEn->setData(QStringLiteral(MW_LANG_EN));
-	langEn->setEnabled(false);
 	langGroup->addAction(langEn);
 
-	QAction *langRu = langMenu->addAction(tr("Русский"));
+	QAction *langRu = langMenu->addAction(tr("Russian"));
 	langRu->setCheckable(true);
 	langRu->setData(QStringLiteral(MW_LANG_RU));
 	langGroup->addAction(langRu);
 
-	if (m_language == QLatin1String(MW_LANG_EN))
-		langEn->setChecked(true);
-	else
+	if (m_language == QLatin1String(MW_LANG_RU))
 		langRu->setChecked(true);
+	else
+		langEn->setChecked(true);
 
 	connect(langGroup, &QActionGroup::triggered,
 			this, &MainWindow::onLanguageChanged);
     m_settingsMenu->addSeparator();
 
-    m_byteTooltipAct = m_settingsMenu->addAction(tr("Всплывающая подсказка о байте"));
+    m_byteTooltipAct = m_settingsMenu->addAction(tr("Byte tooltip"));
     m_byteTooltipAct->setCheckable(true);
     m_byteTooltipAct->setChecked(
         m_loadedStartupConfig.value("byte_tooltip", false).toBool());
@@ -387,46 +386,46 @@ void MainWindow::buildMenus()
     m_settingsMenu->addSeparator();
 
     m_loadIntoMemoryAct = m_settingsMenu->addAction(
-        tr("Загружать файл в память целиком"));
+        tr("Load the entire file into memory"));
     m_loadIntoMemoryAct->setCheckable(true);
     m_loadIntoMemoryAct->setChecked(m_loadIntoMemory);
     m_loadIntoMemoryAct->setToolTip(tr(
-        "Выкл (по умолчанию) — файл отображается в память через mmap.\n"
-        "Подходит для больших файлов: ОС подгружает страницы по мере\n"
-        "обращения, ОЗУ не выделяется целиком.\n\n"
-        "Вкл — файл читается в QByteArray одним куском.\n"
-        "Быстрее, но требует непрерывного блока ОЗУ размером с файл.\n"
-        "На 32-bit сборке файлы >1.5 ГБ могут не поместиться.\n\n"
-        "Применяется при следующем открытии файла."));
+        "Off (default) — the file is mapped into memory via mmap.\n"
+        "Suitable for large files: the OS loads pages on demand,\n"
+        "RAM is not allocated in full.\n\n"
+        "On — the file is read into a single QByteArray.\n"
+        "Faster, but requires a contiguous RAM block the size of the file.\n"
+        "On 32-bit builds files >1.5 GB may not fit.\n\n"
+        "Applied the next time a file is opened."));
     connect(m_loadIntoMemoryAct, &QAction::toggled, this, [this](bool checked) {
         m_loadIntoMemory = checked;
         if (m_source.isOpen() && !m_source.sourcePath().isEmpty()) {
             statusBar()->showMessage(
-                tr("Режим загрузки изменён. Применится при следующем "
-                   "открытии файла."), 5000);
+                tr("Load mode changed. It will take effect the next time "
+                   "a file is opened."), 5000);
         }
     });
 
     m_settingsMenu->addSeparator();
-    m_settingsMenu->addAction(tr("Ассоциировать .b0s с этой программой"),
+    m_settingsMenu->addAction(tr("Associate .b0s with this program"),
         this, [this]() {
             FileAssoc::registerFileAssociation(".b0s", this);
         });
 
-    m_settingsMenu->addAction(tr("Удалить ассоциацию .b0s"),
+    m_settingsMenu->addAction(tr("Remove .b0s association"),
         this, [this]() {
             FileAssoc::unregisterFileAssociation(".b0s", this);
         });
     m_settingsMenu->addSeparator();
 
     m_debugInfoAct = m_settingsMenu->addAction(
-        tr("Отладочная информация (правая панель)"));
+        tr("Debug information (right panel)"));
     m_debugInfoAct->setCheckable(true);
     m_debugInfoAct->setChecked(m_showDebugInfo);
     connect(m_debugInfoAct, &QAction::toggled,
             this, &MainWindow::onDebugInfoToggled);
 
-    m_settingsMenu->addAction(tr("Открыть папку с настройками"),
+    m_settingsMenu->addAction(tr("Open settings folder"),
         this, [this]() {
             if (!m_settings)
                 return;
@@ -436,8 +435,8 @@ void MainWindow::buildMenus()
             QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
         });
 
-    QMenu *helpMenu = menuBar()->addMenu(tr("Справка"));
-    QAction *aboutAct = helpMenu->addAction(tr("О программе…"));
+    QMenu *helpMenu = menuBar()->addMenu(tr("Help"));
+    QAction *aboutAct = helpMenu->addAction(tr("About…"));
     connect(aboutAct, &QAction::triggered, this, [this]() { showAboutDialog(this); });
 }
 
@@ -445,7 +444,7 @@ void MainWindow::rebuildRecentMenu()
 {
     m_recentMenu->clear();
     if (m_recentFiles.isEmpty()) {
-        QAction *empty = m_recentMenu->addAction(tr("(нет недавних файлов)"));
+        QAction *empty = m_recentMenu->addAction(tr("(no recent files)"));
         empty->setEnabled(false);
         return;
     }
@@ -457,7 +456,7 @@ void MainWindow::rebuildRecentMenu()
         connect(a, &QAction::triggered, this, [this, path]() { loadFile(path); });
     }
     m_recentMenu->addSeparator();
-    connect(m_recentMenu->addAction(tr("Очистить список")),
+    connect(m_recentMenu->addAction(tr("Clear list")),
             &QAction::triggered, this, &MainWindow::clearRecent);
 }
 
@@ -512,7 +511,7 @@ void MainWindow::buildUi()
     hintLay->setContentsMargins(MW_LAYOUT_CENTER_MARGIN, MW_LAYOUT_CENTER_MARGIN,
                                 MW_LAYOUT_CENTER_MARGIN, MW_LAYOUT_CENTER_MARGIN);
     m_hintLabel = new QLabel(
-        tr("<b>Байт-0-скоп - Интерактивный визуализатор бинарных данных</b>"),
+        tr("<b>Byte-0-scope - Interactive binary data visualizer</b>"),
         this);
     m_hintLabel->setWordWrap(true);
     m_hintLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -520,7 +519,7 @@ void MainWindow::buildUi()
     m_hintLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     hintLay->addWidget(m_hintLabel);
 
-    m_trainingBtn = new QPushButton(tr("# Обучение на демо-файле"), this);
+    m_trainingBtn = new QPushButton(tr("# Tutorial on a demo file"), this);
     m_trainingBtn->setAutoDefault(false);
     connect(m_trainingBtn, &QPushButton::clicked,
             this, &MainWindow::onTrainingButtonClicked);
@@ -553,7 +552,7 @@ void MainWindow::buildUi()
             this, &MainWindow::onPaletteAutoApplyToggled);
     rightLay->addWidget(m_paletteSettings, 0);
 
-    auto *panGroup = new QGroupBox(tr("Панорама"), this);
+    auto *panGroup = new QGroupBox(tr("Panorama"), this);
     auto *panLay = new QVBoxLayout(panGroup);
     m_panorama = new PanoramaWidget(this);
     connect(m_panorama, &PanoramaWidget::scrollToRequested,
@@ -561,52 +560,52 @@ void MainWindow::buildUi()
     panLay->addWidget(m_panorama);
     rightLay->addWidget(panGroup);
 
-    auto *perfGroup = new QGroupBox(tr("Потребление ОЗУ"), this);
+    auto *perfGroup = new QGroupBox(tr("RAM usage"), this);
     auto *perfLay = new QVBoxLayout(perfGroup);
 
     m_memoryLabel = new QLabel(
-        tr("· Память процесса: — МБ\n· Кэш тайлов: — МБ"), this);
+        tr("· Process memory: — MB\n· Tile cache: — MB"), this);
     perfLay->addWidget(m_memoryLabel);
 
     auto *sldRow = new QHBoxLayout();
 
     auto *lblMinus = new QLabel(tr("-"), this);
     lblMinus->setAlignment(Qt::AlignRight);
-    lblMinus->setToolTip(tr("128 px на тайл · лимит кэша 180 МБ"));
+    lblMinus->setToolTip(tr("128 px per tile · cache limit 180 MB"));
     sldRow->addWidget(lblMinus);
 
     m_perfSlider = new QSlider(Qt::Horizontal, this);
     m_perfSlider->setRange(1, 20);
     m_perfSlider->setValue(m_perfSliderValue);
     m_perfSlider->setToolTip(tr(
-        "Мелкие тайлы — чаще обновления, меньше пауз на один тайл,\n"
-        "но больше накладных расходов и объектов в кэше.\n\n"
-        "Крупные тайлы — меньше накладных расходов,\n"
-        "но каждый тайл рендерится дольше (в фоне).\n\n"
-        "В режиме «Вписать в окно» тайлы хранятся в уменьшенном виде\n"
-        "(в соответствии с масштабом вписывания), поэтому кэш занимает\n"
-        "мало памяти даже для гигабайтных файлов.\n\n"
-        "Лимит кэша — цель для невидимых тайлов. Видимые защищены\n"
-        "от вытеснения, поэтому на мгновение кэш может его превышать."));
+        "Small tiles — more frequent updates, smaller pause per tile,\n"
+        "but more overhead and more objects in the cache.\n\n"
+        "Large tiles — less overhead,\n"
+        "but each tile renders longer (in the background).\n\n"
+        "In \"Fit to window\" mode tiles are stored downscaled\n"
+        "(according to the fit scale), so the cache uses\n"
+        "little memory even for gigabyte-sized files.\n\n"
+        "Cache limit — target for invisible tiles. Visible tiles are protected\n"
+        "from eviction, so momentarily the cache may exceed the limit."));
     connect(m_perfSlider, &QSlider::valueChanged,
             this, &MainWindow::onPerfSliderMoved);
     sldRow->addWidget(m_perfSlider);
 
     auto *lblPlus = new QLabel(tr("+"), this);
-    lblPlus->setToolTip(tr("1024 px на тайл · лимит кэша 2 ГБ"));
+    lblPlus->setToolTip(tr("1024 px per tile · cache limit 2 GB"));
     sldRow->addWidget(lblPlus);
 
     perfLay->addLayout(sldRow);
     rightLay->addWidget(perfGroup);
 
-    m_debugGroup = new QGroupBox(tr("Отладка"), this);
+    m_debugGroup = new QGroupBox(tr("Debug"), this);
     auto *dbgLay = new QVBoxLayout(m_debugGroup);
     m_debugLabel = new QLabel(this);
     m_debugLabel->setStyleSheet("font-family: monospace; font-size: 8pt;");
     m_debugLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_debugLabel->setWordWrap(true);
     m_debugLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
-    m_debugLabel->setText(tr("(включите в Настройки -> Отладочная информация)"));
+    m_debugLabel->setText(tr("(enable in Settings -> Debug information)"));
     dbgLay->addWidget(m_debugLabel);
     m_debugGroup->setVisible(m_showDebugInfo);
     rightLay->addWidget(m_debugGroup);
@@ -637,13 +636,13 @@ void MainWindow::buildUi()
         connect(v, &QScrollBar::rangeChanged, this,
                 [refreshPanorama](int, int) { refreshPanorama(); });
     }
-    statusBar()->showMessage(tr("Готов"));
+    statusBar()->showMessage(tr("Ready"));
 }
 
 void MainWindow::openFileDialog()
 {
     const QString path = QFileDialog::getOpenFileName(
-        this, tr("Открыть файл"), m_lastDir, tr("Все файлы (*.*)"));
+        this, tr("Open file"), m_lastDir, tr("All files (*.*)"));
     if (!path.isEmpty())
         loadFile(path);
 }
@@ -664,8 +663,8 @@ void MainWindow::loadFile(const QString &path)
         cfgPath = actualPath;
         const QString dataPath = actualPath.left(actualPath.size() - 4);
         if (dataPath.isEmpty() || !QFile::exists(dataPath)) {
-            QMessageBox::warning(this, tr("Конфиг .b0s"),
-                tr("Не найден файл данных для конфига:\n%1\n\nОжидался: %2")
+            QMessageBox::warning(this, tr(".b0s config"),
+                tr("Data file for the config was not found:\n%1\n\nExpected: %2")
                     .arg(actualPath, dataPath));
             return;
         }
@@ -677,8 +676,8 @@ void MainWindow::loadFile(const QString &path)
 
     if (!m_source.open(actualPath, m_loadIntoMemory)) {
         const QString err = m_source.lastError();
-        QMessageBox::critical(this, tr("Не удалось открыть файл"),
-            err.isEmpty() ? tr("Причина неизвестна.") : err);
+        QMessageBox::critical(this, tr("Failed to open file"),
+            err.isEmpty() ? tr("Reason unknown.") : err);
         resetToDemo();
         return;
     }
@@ -700,7 +699,7 @@ void MainWindow::loadFile(const QString &path)
             if (err.error == QJsonParseError::NoError && doc.isObject())
                 cfgLoaded = applyConfigFromJson(doc.object());
             else
-                qWarning("b0s: не удалось разобрать %s: %s",
+                qWarning("b0s: could not parse %s: %s",
                          qPrintable(cfgPath), qPrintable(err.errorString()));
         }
     }
@@ -731,7 +730,7 @@ void MainWindow::clearRecent()
 
 void MainWindow::compareFiles()
 {
-    QFileDialog dlg(this, tr("Файл 1"));
+    QFileDialog dlg(this, tr("File 1"));
     dlg.setDirectory(m_lastDir);
     if (!dlg.exec())
         return;
@@ -740,7 +739,7 @@ void MainWindow::compareFiles()
         return;
 
     const QString p2 = QFileDialog::getOpenFileName(
-        this, tr("Файл 2"), m_lastDir);
+        this, tr("File 2"), m_lastDir);
     if (p2.isEmpty())
         return;
 
@@ -755,8 +754,8 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
 	
     QFile f1(p1), f2(p2);
     if (!f1.open(QIODevice::ReadOnly) || !f2.open(QIODevice::ReadOnly)) {
-        QMessageBox::critical(this, tr("Ошибка"),
-            tr("Не удалось открыть один из файлов для сравнения."));
+        QMessageBox::critical(this, tr("Error"),
+            tr("Failed to open one of the files for comparison."));
         return false;
     }
 
@@ -771,9 +770,9 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
 #endif
 
     if (needed > qbaMax) {
-        QMessageBox::warning(this, tr("Файлы слишком большие"),
-            tr("Для XOR нужно ~%1 МБ, а максимум QByteArray — %2 МБ.\n"
-               "Соберите 64-битную версию или уменьшите файлы.")
+        QMessageBox::warning(this, tr("Files are too large"),
+            tr("XOR requires ~%1 MB, but the maximum QByteArray is %2 MB.\n"
+               "Build a 64-bit version or reduce the file sizes.")
                 .arg(needed / MW_BYTES_PER_MB, 0, 'f', 1)
                 .arg(qbaMax / MW_BYTES_PER_MB, 0, 'f', 1));
         return false;
@@ -784,8 +783,8 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
         const qint64 reserve = qMax<qint64>(MW_MEMORY_RESERVE_MIN,
                                             avail / MW_MEMORY_RESERVE_FRACTION);
         if (needed + reserve > avail) {
-            QMessageBox::warning(this, tr("Недостаточно памяти"),
-                tr("Для XOR нужно ~%1 МБ, доступно %2 МБ.")
+            QMessageBox::warning(this, tr("Not enough memory"),
+                tr("XOR requires ~%1 MB, but only %2 MB is available.")
                     .arg(needed / MW_BYTES_PER_MB, 0, 'f', 1)
                     .arg(avail  / MW_BYTES_PER_MB, 0, 'f', 1));
             return false;
@@ -798,8 +797,8 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     f2.close();
 
     if (a.size() != sizeA || b.size() != sizeB) {
-        QMessageBox::critical(this, tr("Ошибка чтения"),
-            tr("Не удалось прочитать файлы полностью."));
+        QMessageBox::critical(this, tr("Read error"),
+            tr("Failed to read the files completely."));
         return false;
     }
 
@@ -875,7 +874,7 @@ void MainWindow::resetToDemo()
         m_trainingBtn->setVisible(true);
     if (m_hintLabel) {
         m_hintLabel->setText(
-            tr("<b>Байт-0-скоп - Интерактивный визуализатор бинарных данных</b>"));
+            tr("<b>Byte-0-scope - Interactive binary data visualizer</b>"));
     }
 
     if (m_canvas) {
@@ -1209,7 +1208,7 @@ void MainWindow::toggleTheme()
     m_theme->toggle();
     m_theme->apply(qApp);
     m_themeAction->setText(
-        m_theme->isDark() ? tr("Светлая тема") : tr("Тёмная тема"));
+        m_theme->isDark() ? tr("Light theme") : tr("Dark theme"));
     if (m_canvas)
         m_canvas->update();
     if (m_panorama)
@@ -1236,11 +1235,15 @@ void MainWindow::onLanguageChanged(QAction *action)
         m_settings->save(s);
     }
 
-    statusBar()->showMessage(
-        tr("Язык сохранён: %1. Изменения применятся после перезапуска.")
-            .arg(lang == QLatin1String(MW_LANG_RU) ? tr("Русский")
-                                                   : tr("English")),
-        5000);
+    const QString langName =
+        (lang == QLatin1String(MW_LANG_RU)) ? tr("Russian") : tr("English");
+
+    QMessageBox::information(
+        this,
+        tr("Language"),
+        tr("Language set to %1.\n\n"
+           "Restart the application to apply the change.")
+            .arg(langName));
 }
 
 // =========================================================================
@@ -1251,9 +1254,29 @@ void MainWindow::exportPng()
 {
     if (m_fileSize <= 0 || !m_canvas)
         return;
-    const QString def = QFileDialog::getSaveFileName(
-        this, tr("Сохранить PNG"), m_lastDir, tr("PNG (*.png)"));
-    if (def.isEmpty())
+
+    QString dir;
+    if (!m_source.sourcePath().isEmpty())
+        dir = QFileInfo(m_source.sourcePath()).absolutePath();
+    if (dir.isEmpty())
+        dir = m_lastDir;
+    if (dir.isEmpty())
+        dir = QDir::homePath();
+
+    QString stem;
+    if (!m_source.sourcePath().isEmpty()) {
+        stem = QFileInfo(m_source.sourcePath()).completeBaseName();
+    } else if (!m_xorLabel.isEmpty()) {
+        stem = QStringLiteral("xor");
+    }
+    if (stem.isEmpty())
+        stem = QStringLiteral("untitled");
+
+    const QString def = dir + QLatin1Char('/') + stem + QStringLiteral(".png");
+
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("Save PNG"), def, tr("PNG (*.png)"));
+    if (path.isEmpty())
         return;
 
     const QSize imgSize = m_canvas->scaledSize();
@@ -1273,9 +1296,12 @@ void MainWindow::exportPng()
     if (out.isNull())
         return;
 
-    if (!out.save(def, "PNG")) {
-        QMessageBox::warning(this, tr("Ошибка"), tr("Не удалось сохранить."));
+    if (!out.save(path, "PNG")) {
+        QMessageBox::warning(this, tr("Error"), tr("Failed to save."));
+        return;
     }
+
+    m_lastDir = QFileInfo(path).absolutePath();
 }
 
 // =========================================================================
@@ -1287,8 +1313,7 @@ void MainWindow::refreshTitle()
     const bool isXor = !m_xorLabel.isEmpty();
     const bool hasFile = isXor || !m_source.sourcePath().isEmpty();
 
-    const QString baseTitle =
-        QString("Байт-0-скоп v%1").arg(APP_VERSION);
+    const QString baseTitle = tr("Byte-0-scope v%1").arg(APP_VERSION);
 
     if (!hasFile) {
         setWindowTitle(baseTitle);
@@ -1301,7 +1326,7 @@ void MainWindow::refreshTitle()
 
         const QString sizeComma =
             QLocale(QLocale::English, QLocale::UnitedStates).toString(qint64(m_fileSize));
-        QString t = QString("%1: [%2] [0x%3 / %4 байт] [%5×%6]")
+        QString t = tr("%1: [%2] [0x%3 / %4 bytes] [%5×%6]")
             .arg(baseTitle, namePart)
             .arg(qint64(m_fileSize), 0, 16)
             .arg(sizeComma)
@@ -1396,9 +1421,9 @@ void MainWindow::loadSettings()
     m_startupNormalGeometry = s.value("window_normal_geometry").toString();
     m_startupMaximized      = s.value("window_maximized", false).toBool();
     m_startupFullscreen     = s.value("window_fullscreen", false).toBool();
-	m_language = s.value("language", QStringLiteral(MW_LANG_RU)).toString();
+	m_language = s.value("language", QStringLiteral(MW_LANG_EN)).toString();
 	if (m_language.isEmpty())
-		m_language = QStringLiteral(MW_LANG_RU);
+		m_language = QStringLiteral(MW_LANG_EN);
 	
     const QStringList recents = s.value("recent_files").toStringList();
     m_recentFiles = SettingsManager::filterExisting(recents, MW_RECENT_MAX);
@@ -1610,9 +1635,9 @@ void MainWindow::updateBusyLabel()
     if (!m_busyLabel)
         return;
     if (m_busyPngExport) {
-        m_busyLabel->setText(tr("[ Сохранение в PNG...]"));
+        m_busyLabel->setText(tr("[ Saving to PNG...]"));
     } else if (m_activeTileTasks > 0) {
-        m_busyLabel->setText(tr("[ Отрисовка...]"));
+        m_busyLabel->setText(tr("[ Rendering...]"));
     } else {
         m_busyLabel->clear();
     }
@@ -1655,10 +1680,10 @@ void MainWindow::updateMemoryLabel()
     const double mbCache = cacheBytes / MW_BYTES_PER_MB;
 
     const QString rssLine = (rss > 0)
-        ? tr("· Память процесса: %1 МБ").arg(mbRss, 0, 'f', 0)
-        : tr("· Память процесса: — МБ");
+        ? tr("· Process memory: %1 MB").arg(mbRss, 0, 'f', 0)
+        : tr("· Process memory: — MB");
 
-    const QString cacheLine = tr("· Кэш тайлов: %1 МБ / %2 МБ")
+    const QString cacheLine = tr("· Tile cache: %1 MB / %2 MB")
         .arg(mbCache, 0, 'f', 1)
         .arg(cacheLimit);
 
@@ -1745,7 +1770,7 @@ QJsonObject MainWindow::configToJson() const
 bool MainWindow::applyConfigFromJson(const QJsonObject &c)
 {
     if (c.isEmpty()) {
-        statusBar()->showMessage(tr("Файл настроек .b0s пуст."), 7000);
+        statusBar()->showMessage(tr("The .b0s settings file is empty."), 7000);
         return false;
     }
 
@@ -1913,12 +1938,15 @@ void MainWindow::updateDebugInfo()
 
     auto fmtSize = [](qint64 b) -> QString {
         if (b >= 1024LL * 1024 * 1024)
-            return QString::number(b / (1024.0 * 1024.0 * 1024.0), 'f', 2) + " ГБ";
+            return QString::number(b / (1024.0 * 1024.0 * 1024.0), 'f', 2)
+                   + " " + MainWindow::tr("GB");
         if (b >= 1024LL * 1024)
-            return QString::number(b / MW_BYTES_PER_MB, 'f', 1) + " МБ";
+            return QString::number(b / MW_BYTES_PER_MB, 'f', 1)
+                   + " " + MainWindow::tr("MB");
         if (b >= MW_BYTES_PER_KB)
-            return QString::number(b / double(MW_BYTES_PER_KB), 'f', 1) + " КБ";
-        return QString::number(b) + " Б";
+            return QString::number(b / double(MW_BYTES_PER_KB), 'f', 1)
+                   + " " + MainWindow::tr("KB");
+        return QString::number(b) + " " + MainWindow::tr("B");
     };
 
     QString mode;
@@ -2141,6 +2169,6 @@ void MainWindow::startTraining()
         m_hintLabel->setText(DemoBuilder::trainingHintHtml());
 
     statusBar()->showMessage(
-        tr("Обучение: подберите настройки отображения, чтобы увидеть картинку."),
+        tr("Tutorial: adjust the display settings to reveal the image."),
         8000);
 }

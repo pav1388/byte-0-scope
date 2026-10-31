@@ -71,8 +71,6 @@ private:
     MainWindow *m_main = nullptr;
     QString     m_currentPaletteId;
 
-    // Контейнер с содержимым (без собственного QScrollArea — скролл один,
-    // на уровне правой панели MainWindow).
     QWidget     *m_contentWidget = nullptr;
     QVBoxLayout *m_contentLayout = nullptr;
 

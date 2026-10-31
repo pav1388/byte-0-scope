@@ -5,6 +5,7 @@
 
 #include "bytesource.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QFileInfo>
 #include <limits>
@@ -74,14 +75,16 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
         auto mf = std::make_shared<MappedFile>(path);
 
         if (!mf->file.open(QIODevice::ReadOnly)) {
-            m_lastError = QStringLiteral("Не удалось открыть файл:\n%1")
+            m_lastError = QCoreApplication::translate(
+                              "BytesSource", "Failed to open file:\n%1")
                               .arg(mf->file.errorString());
             return false;
         }
 
         mf->size = mf->file.size();
         if (mf->size < 0) {
-            m_lastError = QStringLiteral("Не удалось определить размер файла.");
+            m_lastError = QCoreApplication::translate(
+                "BytesSource", "Failed to determine file size.");
             return false;
         }
         if (mf->size == 0) {
@@ -92,14 +95,15 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
 
         mf->mapped = mf->file.map(0, mf->size);
         if (!mf->mapped) {
-            m_lastError = QStringLiteral(
-                "Не удалось отобразить файл в память.\n\n"
-                "Размер файла: %1 МБ\n"
-                "Причина: %2\n\n"
-                "Возможные решения:\n"
-                "• Включите «Загружать файл целиком в память» в настройках\n"
-                "• Перезапустите программу\n"
-                "• Проверьте свободное место в файле подкачки")
+            m_lastError = QCoreApplication::translate(
+                "BytesSource",
+                "Failed to map the file into memory.\n\n"
+                "File size: %1 MB\n"
+                "Reason: %2\n\n"
+                "Possible solutions:\n"
+                "• Enable \"Load whole file into memory\" in the settings\n"
+                "• Restart the program\n"
+                "• Check free space in the swap file")
                 .arg(mf->size / BS_BYTES_PER_MB, 0, 'f', 1)
                 .arg(mf->file.errorString());
             mf->file.close();
@@ -121,24 +125,27 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
 
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
-        m_lastError = QStringLiteral("Не удалось открыть файл:\n%1")
+        m_lastError = QCoreApplication::translate(
+                          "BytesSource", "Failed to open file:\n%1")
                           .arg(f.errorString());
         return false;
     }
 
     const qint64 fileSize = f.size();
     if (fileSize < 0) {
-        m_lastError = QStringLiteral("Не удалось определить размер файла.");
+        m_lastError = QCoreApplication::translate(
+            "BytesSource", "Failed to determine file size.");
         return false;
     }
 
     if (fileSize > qbaMax) {
-        m_lastError = QStringLiteral(
-            "Файл слишком большой для загрузки в память.\n\n"
-            "Размер файла:    %1 МБ (%2 байт)\n"
-            "Максимум QByteArray: %3 МБ (%4 байт)\n\n"
-            "Отключите «Загружать файл целиком в память» в настройках — "
-            "программа будет использовать mmap и сможет открыть этот файл.")
+        m_lastError = QCoreApplication::translate(
+            "BytesSource",
+            "The file is too large to load into memory.\n\n"
+            "File size:    %1 MB (%2 bytes)\n"
+            "QByteArray max: %3 MB (%4 bytes)\n\n"
+            "Disable \"Load whole file into memory\" in the settings — "
+            "the program will use mmap and can open this file.")
             .arg(fileSize / BS_BYTES_PER_MB, 0, 'f', 1).arg(fileSize)
             .arg(qbaMax   / BS_BYTES_PER_MB, 0, 'f', 1).arg(qbaMax);
         return false;
@@ -149,13 +156,14 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
         const qint64 reserve = qMax<qint64>(BS_MEMORY_RESERVE_MIN,
                                             available / BS_MEMORY_RESERVE_FRACTION);
         if (fileSize + reserve > available) {
-            m_lastError = QStringLiteral(
-                "Недостаточно свободной памяти для загрузки файла.\n\n"
-                "Размер файла:    %1 МБ\n"
-                "Доступно памяти: %2 МБ\n"
-                "Нужен резерв:    %3 МБ\n\n"
-                "Отключите «Загружать файл целиком в память» в настройках "
-                "или закройте другие приложения.")
+            m_lastError = QCoreApplication::translate(
+                "BytesSource",
+                "Not enough free memory to load the file.\n\n"
+                "File size:    %1 MB\n"
+                "Memory available: %2 MB\n"
+                "Reserve needed:   %3 MB\n\n"
+                "Disable \"Load whole file into memory\" in the settings "
+                "or close other applications.")
                 .arg(fileSize  / BS_BYTES_PER_MB, 0, 'f', 1)
                 .arg(available / BS_BYTES_PER_MB, 0, 'f', 1)
                 .arg(reserve   / BS_BYTES_PER_MB, 0, 'f', 1);
@@ -165,9 +173,10 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
 
     m_data = f.readAll();
     if (m_data.size() != fileSize) {
-        m_lastError = QStringLiteral(
-            "Ошибка чтения файла.\n"
-            "Прочитано %1 из %2 байт.\n%3")
+        m_lastError = QCoreApplication::translate(
+            "BytesSource",
+            "File read error.\n"
+            "Read %1 of %2 bytes.\n%3")
             .arg(m_data.size()).arg(fileSize).arg(f.errorString());
         m_data.clear();
         return false;

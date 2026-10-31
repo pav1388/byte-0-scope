@@ -102,11 +102,11 @@ PaletteSettingsPanel::PaletteSettingsPanel(MainWindow *parent)
     btnRow->setContentsMargins(0, 0, 0, 0);
     m_resetBtn = new QPushButton("X", this);
     m_resetBtn->setFixedWidth(PS_SMALL_BUTTON_WIDTH);
-    m_resetBtn->setToolTip(tr("Сбросить настройки палитры"));
+    m_resetBtn->setToolTip(tr("Reset palette settings"));
     connect(m_resetBtn, &QPushButton::clicked, this, [this]() {
         resetRulesToDefault();
     });
-    m_autoApplyCheck = new QCheckBox(tr("Автоприменение настроек"), this);
+    m_autoApplyCheck = new QCheckBox(tr("Auto-apply settings"), this);
     m_autoApplyCheck->setChecked(true);
     connect(m_autoApplyCheck, &QCheckBox::toggled,
             this, &PaletteSettingsPanel::autoApplyToggled);
@@ -262,8 +262,8 @@ void PaletteSettingsPanel::buildEntropyUi(const QVariantMap &params)
     connect(m_stepSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Шаг (полосы):"), m_stepSpin);
-    addInfoLabel(tr("Высокие значения — меньше полос,\nнизкие — больше."));
+    addRow(tr("Step (bands):"), m_stepSpin);
+    addInfoLabel(tr("High values — fewer bands,\nlow values — more."));
 }
 
 void PaletteSettingsPanel::buildPlaneUi(const QVariantMap &params)
@@ -274,8 +274,8 @@ void PaletteSettingsPanel::buildPlaneUi(const QVariantMap &params)
     connect(m_planeSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Битовая плоскость (0–7):"), m_planeSpin);
-    addInfoLabel(tr("0 = младший бит,\n7 = старший бит."));
+    addRow(tr("Bit plane (0–7):"), m_planeSpin);
+    addInfoLabel(tr("0 = least significant bit,\n7 = most significant bit."));
 }
 
 void PaletteSettingsPanel::buildThresholdUi(const QVariantMap &params)
@@ -286,7 +286,7 @@ void PaletteSettingsPanel::buildThresholdUi(const QVariantMap &params)
     connect(m_thresholdSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Порог (0–255):"), m_thresholdSpin);
+    addRow(tr("Threshold (0–255):"), m_thresholdSpin);
 }
 
 void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
@@ -294,13 +294,13 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
     m_minCountSpin = new QSpinBox();
     m_minCountSpin->setRange(PS_MIN_COUNT_MIN, PS_MIN_COUNT_MAX);
     m_minCountSpin->setValue(params.value("min_count", 50).toInt());
-    m_minCountSpin->setToolTip(tr("Байты, встречающиеся не меньше N раз,\n"
-                                  "подсвечиваются красным."));
+    m_minCountSpin->setToolTip(tr("Bytes appearing at least N times\n"
+                                  "are highlighted in red."));
     connect(m_minCountSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
 
-    addRow(tr("Мин. количество повторов:"), m_minCountSpin);
+    addRow(tr("Min. repeat count:"), m_minCountSpin);
 }
 
 void PaletteSettingsPanel::buildRgb565Ui(const QString &name,
@@ -313,21 +313,21 @@ void PaletteSettingsPanel::buildRgb565Ui(const QString &name,
     connect(m_rgb565EndianCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Порядок байтов:"), m_rgb565EndianCombo);
+    addRow(tr("Byte order:"), m_rgb565EndianCombo);
 
     QString info;
     if (name == "rgb565") {
-        info = tr("16-бит: R=5, G=6, B=5\n"
-                  "Формат типичен для TFT-экранов,\n"
-                  "BMP-16, GBA, старых видеокарт.");
+        info = tr("16-bit: R=5, G=6, B=5\n"
+                  "Typical for TFT screens,\n"
+                  "BMP-16, GBA, old video cards.");
     } else if (name == "bgr565") {
-        info = tr("Как RGB565, но\nпорядок байтов перевёрнут.");
+        info = tr("Same as RGB565, but\nthe byte order is swapped.");
     } else if (name == "rgb555") {
-        info = tr("16-бит: R=5, G=5, B=5\n"
-                  "Старший бит обычно не используется.");
+        info = tr("16-bit: R=5, G=5, B=5\n"
+                  "The most significant bit is usually unused.");
     } else if (name == "argb1555") {
-        info = tr("16-бит: A=1, R=5, G=5, B=5\n"
-                  "Прозрачность игнорируется.");
+        info = tr("16-bit: A=1, R=5, G=5, B=5\n"
+                  "Transparency is ignored.");
     }
     if (!info.isEmpty())
         addInfoLabel(info);
@@ -342,9 +342,9 @@ void PaletteSettingsPanel::buildIntegerUi(const QString &name,
     connect(endian,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Порядок байтов:"), endian);
+    addRow(tr("Byte order:"), endian);
 
-    auto *signedChk = new QCheckBox(tr("Со знаком (signed)"));
+    auto *signedChk = new QCheckBox(tr("Signed"));
     signedChk->setChecked(params.value("signed", false).toBool());
     connect(signedChk, &QCheckBox::toggled,
             this, [this](bool) { notifyChanged(); });
@@ -371,7 +371,7 @@ void PaletteSettingsPanel::buildFloatUi(const QString &name,
     connect(endian,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Порядок байтов:"), endian);
+    addRow(tr("Byte order:"), endian);
 
     if (name == "float_32")
         m_float32Endian = endian;
@@ -388,7 +388,7 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     connect(m_addrSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Адрес начала:"), m_addrSpin);
+    addRow(tr("Start address:"), m_addrSpin);
 
     m_lenSpin = new QSpinBox();
     m_lenSpin->setRange(1, PS_ADDR_MAX);
@@ -400,7 +400,7 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     connect(m_lenSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Макс. длина (байт):"), m_lenSpin);
+    addRow(tr("Max length (bytes):"), m_lenSpin);
 
     m_formatCombo = new QComboBox();
     m_formatCombo->addItems(formatOptions());
@@ -408,17 +408,17 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     connect(m_formatCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Формат цвета:"), m_formatCombo);
+    addRow(tr("Color format:"), m_formatCombo);
 
     m_recordSizeSpin = new QSpinBox();
     m_recordSizeSpin->setRange(1, PS_RECORD_SIZE_MAX);
     m_recordSizeSpin->setValue(params.value("record_size", 1).toInt());
-    m_recordSizeSpin->setToolTip(tr("Размер одной записи палитры в байтах.\n"
-                                    "Для RGB — 3, для RGB565 — 2, для RGBA — 4."));
+    m_recordSizeSpin->setToolTip(tr("Size of one palette record in bytes.\n"
+                                    "RGB — 3, RGB565 — 2, RGBA — 4."));
     connect(m_recordSizeSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Размер записи (байт):"), m_recordSizeSpin);
+    addRow(tr("Entry size (bytes):"), m_recordSizeSpin);
 
     m_endianCombo = new QComboBox();
     m_endianCombo->addItems({"big", "little"});
@@ -426,28 +426,28 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     connect(m_endianCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Порядок байтов:"), m_endianCombo);
+    addRow(tr("Byte order:"), m_endianCombo);
 
     m_countSpin = new QSpinBox();
     m_countSpin->setRange(0, PS_COUNT_MAX);
     m_countSpin->setValue(params.value("count", 0).toInt());
-    m_countSpin->setToolTip(tr("Количество записей палитры.\n"
-                               "0 = авто: 1<<bpp для bpp≤4, иначе 256."));
+    m_countSpin->setToolTip(tr("Number of palette records.\n"
+                               "0 = auto: 1<<bpp for bpp<=4, otherwise 256."));
     connect(m_countSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
-    addRow(tr("Записей (0=авто):"), m_countSpin);
+    addRow(tr("Entries (0=auto):"), m_countSpin);
 
     const int bpp = m_main ? m_main->bppMode() : 8;
     const QString autoHint = (bpp <= 4)
-        ? tr("%1 записей (из bpp)").arg(1 << bpp)
-        : tr("256 записей");
+        ? tr("%1 entries (from bpp)").arg(1 << bpp)
+        : tr("256 entries");
 
     addInfoLabel(
-        tr("Формат 'auto' по размеру записи:\n"
+        tr("Format 'auto' by record size:\n"
            "1 → grayscale, 2 → RGB565,\n"
            "3 → RGB, 4+ → RGBA.\n"
-           "Авто-количество: %1.").arg(autoHint));
+           "Auto-count: %1.").arg(autoHint));
 }
 
 // =========================================================================
@@ -462,11 +462,11 @@ void PaletteSettingsPanel::buildCustomUi(const QVariantMap &params)
     m_defaultColorBtn->setFixedHeight(PS_COLOR_BUTTON_HEIGHT);
     connect(m_defaultColorBtn, &QPushButton::clicked,
             this, [this]() { pickColorForButton(m_defaultColorBtn); });
-    addRow(tr("Цвет вне диапазонов:"), m_defaultColorBtn);
+    addRow(tr("Color outside ranges:"), m_defaultColorBtn);
 
     addSeparator();
 
-    auto *header = new QLabel(tr("<b>Правила диапазонов</b>"));
+    auto *header = new QLabel(tr("<b>Range rules</b>"));
     m_contentLayout->addWidget(header);
 
     m_rulesContainer = new QWidget();
@@ -487,7 +487,7 @@ void PaletteSettingsPanel::buildCustomUi(const QVariantMap &params)
 
     auto *btnRow = new QHBoxLayout();
     btnRow->setContentsMargins(0, 0, 0, 0);
-    auto *addBtn = new QPushButton(tr("+ Добавить правило"));
+    auto *addBtn = new QPushButton(tr("+ Add rule"));
     connect(addBtn, &QPushButton::clicked, this, [this]() {
         int newStart = 0, newEnd = 31;
         if (!m_ruleWidgets.isEmpty()) {
@@ -690,7 +690,7 @@ void PaletteSettingsPanel::pickColorForButton(QPushButton *btn)
     const QString hexNew = chosen.name().toLower();
     updateColorButton(btn, hexNew);
     if (btn != m_defaultColorBtn)
-        btn->setToolTip(tr("Цвет: %1").arg(hexNew));
+        btn->setToolTip(tr("Color: %1").arg(hexNew));
 
     notifyChanged();
 }

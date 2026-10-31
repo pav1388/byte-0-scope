@@ -40,8 +40,6 @@ CanvasWidget::CanvasWidget(MainWindow *parent)
         if (m_locked)
             return;
         const qint64 a = byteAddressAt(m_pendingHoverPos);
-        // Курсор может двигаться много раз, оставаясь над тем же байтом.
-        // В этом случае ни info-панель, ни визуал не меняются.
         if (a == m_hoverAddr)
             return;
 
@@ -388,18 +386,7 @@ void CanvasWidget::clearHover()
 }
 
 // =========================================================================
-//  Zoom-to-cursor (debounced)
-//
-//  cursorPos приходит из QWheelEvent::pos() и уже в координатах CanvasWidget.
-//  CanvasWidget у QScrollArea сдвинут на -hScroll, поэтому
-//  cursorPos.x() = viewport_x + hScroll и одновременно = canvas pixel x.
-//
-//   image_pixel_under_cursor = cursorPos * ds / scale
-//   viewport_cursor          = cursorPos - scroll
-//
-//  После zoom:
-//   new_canvas_x = image_pixel * newScale / newDs
-//   new_scroll   = new_canvas_x - viewport_cursor
+//  Zoom-to-cursor
 // =========================================================================
 void CanvasWidget::applyWheelZoom()
 {

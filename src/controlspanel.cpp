@@ -73,8 +73,8 @@
 #define CP_KEY_BYTES_PER_ROW        "bytes_per_row"
 
 // Метки, изменяемые в зависимости от режима
-#define CP_LABEL_END                QT_TRANSLATE_NOOP("ControlsPanel", "Конец:")
-#define CP_LABEL_LENGTH             QT_TRANSLATE_NOOP("ControlsPanel", "Длина:")
+#define CP_LABEL_END                QT_TRANSLATE_NOOP("ControlsPanel", "End:")
+#define CP_LABEL_LENGTH             QT_TRANSLATE_NOOP("ControlsPanel", "Length:")
 
 namespace {
 
@@ -177,11 +177,11 @@ void ControlsPanel::buildUi()
     layout->setSpacing(CP_LAYOUT_SPACING);
 
     // --- Формат пикселей ---
-    auto *fmtGroup = new QGroupBox(tr("Формат пикселей"), this);
+    auto *fmtGroup = new QGroupBox(tr("Pixel format"), this);
     auto *fmtLay = new QGridLayout(fmtGroup);
     int row = 0;
 
-    fmtLay->addWidget(new QLabel(tr("Бит на пиксель:")), row, 0);
+    fmtLay->addWidget(new QLabel(tr("Bits per pixel:")), row, 0);
     m_bppCombo = new QComboBox(this);
     m_bppCombo->setObjectName("bppCombo");
     m_bppCombo->addItems({
@@ -197,7 +197,7 @@ void ControlsPanel::buildUi()
             this, [this](int) { onBppChanged(); });
     fmtLay->addWidget(m_bppCombo, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Порядок битов:")), row, 0);
+    fmtLay->addWidget(new QLabel(tr("Bit order:")), row, 0);
     m_bitOrderCombo = new QComboBox(this);
     m_bitOrderCombo->setObjectName("bitOrderCombo");
     m_bitOrderCombo->addItems({
@@ -212,15 +212,15 @@ void ControlsPanel::buildUi()
             });
     fmtLay->addWidget(m_bitOrderCombo, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Паддинг (бит):")), row, 0);
+    fmtLay->addWidget(new QLabel(tr("Padding (bits):")), row, 0);
     m_rowPadSpin = new QSpinBox(this);
     m_rowPadSpin->setObjectName("rowPadSpin");
     m_rowPadSpin->setRange(0, 1024);
     m_rowPadSpin->setValue(0);
-    m_rowPadSpin->setToolTip(tr("Выравнивание строк. 0 — без паддинга.\n"
-                                "8 — строки кратны 1 байту.\n"
-                                "16 — кратны 2 байтам.\n"
-                                "32 — 4 байтам."));
+    m_rowPadSpin->setToolTip(tr("Row alignment. 0 — no padding.\n"
+                                "8 — rows are multiples of 1 byte.\n"
+                                "16 — multiples of 2 bytes.\n"
+                                "32 — multiples of 4 bytes."));
     connect(m_rowPadSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -229,7 +229,7 @@ void ControlsPanel::buildUi()
             });
     fmtLay->addWidget(m_rowPadSpin, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Порядок пикселей:")), row, 0);
+    fmtLay->addWidget(new QLabel(tr("Pixel order:")), row, 0);
     m_pixelOrderCombo = new QComboBox(this);
     m_pixelOrderCombo->setObjectName("pixelOrderCombo");
     m_pixelOrderCombo->addItems({
@@ -247,7 +247,7 @@ void ControlsPanel::buildUi()
     layout->addWidget(fmtGroup);
 
     // --- Палитры ---
-    auto *palGroup = new QGroupBox(tr("Палитры"), this);
+    auto *palGroup = new QGroupBox(tr("Palettes"), this);
     auto *palLay = new QVBoxLayout(palGroup);
     m_paletteCombo = new QComboBox(this);
     m_paletteCombo->setObjectName("paletteCombo");
@@ -259,19 +259,19 @@ void ControlsPanel::buildUi()
     layout->addWidget(palGroup);
 
     // --- Регион ---
-    auto *regGroup = new QGroupBox(tr("Регион"), this);
+    auto *regGroup = new QGroupBox(tr("Region"), this);
     auto *regLay = new QGridLayout(regGroup);
     regLay->setColumnMinimumWidth(1, CP_LAYOUT_COL_MIN_WIDTH);
     regLay->setColumnStretch(1, 1);
 
-    regLay->addWidget(new QLabel(tr("Начало:")), 0, 0);
+    regLay->addWidget(new QLabel(tr("Start:")), 0, 0);
     m_offsetSpin = new QSpinBox(this);
     m_offsetSpin->setObjectName("offsetSpin");
     m_offsetSpin->setRange(0, 0x7FFFFFFF);
     m_offsetSpin->setValue(0);
     m_offsetSpin->setGroupSeparatorShown(false);
     m_offsetSpin->setKeyboardTracking(false);
-    m_offsetSpin->setToolTip(tr("Начало региона (по умолчанию 0)"));
+    m_offsetSpin->setToolTip(tr("Region start (default 0)"));
     connect(m_offsetSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -285,8 +285,8 @@ void ControlsPanel::buildUi()
     m_pickStartBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
     m_pickStartBtn->setCheckable(true);
     m_pickStartBtn->setAutoDefault(false);
-    m_pickStartBtn->setToolTip(tr("Выбрать начало региона: нажмите, затем ЛКМ по нужному байту.\n"
-                                  "Повторное нажатие или Esc — отмена."));
+    m_pickStartBtn->setToolTip(tr("Pick region start: click, then left-click the desired byte.\n"
+                                  "Click again or press Esc to cancel."));
     connect(m_pickStartBtn, &QPushButton::clicked, this, [this]() {
         if (m_regionPickTarget == 1)
             cancelRegionPick();
@@ -303,7 +303,7 @@ void ControlsPanel::buildUi()
     m_endSpin->setValue(0);
     m_endSpin->setGroupSeparatorShown(false);
     m_endSpin->setKeyboardTracking(false);
-    m_endSpin->setToolTip(tr("Конец региона или длина, если включён режим длины"));
+    m_endSpin->setToolTip(tr("Region end, or length if length mode is enabled"));
     connect(m_endSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -317,8 +317,8 @@ void ControlsPanel::buildUi()
     m_pickEndBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
     m_pickEndBtn->setCheckable(true);
     m_pickEndBtn->setAutoDefault(false);
-    m_pickEndBtn->setToolTip(tr("Выбрать конец региона: нажмите, затем щёлкните ЛКМ по нужному байту.\n"
-                                "Повторное нажатие или Esc — отмена."));
+    m_pickEndBtn->setToolTip(tr("Pick region end: click, then left-click the desired byte.\n"
+                                "Click again or press Esc to cancel."));
     connect(m_pickEndBtn, &QPushButton::clicked, this, [this]() {
         if (m_regionPickTarget == 2)
             cancelRegionPick();
@@ -327,17 +327,17 @@ void ControlsPanel::buildUi()
     });
     regLay->addWidget(m_pickEndBtn, 1, 3);
 
-    m_lengthModeCheck = new QCheckBox(tr("Режим длины"), this);
+    m_lengthModeCheck = new QCheckBox(tr("Length mode"), this);
     m_lengthModeCheck->setObjectName("lengthModeCheck");
     m_lengthModeCheck->setToolTip(
-        tr("Если отмечено — поле 'Конец' интерпретируется как 'Длина'"));
+        tr("If checked, the 'End' field is interpreted as 'Length'"));
     connect(m_lengthModeCheck, &QCheckBox::toggled,
             this, &ControlsPanel::onLengthModeChanged);
     regLay->addWidget(m_lengthModeCheck, 2, 0, 1, 2);
 
     m_hexModeCheck = new QCheckBox(tr("hex"), this);
     m_hexModeCheck->setObjectName("hexModeCheck");
-    m_hexModeCheck->setToolTip(tr("Использовать шестнадцатеричный ввод (0x…)"));
+    m_hexModeCheck->setToolTip(tr("Use hexadecimal input (0x…)"));
     connect(m_hexModeCheck, &QCheckBox::toggled,
             this, &ControlsPanel::onHexModeChanged);
     regLay->addWidget(m_hexModeCheck, 2, 2, 1, 1);
@@ -346,7 +346,7 @@ void ControlsPanel::buildUi()
     m_resetRegionBtn->setObjectName("resetRegionBtn");
     m_resetRegionBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
     m_resetRegionBtn->setAutoDefault(false);
-    m_resetRegionBtn->setToolTip(tr("Сбросить регион: отобразить все данные"));
+    m_resetRegionBtn->setToolTip(tr("Reset region: display all data"));
     connect(m_resetRegionBtn, &QPushButton::clicked,
             this, &ControlsPanel::resetRegionToDefault);
     regLay->addWidget(m_resetRegionBtn, 2, 3, 1, 1);
@@ -354,21 +354,21 @@ void ControlsPanel::buildUi()
     layout->addWidget(regGroup);
 
     // --- Отображение ---
-    auto *dispGroup = new QGroupBox(tr("Отображение"), this);
+    auto *dispGroup = new QGroupBox(tr("Display"), this);
     auto *dispLay = new QGridLayout(dispGroup);
     int dr = 0;
 
-    dispLay->addWidget(new QLabel(tr("Режим ширины:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Width mode:")), dr, 0);
     m_widthModeCombo = new QComboBox(this);
     m_widthModeCombo->addItems({
-        tr("Ручной"),
-        tr("Авто (1:1)"),
-        tr("Авто (степень 2)"),
-        tr("Авто (16:9)"),
-        tr("Авто (4:3)"),
-        tr("Байт в строке"),
-        tr("Ближайшее «круглое»"),
-        tr("Делитель ≤ N"),
+        tr("Manual"),
+        tr("Auto (1:1)"),
+        tr("Auto (power of 2)"),
+        tr("Auto (16:9)"),
+        tr("Auto (4:3)"),
+        tr("Bytes per row"),
+        tr("Nearest \"round\" value"),
+        tr("Divisor ≤ N"),
     });
     m_widthModeCombo->setCurrentIndex(CP_WM_INDEX_FIXED);
     connect(m_widthModeCombo,
@@ -376,12 +376,12 @@ void ControlsPanel::buildUi()
             this, &ControlsPanel::onWidthModeChanged);
     dispLay->addWidget(m_widthModeCombo, dr++, 1);
 
-    dispLay->addWidget(new QLabel(tr("Ширина / N:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Width / N:")), dr, 0);
     m_widthSpin = new QSpinBox(this);
     m_widthSpin->setRange(1, 65536);
     m_widthSpin->setValue(256);
-    m_widthSpin->setToolTip(tr("Для «Ручной» — ширина в пикселях.\n"
-                               "Для «Делитель ≤ N» — верхний предел ширины."));
+    m_widthSpin->setToolTip(tr("For \"Manual\" — width in pixels.\n"
+                               "For \"Divisor ≤ N\" — upper width limit."));
     connect(m_widthSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -390,13 +390,13 @@ void ControlsPanel::buildUi()
             });
     dispLay->addWidget(m_widthSpin, dr++, 1);
 
-    dispLay->addWidget(new QLabel(tr("Шаг ширины:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Width step:")), dr, 0);
     m_widthStepSpin = new QSpinBox(this);
     m_widthStepSpin->setObjectName("widthStepSpin");
     m_widthStepSpin->setRange(1, 4096);
     m_widthStepSpin->setValue(8);
-    m_widthStepSpin->setToolTip(tr("Шаг изменения ширины колесом мыши с Ctrl.\n"
-                                   "Используется в ручном режиме."));
+    m_widthStepSpin->setToolTip(tr("Width change step with Ctrl+mouse wheel.\n"
+                                   "Used in manual mode."));
     connect(m_widthStepSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -405,13 +405,13 @@ void ControlsPanel::buildUi()
             });
     dispLay->addWidget(m_widthStepSpin, dr++, 1);
 
-    m_bytesPerRowLabel = new QLabel(tr("Байт в строке:"), this);
+    m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
     dispLay->addWidget(m_bytesPerRowLabel, dr, 0);
     m_bytesPerRowSpin = new QSpinBox(this);
     m_bytesPerRowSpin->setRange(1, 65536);
     m_bytesPerRowSpin->setValue(16);
-    m_bytesPerRowSpin->setToolTip(tr("Только для режима «Байт в строке».\n"
-                                     "Пикселей в строке = байт / bytesPerPixel."));
+    m_bytesPerRowSpin->setToolTip(tr("Only for \"Bytes per row\" mode.\n"
+                                     "Pixels per row = bytes / bytesPerPixel."));
     connect(m_bytesPerRowSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
@@ -423,7 +423,7 @@ void ControlsPanel::buildUi()
     m_bytesPerRowLabel->setVisible(false);
     m_bytesPerRowSpin->setVisible(false);
 
-    dispLay->addWidget(new QLabel(tr("Масштаб:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Zoom:")), dr, 0);
     m_scaleSpin = new QSpinBox(this);
     m_scaleSpin->setObjectName("scaleSpin");
     m_scaleSpin->setRange(1, 32);
@@ -440,11 +440,11 @@ void ControlsPanel::buildUi()
     checkboxRow->setContentsMargins(0, 0, 0, 0);
     checkboxRow->setSpacing(10);
 
-    m_autoScaleCheck = new QCheckBox(tr("Автомасштаб"), this);
+    m_autoScaleCheck = new QCheckBox(tr("Auto zoom"), this);
     m_autoScaleCheck->setObjectName("autoScaleCheck");
-    m_autoScaleCheck->setToolTip(tr("Подобрать масштаб, чтобы изображение занимало\n"
-                                    "максимум места в окне, но без уменьшения.\n"
-                                    "Взаимоисключающе с «Вписать в окно»."));
+    m_autoScaleCheck->setToolTip(tr("Pick a zoom so the image takes up\n"
+                                    "maximum space in the window, but without shrinking.\n"
+                                    "Mutually exclusive with \"Fit to window\"."));
     connect(m_autoScaleCheck, &QCheckBox::toggled, this, [this](bool checked) {
         if (m_updatingConfig)
             return;
@@ -457,11 +457,11 @@ void ControlsPanel::buildUi()
     });
     checkboxRow->addWidget(m_autoScaleCheck);
 
-    m_fitCheck = new QCheckBox(tr("Вписать в окно"), this);
+    m_fitCheck = new QCheckBox(tr("Fit to window"), this);
     m_fitCheck->setObjectName("fitCheck");
-    m_fitCheck->setToolTip(tr("Вписать изображение целиком в границы окна,\n"
-                              "при необходимости уменьшая.\n"
-                              "Взаимоисключающе с «Автомасштаб»."));
+    m_fitCheck->setToolTip(tr("Fit the entire image within the window bounds,\n"
+                              "shrinking if necessary.\n"
+                              "Mutually exclusive with \"Auto zoom\"."));
     connect(m_fitCheck, &QCheckBox::toggled, this, [this](bool checked) {
         if (m_updatingConfig)
             return;
@@ -478,10 +478,10 @@ void ControlsPanel::buildUi()
 
     layout->addWidget(dispGroup);
 
-    m_resetDisplayBtn = new QPushButton(tr("Сбросить настройки отображения"), this);
+    m_resetDisplayBtn = new QPushButton(tr("X Reset display settings"), this);
     m_resetDisplayBtn->setObjectName("resetDisplayBtn");
     m_resetDisplayBtn->setAutoDefault(false);
-    m_resetDisplayBtn->setToolTip(tr("Вернуть параметры отображения к значениям по умолчанию"));
+    m_resetDisplayBtn->setToolTip(tr("Restore display parameters to default values"));
     connect(m_resetDisplayBtn, &QPushButton::clicked,
             this, &ControlsPanel::resetDisplayRequested);
     layout->addWidget(m_resetDisplayBtn);
@@ -681,8 +681,8 @@ void ControlsPanel::updateScaleSpinEnabled()
 
     m_scaleSpin->setEnabled(!locked);
     m_scaleSpin->setToolTip(locked
-        ? tr("Управляется «Автомасштабом» или «Вписать в окно».")
-        : tr("Масштаб отображения."));
+        ? tr("Controlled by \"Auto zoom\" or \"Fit to window\".")
+        : tr("Display zoom."));
 }
 
 void ControlsPanel::applyHexModeToSpins(bool useHex)

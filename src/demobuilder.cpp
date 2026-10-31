@@ -7,6 +7,7 @@
 
 #include <QDateTime>
 #include <QtMath>
+#include <QCoreApplication>
 
 // --- Настройки модуля DemoBuilder (префикс DB_) ---
 
@@ -320,20 +321,20 @@ QVariantMap trainingCorrectConfig()
 // =========================================================================
 QString trainingHintHtml()
 {
-    return QStringLiteral(
-        "<b>Обучение: восстановите изображение</b><br><br>"
-        "Файл загружен, но текущие настройки отображения неверны — "
-        "вы видите шум. Приведите параметры к правильным, "
-        "и появятся заголовок «BYTE», текст и графика.<br><br>"
-        "<b>Правильные параметры:</b><br>"
-        "&nbsp;&nbsp;1. <b>Бит на пиксель</b> -> <code>4 bpp</code><br>"
-        "&nbsp;&nbsp;2. <b>Порядок битов</b> -> <code>LSB-first (LE)</code><br>"
-        "&nbsp;&nbsp;3. <b>Порядок пикселей</b> -> <code>LSB-first</code><br>"
-        "&nbsp;&nbsp;4. <b>Паддинг (бит)</b> -> <code>16</code><br>"
-        "&nbsp;&nbsp;5. <b>Палитра</b> -> <code>Любая</code><br>"
-        "&nbsp;&nbsp;6. <b>Режим ширины</b> -> <code>Ручной</code>, "
-        "ширина <code>96</code><br>"
-        "&nbsp;&nbsp;7. <b>Вид -> Отразить по горизонтали</b><br><br>");
+    return QCoreApplication::translate("DemoBuilder",
+        "<b>Training: restore the image</b><br><br>"
+        "The file is loaded, but the current display settings are incorrect — "
+        "you are seeing noise. Set the parameters to the correct values, "
+        "and the 'BYTE' heading, text, and graphics will appear.<br><br>"
+        "<b>Correct parameters:</b><br>"
+        "&nbsp;&nbsp;1. <b>Bits per pixel</b> -> <code>4 bpp</code><br>"
+        "&nbsp;&nbsp;2. <b>Bit order</b> -> <code>LSB-first (LE)</code><br>"
+        "&nbsp;&nbsp;3. <b>Pixel order</b> -> <code>LSB-first</code><br>"
+        "&nbsp;&nbsp;4. <b>Padding (bits)</b> -> <code>16</code><br>"
+        "&nbsp;&nbsp;5. <b>Palette</b> -> <code>Any</code><br>"
+        "&nbsp;&nbsp;6. <b>Width mode</b> -> <code>Manual</code>, "
+        "width <code>96</code><br>"
+        "&nbsp;&nbsp;7. <b>View -> Mirror horizontally</b><br><br>");
 }
 
 } // namespace DemoBuilder

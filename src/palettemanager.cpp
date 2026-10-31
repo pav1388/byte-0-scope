@@ -6,6 +6,7 @@
 #include "palettemanager.h"
 #include "pixeldecoder.h"
 
+#include <QCoreApplication>
 #include <QSet>
 #include <QtMath>
 #include <algorithm>
@@ -29,10 +30,17 @@
 // bpp, для которых генерируются сэмплированные варианты базовых палитр
 #define PM_SAMPLED_BPPS             { 2, 3, 4 }
 
+
 // =========================================================================
 //  8-битные базовые палитры
 // =========================================================================
 namespace {
+	
+inline QString tr(const char *s)
+{
+    return QCoreApplication::translate("PaletteManager", s);
+}
+
 
 QVector<QColor> grayPalette(int n)
 {
@@ -884,81 +892,81 @@ void PaletteManager::registerBaseGenerators()
 
 void PaletteManager::registerBaseConfigs()
 {
-    // Отображаемые названия. Ключи — постоянные ID, не локализуемые значения.
-    m_names.insert(QStringLiteral("gray"),             QStringLiteral("Оттенки серого"));
-    m_names.insert(QStringLiteral("inverted"),         QStringLiteral("Инвертированная"));
-    m_names.insert(QStringLiteral("heat"),             QStringLiteral("Тепловая"));
-    m_names.insert(QStringLiteral("thermal"),          QStringLiteral("Термальная"));
-    m_names.insert(QStringLiteral("viridis"),          QStringLiteral("Вирдис"));
-    m_names.insert(QStringLiteral("plasma"),           QStringLiteral("Плазма"));
-    m_names.insert(QStringLiteral("rainbow"),          QStringLiteral("Радуга"));
-    m_names.insert(QStringLiteral("hsv"),              QStringLiteral("HSV"));
-    m_names.insert(QStringLiteral("solarize"),         QStringLiteral("Соляризация"));
-    m_names.insert(QStringLiteral("hash_color"),       QStringLiteral("Хеш-цвет"));
-    m_names.insert(QStringLiteral("bit_scale"),        QStringLiteral("Битовая шкала"));
-    m_names.insert(QStringLiteral("bit_rotation"),     QStringLiteral("Битовая ротация"));
-    m_names.insert(QStringLiteral("zeros_ones"),       QStringLiteral("Нули/Единицы"));
-    m_names.insert(QStringLiteral("nonzero"),          QStringLiteral("Не-Ноль"));
-    m_names.insert(QStringLiteral("highbit"),          QStringLiteral("Установлен старший бит"));
-    m_names.insert(QStringLiteral("lowbit"),           QStringLiteral("Установлен младший бит"));
-    m_names.insert(QStringLiteral("nibbles"),          QStringLiteral("Полубайты"));
-    m_names.insert(QStringLiteral("high_nibble"),      QStringLiteral("Старший полубайт"));
-    m_names.insert(QStringLiteral("low_nibble"),       QStringLiteral("Младший полубайт"));
-    m_names.insert(QStringLiteral("threshold"),        QStringLiteral("Порог"));
-    m_names.insert(QStringLiteral("entropy"),          QStringLiteral("Полосы энтропии"));
-    m_names.insert(QStringLiteral("bitplane"),         QStringLiteral("Битовая плоскость"));
-    m_names.insert(QStringLiteral("custom"),           QStringLiteral("Пользовательская"));
-    m_names.insert(QStringLiteral("byte_frequency"),   QStringLiteral("Частота байтов"));
-    m_names.insert(QStringLiteral("repeats"),          QStringLiteral("Повторы"));
-    m_names.insert(QStringLiteral("from_file"),        QStringLiteral("Из файла"));
-    m_names.insert(QStringLiteral("mono_1"),           QStringLiteral("Моно 1bpp"));
-    m_names.insert(QStringLiteral("mono_inverted"),    QStringLiteral("Инвертированный моно"));
-    m_names.insert(QStringLiteral("mono_amber"),       QStringLiteral("Янтарный моно"));
-    m_names.insert(QStringLiteral("mono_green"),       QStringLiteral("Зелёный моно"));
-    m_names.insert(QStringLiteral("mono_red"),         QStringLiteral("Красный моно"));
-    m_names.insert(QStringLiteral("mono_blue"),        QStringLiteral("Синий моно"));
-    m_names.insert(QStringLiteral("gray_2"),           QStringLiteral("Оттенки серого 2bpp"));
-    m_names.insert(QStringLiteral("gameboy_classic"),  QStringLiteral("Game Boy (классический)"));
-    m_names.insert(QStringLiteral("gameboy_pocket"),   QStringLiteral("Game Boy (Pocket)"));
-    m_names.insert(QStringLiteral("cga_0"),            QStringLiteral("CGA палитра 0"));
-    m_names.insert(QStringLiteral("cga_1"),            QStringLiteral("CGA палитра 1"));
-    m_names.insert(QStringLiteral("cga_high"),         QStringLiteral("CGA высокая"));
-    m_names.insert(QStringLiteral("green_amber"),      QStringLiteral("Зелёно-янтарный"));
-    m_names.insert(QStringLiteral("neon_2"),           QStringLiteral("Неоновый 2bpp"));
-    m_names.insert(QStringLiteral("gray_3"),           QStringLiteral("Оттенки серого 3bpp"));
-    m_names.insert(QStringLiteral("rgb_332"),          QStringLiteral("RGB 3-3-2"));
-    m_names.insert(QStringLiteral("rainbow_8"),        QStringLiteral("Яркая радуга 8"));
-    m_names.insert(QStringLiteral("warm_3"),           QStringLiteral("Тёплая 3bpp"));
-    m_names.insert(QStringLiteral("cool_3"),           QStringLiteral("Холодная 3bpp"));
-    m_names.insert(QStringLiteral("gray_4"),           QStringLiteral("Оттенки серого 4bpp"));
-    m_names.insert(QStringLiteral("ega_16"),           QStringLiteral("EGA 16 цветов"));
-    m_names.insert(QStringLiteral("ega_alt"),          QStringLiteral("EGA альтернативная"));
-    m_names.insert(QStringLiteral("windows_16"),       QStringLiteral("Windows 16 цветов"));
-    m_names.insert(QStringLiteral("commodore_64"),     QStringLiteral("Commodore 64"));
-    m_names.insert(QStringLiteral("zx_spectrum"),      QStringLiteral("ZX Spectrum"));
-    m_names.insert(QStringLiteral("amber_crt"),        QStringLiteral("Amber CRT"));
-    m_names.insert(QStringLiteral("green_terminal"),   QStringLiteral("Зелёный терминал"));
-    m_names.insert(QStringLiteral("heat_16"),          QStringLiteral("Тепловой градиент 16"));
-    m_names.insert(QStringLiteral("rainbow_16"),       QStringLiteral("Радуга 16"));
-    m_names.insert(QStringLiteral("rgb565"),           QStringLiteral("RGB565"));
-    m_names.insert(QStringLiteral("bgr565"),           QStringLiteral("BGR565"));
-    m_names.insert(QStringLiteral("rgb555"),           QStringLiteral("RGB555"));
-    m_names.insert(QStringLiteral("argb1555"),         QStringLiteral("ARGB1555"));
-    m_names.insert(QStringLiteral("integer_16"),       QStringLiteral("Integer 16"));
-    m_names.insert(QStringLiteral("rgb"),              QStringLiteral("RGB"));
-    m_names.insert(QStringLiteral("bgr"),              QStringLiteral("BGR"));
-    m_names.insert(QStringLiteral("gbr"),              QStringLiteral("GBR"));
-    m_names.insert(QStringLiteral("brg"),              QStringLiteral("BRG"));
-    m_names.insert(QStringLiteral("grb"),              QStringLiteral("GRB"));
-    m_names.insert(QStringLiteral("rbg"),              QStringLiteral("RBG"));
-    m_names.insert(QStringLiteral("rgba"),             QStringLiteral("RGBA"));
-    m_names.insert(QStringLiteral("argb"),             QStringLiteral("ARGB"));
-    m_names.insert(QStringLiteral("bgra"),             QStringLiteral("BGRA"));
-    m_names.insert(QStringLiteral("abgr"),             QStringLiteral("ABGR"));
-    m_names.insert(QStringLiteral("integer_32"),       QStringLiteral("Integer 32"));
-    m_names.insert(QStringLiteral("float_32"),         QStringLiteral("Float 32"));
-    m_names.insert(QStringLiteral("integer_64"),       QStringLiteral("Integer 64"));
-    m_names.insert(QStringLiteral("float_64"),         QStringLiteral("Float 64"));
+    // Display names. Keys are stable IDs, not localizable values.
+    m_names.insert(QStringLiteral("gray"),             tr("Grayscale"));
+    m_names.insert(QStringLiteral("inverted"),         tr("Inverted"));
+    m_names.insert(QStringLiteral("heat"),             tr("Heat"));
+    m_names.insert(QStringLiteral("thermal"),          tr("Thermal"));
+    m_names.insert(QStringLiteral("viridis"),          tr("Viridis"));
+    m_names.insert(QStringLiteral("plasma"),           tr("Plasma"));
+    m_names.insert(QStringLiteral("rainbow"),          tr("Rainbow"));
+    m_names.insert(QStringLiteral("hsv"),              tr("HSV"));
+    m_names.insert(QStringLiteral("solarize"),         tr("Solarize"));
+    m_names.insert(QStringLiteral("hash_color"),       tr("Hash color"));
+    m_names.insert(QStringLiteral("bit_scale"),        tr("Bit scale"));
+    m_names.insert(QStringLiteral("bit_rotation"),     tr("Bit rotation"));
+    m_names.insert(QStringLiteral("zeros_ones"),       tr("Zeros/Ones"));
+    m_names.insert(QStringLiteral("nonzero"),          tr("Non-zero"));
+    m_names.insert(QStringLiteral("highbit"),          tr("High bit set"));
+    m_names.insert(QStringLiteral("lowbit"),           tr("Low bit set"));
+    m_names.insert(QStringLiteral("nibbles"),          tr("Nibbles"));
+    m_names.insert(QStringLiteral("high_nibble"),      tr("High nibble"));
+    m_names.insert(QStringLiteral("low_nibble"),       tr("Low nibble"));
+    m_names.insert(QStringLiteral("threshold"),        tr("Threshold"));
+    m_names.insert(QStringLiteral("entropy"),          tr("Entropy bands"));
+    m_names.insert(QStringLiteral("bitplane"),         tr("Bit plane"));
+    m_names.insert(QStringLiteral("custom"),           tr("Custom"));
+    m_names.insert(QStringLiteral("byte_frequency"),   tr("Byte frequency"));
+    m_names.insert(QStringLiteral("repeats"),          tr("Repeats"));
+    m_names.insert(QStringLiteral("from_file"),        tr("From file"));
+    m_names.insert(QStringLiteral("mono_1"),           tr("Mono 1bpp"));
+    m_names.insert(QStringLiteral("mono_inverted"),    tr("Inverted mono"));
+    m_names.insert(QStringLiteral("mono_amber"),       tr("Amber mono"));
+    m_names.insert(QStringLiteral("mono_green"),       tr("Green mono"));
+    m_names.insert(QStringLiteral("mono_red"),         tr("Red mono"));
+    m_names.insert(QStringLiteral("mono_blue"),        tr("Blue mono"));
+    m_names.insert(QStringLiteral("gray_2"),           tr("Grayscale 2bpp"));
+    m_names.insert(QStringLiteral("gameboy_classic"),  tr("Game Boy (classic)"));
+    m_names.insert(QStringLiteral("gameboy_pocket"),   tr("Game Boy (Pocket)"));
+    m_names.insert(QStringLiteral("cga_0"),            tr("CGA palette 0"));
+    m_names.insert(QStringLiteral("cga_1"),            tr("CGA palette 1"));
+    m_names.insert(QStringLiteral("cga_high"),         tr("CGA high"));
+    m_names.insert(QStringLiteral("green_amber"),      tr("Green-amber"));
+    m_names.insert(QStringLiteral("neon_2"),           tr("Neon 2bpp"));
+    m_names.insert(QStringLiteral("gray_3"),           tr("Grayscale 3bpp"));
+    m_names.insert(QStringLiteral("rgb_332"),          tr("RGB 3-3-2"));
+    m_names.insert(QStringLiteral("rainbow_8"),        tr("Bright rainbow 8"));
+    m_names.insert(QStringLiteral("warm_3"),           tr("Warm 3bpp"));
+    m_names.insert(QStringLiteral("cool_3"),           tr("Cool 3bpp"));
+    m_names.insert(QStringLiteral("gray_4"),           tr("Grayscale 4bpp"));
+    m_names.insert(QStringLiteral("ega_16"),           tr("EGA 16 colors"));
+    m_names.insert(QStringLiteral("ega_alt"),          tr("EGA alternative"));
+    m_names.insert(QStringLiteral("windows_16"),       tr("Windows 16 colors"));
+    m_names.insert(QStringLiteral("commodore_64"),     tr("Commodore 64"));
+    m_names.insert(QStringLiteral("zx_spectrum"),      tr("ZX Spectrum"));
+    m_names.insert(QStringLiteral("amber_crt"),        tr("Amber CRT"));
+    m_names.insert(QStringLiteral("green_terminal"),   tr("Green terminal"));
+    m_names.insert(QStringLiteral("heat_16"),          tr("Heat gradient 16"));
+    m_names.insert(QStringLiteral("rainbow_16"),       tr("Rainbow 16"));
+    m_names.insert(QStringLiteral("rgb565"),           tr("RGB565"));
+    m_names.insert(QStringLiteral("bgr565"),           tr("BGR565"));
+    m_names.insert(QStringLiteral("rgb555"),           tr("RGB555"));
+    m_names.insert(QStringLiteral("argb1555"),         tr("ARGB1555"));
+    m_names.insert(QStringLiteral("integer_16"),       tr("Integer 16"));
+    m_names.insert(QStringLiteral("rgb"),              tr("RGB"));
+    m_names.insert(QStringLiteral("bgr"),              tr("BGR"));
+    m_names.insert(QStringLiteral("gbr"),              tr("GBR"));
+    m_names.insert(QStringLiteral("brg"),              tr("BRG"));
+    m_names.insert(QStringLiteral("grb"),              tr("GRB"));
+    m_names.insert(QStringLiteral("rbg"),              tr("RBG"));
+    m_names.insert(QStringLiteral("rgba"),             tr("RGBA"));
+    m_names.insert(QStringLiteral("argb"),             tr("ARGB"));
+    m_names.insert(QStringLiteral("bgra"),             tr("BGRA"));
+    m_names.insert(QStringLiteral("abgr"),             tr("ABGR"));
+    m_names.insert(QStringLiteral("integer_32"),       tr("Integer 32"));
+    m_names.insert(QStringLiteral("float_32"),         tr("Float 32"));
+    m_names.insert(QStringLiteral("integer_64"),       tr("Integer 64"));
+    m_names.insert(QStringLiteral("float_64"),         tr("Float 64"));
 
     // --- группы по bpp ---
     m_groups[1]  = QStringList{"mono_1", "mono_inverted", "mono_amber",
@@ -1066,16 +1074,16 @@ void PaletteManager::registerSampledPalettes()
 {
     struct Source {
         const char *id;
-        const char *name;
-        GenFn fn;
+        QString     name;
+        GenFn       fn;
     };
     const Source sources[] = {
-        { "heat",      "Тепловая",    createHeat      },
-        { "viridis",   "Вирдис",      createViridis   },
-        { "plasma",    "Плазма",      createPlasma    },
-        { "rainbow",   "Радуга",      createRainbow   },
-        { "solarize",  "Соляризация", createSolarize  },
-        { "hash_color","Хеш-цвет",    createHashColor },
+        { "heat",       tr("Heat"),       createHeat      },
+        { "viridis",    tr("Viridis"),    createViridis   },
+        { "plasma",     tr("Plasma"),     createPlasma    },
+        { "rainbow",    tr("Rainbow"),    createRainbow   },
+        { "solarize",   tr("Solarize"),   createSolarize  },
+        { "hash_color", tr("Hash color"), createHashColor },
     };
 
     for (int bpp : PM_SAMPLED_BPPS) {
@@ -1084,7 +1092,7 @@ void PaletteManager::registerSampledPalettes()
             const QString paletteId =
                 QString("%1_%2").arg(s.id).arg(bpp);
             const QString paletteDisplayName =
-                QString::fromUtf8(s.name) + QString(" %1bpp").arg(bpp);
+                QString("%1 %2bpp").arg(s.name).arg(bpp);
 
             GenFn src = s.fn;
             GenFn sampled = [src, n](const QVariantMap &) -> QVector<QColor> {

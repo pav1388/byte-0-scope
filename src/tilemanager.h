@@ -52,8 +52,8 @@ struct CancelFlag {
 using CancelFlagPtr = std::shared_ptr<CancelFlag>;
 
 struct RenderContext {
-    QByteArray    data;     // только для XOR/demo
-    MappedFilePtr mapped;   // для файла (mmap) — владелец
+    QByteArray    data;
+    MappedFilePtr mapped;
 
     qint64     regionStart = 0;
     qint64     regionEnd   = 0;

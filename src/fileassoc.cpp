@@ -63,11 +63,6 @@ QString progIdForExt(const QString &ext)
     return QStringLiteral(FA_PROGID_PREFIX) + extensionWithoutDot(ext);
 }
 
-QString faTr(const char *text)
-{
-    return QCoreApplication::translate("FileAssoc", text);
-}
-
 #ifdef Q_OS_WIN
 void notifyShell()
 {
@@ -79,7 +74,8 @@ bool registerWindows(const QString &ext, QString *err)
     const QString exePath = QCoreApplication::applicationFilePath();
     if (exePath.isEmpty()) {
         if (err)
-            *err = faTr("Не найден путь к exe.");
+            *err = QCoreApplication::translate(
+                "FileAssoc", "Executable path not found.");
         return false;
     }
 
@@ -100,7 +96,8 @@ bool registerWindows(const QString &ext, QString *err)
 
     if (classes.status() != QSettings::NoError) {
         if (err)
-            *err = faTr("Не удалось записать в реестр.");
+            *err = QCoreApplication::translate(
+                "FileAssoc", "Failed to write to the registry.");
         return false;
     }
 
@@ -125,7 +122,8 @@ bool unregisterWindows(const QString &ext, QString *err)
     classes.sync();
     if (classes.status() != QSettings::NoError) {
         if (err)
-            *err = faTr("Не удалось очистить реестр.");
+            *err = QCoreApplication::translate(
+                "FileAssoc", "Failed to clean up the registry.");
         return false;
     }
 
@@ -145,7 +143,8 @@ bool registerLinux(const QString &ext, QString *err)
     const QString exePath = QCoreApplication::applicationFilePath();
     if (exePath.isEmpty()) {
         if (err)
-            *err = faTr("Не найден путь к exe.");
+            *err = QCoreApplication::translate(
+                "FileAssoc", "Executable path not found.");
         return false;
     }
 
@@ -163,7 +162,8 @@ bool registerLinux(const QString &ext, QString *err)
         QFile xml(xmlPath);
         if (!xml.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             if (err)
-                *err = faTr("Не удалось создать MIME XML.");
+                *err = QCoreApplication::translate(
+                    "FileAssoc", "Failed to create MIME XML.");
             return false;
         }
         QTextStream out(&xml);
@@ -191,7 +191,8 @@ bool registerLinux(const QString &ext, QString *err)
         QFile desk(desktopPath);
         if (!desk.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             if (err)
-                *err = faTr("Не удалось создать .desktop файл.");
+                *err = QCoreApplication::translate(
+                    "FileAssoc", "Failed to create .desktop file.");
             return false;
         }
         QTextStream out(&desk);
@@ -213,7 +214,8 @@ bool registerLinux(const QString &ext, QString *err)
                     mimeType });
     if (!xdgMime.waitForFinished(FA_TOOL_TIMEOUT_MS)) {
         if (err)
-            *err = faTr("xdg-mime не ответил за отведённое время.");
+            *err = QCoreApplication::translate(
+                "FileAssoc", "xdg-mime did not respond within the timeout.");
         return false;
     }
 
@@ -261,20 +263,20 @@ bool registerFileAssociation(const QString &ext, QWidget *parent)
     ok = registerLinux(ext, &error);
 #else
     error = QCoreApplication::translate("FileAssoc",
-        "Регистрация ассоциаций не поддерживается на этой платформе.");
+        "File association registration is not supported on this platform.");
 #endif
 
     if (parent) {
         if (ok) {
             QMessageBox::information(parent,
-                QCoreApplication::translate("FileAssoc", "Ассоциация"),
+                QCoreApplication::translate("FileAssoc", "Association"),
                 QCoreApplication::translate("FileAssoc",
-                    "Расширение %1 зарегистрировано за этой программой.").arg(ext));
+                    "Extension %1 has been registered to this program.").arg(ext));
         } else {
             QMessageBox::warning(parent,
-                QCoreApplication::translate("FileAssoc", "Ошибка"),
+                QCoreApplication::translate("FileAssoc", "Error"),
                 QCoreApplication::translate("FileAssoc",
-                    "Не удалось зарегистрировать %1.\n%2").arg(ext, error));
+                    "Failed to register %1.\n%2").arg(ext, error));
         }
     }
     return ok;
@@ -294,20 +296,20 @@ bool unregisterFileAssociation(const QString &ext, QWidget *parent)
     ok = unregisterLinux(ext, &error);
 #else
     error = QCoreApplication::translate("FileAssoc",
-        "Удаление ассоциаций не поддерживается на этой платформе.");
+        "File association removal is not supported on this platform.");
 #endif
 
     if (parent) {
         if (ok) {
             QMessageBox::information(parent,
-                QCoreApplication::translate("FileAssoc", "Ассоциация"),
+                QCoreApplication::translate("FileAssoc", "Association"),
                 QCoreApplication::translate("FileAssoc",
-                    "Ассоциация для %1 удалена.").arg(ext));
+                    "Association for %1 has been removed.").arg(ext));
         } else {
             QMessageBox::warning(parent,
-                QCoreApplication::translate("FileAssoc", "Ошибка"),
+                QCoreApplication::translate("FileAssoc", "Error"),
                 QCoreApplication::translate("FileAssoc",
-                    "Не удалось удалить %1.\n%2").arg(ext, error));
+                    "Failed to remove %1.\n%2").arg(ext, error));
         }
     }
     return ok;
