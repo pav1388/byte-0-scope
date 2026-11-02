@@ -23,6 +23,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QDateTime>
+#include <QDir>
 #include <QDesktopServices>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -358,9 +359,25 @@ void MainWindow::buildMenus()
     resetCfgAct->setShortcut(QKeySequence("Ctrl+R"));
     connect(resetCfgAct, &QAction::triggered, this, &MainWindow::resetConfig);
 
-    QAction *exportAct = fileMenu->addAction(tr("Export to PNG…"));
-    exportAct->setShortcut(QKeySequence("Ctrl+E"));
-    connect(exportAct, &QAction::triggered, this, &MainWindow::exportPng);
+    m_exportMenu = fileMenu->addMenu(tr("Export to PNG"));
+    QAction *exportVisibleAct = m_exportMenu->addAction(
+        tr("Current visible area…"));
+    connect(exportVisibleAct, &QAction::triggered, this, [this]() {
+        exportPng(ExportVisibleArea);
+    });
+
+    QAction *exportOriginalAct = m_exportMenu->addAction(
+        tr("Entire image (1:1)…"));
+    exportOriginalAct->setShortcut(QKeySequence("Ctrl+E"));
+    connect(exportOriginalAct, &QAction::triggered, this, [this]() {
+        exportPng(ExportFullOriginal);
+    });
+
+    QAction *exportCurrentAct = m_exportMenu->addAction(
+        tr("Entire image (current scale)…"));
+    connect(exportCurrentAct, &QAction::triggered, this, [this]() {
+        exportPng(ExportFullCurrentScale);
+    });
 
     fileMenu->addSeparator();
 
@@ -671,6 +688,8 @@ void MainWindow::buildUi()
     if (m_canvas && m_canvas->tileManager()) {
         connect(m_canvas->tileManager(), &TileManager::activeTasksChanged,
                 this, &MainWindow::onActiveTasksChanged);
+        connect(m_canvas->tileManager(), &TileManager::pngExportFinished,
+                this, &MainWindow::onPngExportFinished);
     }
     applyPerfFromSlider(m_perfSliderValue);
 
@@ -1339,9 +1358,13 @@ void MainWindow::onLanguageChanged(QAction *action)
 //  PNG
 // =========================================================================
 
-void MainWindow::exportPng()
+void MainWindow::exportPng(PngExportMode mode)
 {
-    if (m_fileSize <= 0 || !m_canvas)
+    if (m_busyPngExport) {
+        statusBar()->showMessage(tr("A PNG export is already running."), 4000);
+        return;
+    }
+    if (m_fileSize <= 0 || !m_canvas || !m_canvas->tileManager())
         return;
 
     QString dir;
@@ -1361,41 +1384,148 @@ void MainWindow::exportPng()
     if (stem.isEmpty())
         stem = QStringLiteral("untitled");
 
-    const QString def = dir + QLatin1Char('/') + stem + QStringLiteral(".png");
+    int exportScale = 1;
+    int exportDownsample = 1;
+    QRect canvasRect;
+    QString suffix;
+    QString dialogTitle;
 
-    const QString path = QFileDialog::getSaveFileName(
-        this, tr("Save PNG"), def, tr("PNG (*.png)"));
+    switch (mode) {
+    case ExportVisibleArea: {
+        exportScale = qMax(1, m_canvas->scale());
+        exportDownsample = qMax(1, m_canvas->downsample());
+        if (!m_centerScroll || !m_centerScroll->viewport())
+            return;
+        // Map the canvas into viewport coordinates instead of assuming that
+        // scrollbar values are always its exact origin. This also handles a
+        // canvas smaller than the viewport and any future scroll-area alignment.
+        const QPoint canvasOrigin = m_canvas->mapTo(
+            m_centerScroll->viewport(), QPoint(0, 0));
+        const QRect canvasInViewport(canvasOrigin, m_canvas->size());
+        const QRect visibleInViewport = canvasInViewport.intersected(
+            m_centerScroll->viewport()->rect());
+        if (!visibleInViewport.isEmpty()) {
+            canvasRect = QRect(visibleInViewport.topLeft() - canvasOrigin,
+                               visibleInViewport.size());
+        }
+        suffix = QStringLiteral("_visible");
+        dialogTitle = tr("Save visible area as PNG");
+        break;
+    }
+    case ExportFullOriginal:
+        exportScale = 1;
+        exportDownsample = 1;
+        canvasRect = QRect(QPoint(0, 0),
+                           QSize(m_canvas->imageWidth(), m_canvas->imageHeight()));
+        suffix = QStringLiteral("_1to1");
+        dialogTitle = tr("Save entire image (1:1) as PNG");
+        break;
+    case ExportFullCurrentScale:
+    default:
+        exportScale = qMax(1, m_canvas->scale());
+        exportDownsample = qMax(1, m_canvas->downsample());
+        canvasRect = QRect(QPoint(0, 0), m_canvas->scaledSize());
+        // Keep the old default filename for the former single Export action.
+        suffix.clear();
+        dialogTitle = tr("Save entire image at current scale as PNG");
+        break;
+    }
+
+    if (canvasRect.isEmpty()) {
+        QMessageBox::information(this, tr("Export to PNG"),
+                                 tr("There is no visible image area to export."));
+        return;
+    }
+
+    const QString def = dir + QLatin1Char('/') + stem + suffix
+                      + QStringLiteral(".png");
+    QString path = QFileDialog::getSaveFileName(
+        this, dialogTitle, def, tr("PNG (*.png)"));
     if (path.isEmpty())
         return;
-
-    const QSize imgSize = m_canvas->scaledSize();
-    if (imgSize.isEmpty())
+    const QString selectedSuffix = QFileInfo(path).suffix();
+    if (selectedSuffix.isEmpty()) {
+        path += QStringLiteral(".png");
+    } else if (selectedSuffix.compare(QLatin1String("png"),
+                                      Qt::CaseInsensitive) != 0) {
+        QMessageBox::warning(
+            this, tr("Export to PNG"),
+            tr("Please use the .png file extension for PNG exports."));
         return;
+    }
+
+    // Never let an export replace the currently opened binary source.
+    if (!m_source.sourcePath().isEmpty()) {
+        const QFileInfo sourceInfo(m_source.sourcePath());
+        const QFileInfo destinationInfo(path);
+        QString sourcePath = sourceInfo.canonicalFilePath();
+        QString destinationPath = destinationInfo.canonicalFilePath();
+        if (sourcePath.isEmpty()) {
+            const QString sourceDir = QFileInfo(sourceInfo.absolutePath()).canonicalFilePath();
+            sourcePath = QDir::cleanPath(
+                QDir(sourceDir.isEmpty() ? sourceInfo.absolutePath() : sourceDir)
+                    .filePath(sourceInfo.fileName()));
+        }
+        if (destinationPath.isEmpty()) {
+            const QString destinationDir =
+                QFileInfo(destinationInfo.absolutePath()).canonicalFilePath();
+            destinationPath = QDir::cleanPath(
+                QDir(destinationDir.isEmpty() ? destinationInfo.absolutePath()
+                                              : destinationDir)
+                    .filePath(destinationInfo.fileName()));
+        }
+#ifdef Q_OS_WIN
+        const Qt::CaseSensitivity pathCase = Qt::CaseInsensitive;
+#else
+        const Qt::CaseSensitivity pathCase = Qt::CaseSensitive;
+#endif
+        if (sourcePath.compare(destinationPath, pathCase) == 0) {
+            QMessageBox::warning(
+                this, tr("Export to PNG"),
+                tr("The PNG destination must not be the currently opened source file."));
+            return;
+        }
+    }
+
+    // Capture all UI-dependent values on the GUI thread. The worker receives
+    // only immutable image parameters and an independent RenderContext.
+    const QColor background = m_canvas->palette().window().color();
+    if (!m_canvas->tileManager()->startPngExport(
+            path, canvasRect, exportScale, exportDownsample, background)) {
+        QMessageBox::warning(
+            this, tr("Export to PNG"),
+            tr("The requested PNG dimensions are invalid or too large for this Qt build, "
+               "or the export task could not be started."));
+        return;
+    }
 
     m_busyPngExport = true;
+    if (m_exportMenu)
+        m_exportMenu->setEnabled(false);
     updateBusyLabel();
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-
-    QImage out = m_canvas->renderToImage(imgSize);
-
-    QApplication::restoreOverrideCursor();
-    m_busyPngExport = false;
-    updateBusyLabel();
-
-    if (out.isNull()) {
-        QMessageBox::warning(
-            this, tr("Error"),
-            tr("The image could not be rendered. Check its dimensions and available memory."));
-        return;
-    }
-
-    if (!out.save(path, "PNG")) {
-        QMessageBox::warning(this, tr("Error"), tr("Failed to save."));
-        return;
-    }
-
-    m_lastDir = QFileInfo(path).absolutePath();
+    statusBar()->showMessage(tr("PNG export started…"));
 }
+
+void MainWindow::onPngExportFinished(const QString &path, bool success,
+                                     const QString &errorMessage)
+{
+    m_busyPngExport = false;
+    if (m_exportMenu)
+        m_exportMenu->setEnabled(true);
+    updateBusyLabel();
+
+    if (success) {
+        m_lastDir = QFileInfo(path).absolutePath();
+        statusBar()->showMessage(tr("PNG saved: %1").arg(QFileInfo(path).fileName()),
+                                 6000);
+    } else {
+        statusBar()->clearMessage();
+        QMessageBox::warning(
+            this, tr("Export to PNG"),
+            tr("Failed to save PNG:\n%1").arg(errorMessage));
+    }
+}
+
 
 // =========================================================================
 //  Заголовок / drag&drop / close / hint

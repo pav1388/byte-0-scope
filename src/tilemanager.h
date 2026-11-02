@@ -14,6 +14,7 @@
 #include <QMetaType>
 #include <QObject>
 #include <QSet>
+#include <QRect>
 #include <QSize>
 #include <QVariantMap>
 #include <QVector>
@@ -144,6 +145,8 @@ public:
 
     QImage getTile(int tileX, int tileY);
     QImage renderImage(const QSize &targetSize, int scale, int downsample) const;
+    bool startPngExport(const QString &path, const QRect &canvasRect,
+                        int scale, int downsample, const QColor &background);
     void prefetchAround(const QSet<TileKey> &visible);
     void setVisibleTiles(const QSet<TileKey> &visible);
 
@@ -158,9 +161,13 @@ public:
 signals:
     void tileReady(const TileKey &key);
     void activeTasksChanged(int count);
+    void pngExportFinished(const QString &path, bool success,
+                           const QString &errorMessage);
 
 private slots:
     void onTileRendered(const TileKey &key, const QImage &img, quint64 gen);
+    void onPngExportTaskFinished(const QString &path, bool success,
+                                 const QString &errorMessage);
 
 private:
     RenderContextPtr buildContext() const;
@@ -170,6 +177,7 @@ private:
 
     CanvasWidget *m_canvas = nullptr;
     RenderContextPtr m_context;
+    RenderContextPtr m_exportContext;
     quint64 m_generation = 0;
 
     QHash<TileKey, QImage> m_tiles;

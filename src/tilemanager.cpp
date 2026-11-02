@@ -10,6 +10,8 @@
 #include "pixeldecoder.h"
 
 #include <QDateTime>
+#include <QImageWriter>
+#include <QSaveFile>
 #include <QMetaObject>
 #include <QPointer>
 #include <QPainter>
@@ -337,6 +339,8 @@ TileManager::~TileManager()
 {
     if (m_context && m_context->cancel)
         m_context->cancel->cancel();
+    if (m_exportContext && m_exportContext->cancel)
+        m_exportContext->cancel->cancel();
     if (m_pool) {
         m_pool->clear();
         m_pool->waitForDone();
@@ -634,6 +638,244 @@ QImage TileManager::renderImage(const QSize &targetSize, int scale,
     }
     painter.end();
     return output;
+}
+
+
+namespace {
+
+bool validPngExportRegion(const RenderContext &context, const QRect &canvasRect,
+                          int scale, int downsample, QString *errorMessage)
+{
+    if (context.imageWidth <= 0 || context.imageHeight <= 0
+            || canvasRect.isEmpty() || scale <= 0 || downsample <= 0) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("Invalid export dimensions.");
+        return false;
+    }
+
+    const int outputWidth = tileOutputExtent(context.imageWidth, downsample);
+    const int outputHeight = tileOutputExtent(context.imageHeight, downsample);
+    const qint64 fullWidth = qint64(outputWidth) * scale;
+    const qint64 fullHeight = qint64(outputHeight) * scale;
+    const qint64 right = qint64(canvasRect.x()) + canvasRect.width();
+    const qint64 bottom = qint64(canvasRect.y()) + canvasRect.height();
+    if (outputWidth <= 0 || outputHeight <= 0
+            || fullWidth <= 0 || fullHeight <= 0
+            || fullWidth > INT_MAX || fullHeight > INT_MAX
+            || canvasRect.x() < 0 || canvasRect.y() < 0
+            || right > fullWidth || bottom > fullHeight) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("The requested export area is outside the image.");
+        return false;
+    }
+
+    // Qt 5.6 stores QImage scanline and byte-count values in int-sized fields.
+    // Reject dimensions that cannot be represented before allocating anything.
+    const qint64 rowBytes = qint64(canvasRect.width()) * 4;
+    if (rowBytes <= 0 || rowBytes > INT_MAX
+            || qint64(canvasRect.height()) > INT_MAX / rowBytes) {
+        if (errorMessage)
+            *errorMessage = QStringLiteral("The PNG is too large for this Qt build.");
+        return false;
+    }
+
+    const qint64 imageBytes = rowBytes * qint64(canvasRect.height());
+    const qint64 availableMemory = BytesSource::availableMemory();
+    if (availableMemory > 0) {
+        // Reserve up to 512 MiB of currently available physical RAM for the
+        // application, source mapping, OS and the PNG encoder.
+        const qint64 reserve = qMin<qint64>(512LL * 1024 * 1024,
+                                            availableMemory / 4);
+        if (imageBytes > availableMemory - reserve) {
+            if (errorMessage)
+                *errorMessage = QStringLiteral(
+                    "The PNG would require more memory than is safely available.");
+            return false;
+        }
+    }
+    return true;
+}
+
+QImage renderPngExportRegion(const RenderContext &context,
+                             const QRect &canvasRect,
+                             int scale, int downsample,
+                             const QColor &background)
+{
+    QString validationError;
+    if (!validPngExportRegion(context, canvasRect, scale, downsample,
+                              &validationError))
+        return QImage();
+
+    QImage output(canvasRect.size(), QImage::Format_ARGB32);
+    if (output.isNull())
+        return QImage();
+    output.fill(background.rgba());
+
+    const int outputWidth = tileOutputExtent(context.imageWidth, downsample);
+    const int outputHeight = tileOutputExtent(context.imageHeight, downsample);
+    const int outputTileSize = tileOutputSize(context.tileSize, downsample);
+    const qint64 tileSpan = qint64(outputTileSize) * scale;
+    if (tileSpan <= 0)
+        return QImage();
+
+    const qint64 regionRight = qint64(canvasRect.x()) + canvasRect.width() - 1;
+    const qint64 regionBottom = qint64(canvasRect.y()) + canvasRect.height() - 1;
+    const int firstTileX = int(qint64(canvasRect.x()) / tileSpan);
+    const int firstTileY = int(qint64(canvasRect.y()) / tileSpan);
+    const int lastTileX = int(regionRight / tileSpan);
+    const int lastTileY = int(regionBottom / tileSpan);
+
+    const int tilesX = int((qint64(outputWidth) + outputTileSize - 1)
+                           / outputTileSize);
+    const int tilesY = int((qint64(outputHeight) + outputTileSize - 1)
+                           / outputTileSize);
+    if (firstTileX < 0 || firstTileY < 0
+            || lastTileX >= tilesX || lastTileY >= tilesY)
+        return QImage();
+
+    QPainter painter(&output);
+    if (!painter.isActive())
+        return QImage();
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+
+    for (int ty = firstTileY; ty <= lastTileY; ++ty) {
+        for (int tx = firstTileX; tx <= lastTileX; ++tx) {
+            if (cancelled(context))
+                return QImage();
+
+            const QImage tile = TileManager::renderTile(
+                context, TileKey(tx, ty, downsample));
+            if (tile.isNull())
+                return QImage();
+
+            const qint64 tileX = qint64(tx) * tileSpan;
+            const qint64 tileY = qint64(ty) * tileSpan;
+            const qint64 tileWidth = qint64(tile.width()) * scale;
+            const qint64 tileHeight = qint64(tile.height()) * scale;
+            const qint64 destX = tileX - canvasRect.x();
+            const qint64 destY = tileY - canvasRect.y();
+            if (tileWidth <= 0 || tileHeight <= 0
+                    || destX < INT_MIN || destX > INT_MAX
+                    || destY < INT_MIN || destY > INT_MAX
+                    || tileWidth > INT_MAX || tileHeight > INT_MAX)
+                return QImage();
+
+			const QRect target = QRect(
+				int(destX),
+				int(destY),
+				int(tileWidth),
+				int(tileHeight)
+			);
+
+			painter.drawImage(target, tile);
+        }
+    }
+    painter.end();
+    return output;
+}
+
+} // namespace
+
+class PngExportTask : public QRunnable {
+public:
+    PngExportTask(const QString &path, RenderContextPtr context,
+                  const QRect &canvasRect, int scale, int downsample,
+                  const QColor &background, QPointer<TileManager> manager)
+        : m_path(path), m_context(std::move(context)),
+          m_canvasRect(canvasRect), m_scale(scale), m_downsample(downsample),
+          m_background(background), m_manager(manager)
+    {
+        setAutoDelete(true);
+    }
+
+    void run() override
+    {
+        bool success = false;
+        QString errorMessage;
+
+        if (m_context && !cancelled(*m_context)) {
+            const QImage image = renderPngExportRegion(
+                *m_context, m_canvasRect, m_scale, m_downsample, m_background);
+            if (image.isNull()) {
+                errorMessage = QStringLiteral(
+                    "The image could not be rendered. Check its dimensions and available memory.");
+            } else {
+                // QSaveFile makes export atomic: a failed encoder or disk write
+                // won't leave a truncated file at the requested destination.
+                QSaveFile file(m_path);
+                if (!file.open(QIODevice::WriteOnly)) {
+                    errorMessage = file.errorString();
+                } else {
+                    QImageWriter writer(&file, QByteArray("png"));
+                    if (!writer.write(image)) {
+                        errorMessage = writer.errorString();
+                        file.cancelWriting();
+                    } else if (cancelled(*m_context)) {
+                        errorMessage = QStringLiteral("PNG export was cancelled.");
+                        file.cancelWriting();
+                    } else if (!file.commit()) {
+                        errorMessage = file.errorString();
+                    } else {
+                        success = true;
+                    }
+                }
+            }
+        } else {
+            errorMessage = QStringLiteral("PNG export was cancelled.");
+        }
+
+        if (m_manager) {
+            QMetaObject::invokeMethod(m_manager.data(),
+                                      "onPngExportTaskFinished",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(QString, m_path),
+                                      Q_ARG(bool, success),
+                                      Q_ARG(QString, errorMessage));
+        }
+    }
+
+private:
+    QString m_path;
+    RenderContextPtr m_context;
+    QRect m_canvasRect;
+    int m_scale;
+    int m_downsample;
+    QColor m_background;
+    QPointer<TileManager> m_manager;
+};
+
+bool TileManager::startPngExport(const QString &path, const QRect &canvasRect,
+                                 int scale, int downsample,
+                                 const QColor &background)
+{
+    if (!m_pool || path.isEmpty() || m_exportContext)
+        return false;
+
+    const RenderContextPtr context = buildContext();
+    if (!context)
+        return false;
+
+    QString validationError;
+    if (!validPngExportRegion(*context, canvasRect, scale, downsample,
+                              &validationError))
+        return false;
+
+    // buildContext() returns a fresh context with its own cancellation token.
+    // It is intentionally independent from the live tile-cache generation:
+    // changing zoom, palette, or opening another file cannot invalidate an
+    // export that has already started.
+    m_exportContext = context;
+    PngExportTask *task = new PngExportTask(
+        path, context, canvasRect, scale, downsample, background, this);
+    m_pool->start(task, -1); // let visible-tile renders take priority
+    return true;
+}
+
+void TileManager::onPngExportTaskFinished(const QString &path, bool success,
+                                          const QString &errorMessage)
+{
+    m_exportContext.reset();
+    emit pngExportFinished(path, success, errorMessage);
 }
 
 void TileManager::setVisibleTiles(const QSet<TileKey> &visible)

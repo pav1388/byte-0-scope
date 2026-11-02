@@ -113,7 +113,6 @@ private slots:
     void saveCurrentConfig();
     void loadConfigFromFile();
     void resetConfig();
-    void exportPng();
     void toggleTheme();
     void clearRecent();
     void onSettingsChanged();
@@ -133,6 +132,8 @@ private slots:
     void applyPerfSettings();
     void resetDisplaySettings();
     void onActiveTasksChanged(int count);
+    void onPngExportFinished(const QString &path, bool success,
+                             const QString &errorMessage);
     void onDebugInfoToggled(bool enabled);
 	void onTrainingButtonClicked();
 
@@ -158,6 +159,12 @@ private:
     void applyPerfFromSlider(int value);
     void resetToDemo();
     void ensureByteHistogram();
+    enum PngExportMode {
+        ExportVisibleArea,
+        ExportFullOriginal,
+        ExportFullCurrentScale
+    };
+    void exportPng(PngExportMode mode);
     void invalidateByteHistogram() { m_byteHistogramValid = false; }
 
     QString     configPathForFile(const QString &filePath) const;
@@ -248,6 +255,7 @@ private:
     QAction *m_mirrorVAct      = nullptr;
     QAction *m_byteTooltipAct  = nullptr;
     QAction *m_debugInfoAct    = nullptr;
+    QMenu   *m_exportMenu      = nullptr;
 
     // --- Панели статуса/отладки ---
     QSlider    *m_perfSlider   = nullptr;
