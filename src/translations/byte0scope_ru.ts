@@ -594,7 +594,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.cpp" line="+331"/>
+        <location filename="../mainwindow.cpp" line="+332"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -628,13 +628,34 @@ LSB-first: биты в байте расположены в обратном п�
         <source>Reset display settings</source>
         <translation>Сбросить настройки отображения</translation>
     </message>
+    
     <message>
         <location line="+4"/>
-        <source>Export to PNG…</source>
-        <translation>Экспорт в PNG…</translation>
+        <location line="+1073"/>
+        <location line="+17"/>
+        <location line="+32"/>
+        <location line="+12"/>
+        <location line="+28"/>
+        <source>Export to PNG</source>
+        <translation>Экспорт в PNG</translation>
+    </message>
+    <message>
+        <location line="-1160"/>
+        <source>Current visible area…</source>
+        <translation>Текущая видимая область…</translation>
     </message>
     <message>
         <location line="+6"/>
+        <source>Entire image (1:1)…</source>
+        <translation>Всё изображение (1:1)…</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Entire image (current scale)…</source>
+        <translation>Всё изображение (текущий масштаб)…</translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>Close current file</source>
         <translation>Закрыть текущий файл</translation>
     </message>
@@ -670,36 +691,36 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+888"/>
+        <location line="+903"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-888"/>
-        <location line="+888"/>
+        <location line="-903"/>
+        <location line="+903"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-884"/>
-        <location line="+916"/>
+        <location line="-899"/>
+        <location line="+931"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-911"/>
-        <location line="+907"/>
+        <location line="-926"/>
+        <location line="+922"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-902"/>
-        <location line="+902"/>
+        <location line="-917"/>
+        <location line="+917"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-888"/>
+        <location line="-903"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -776,12 +797,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+369"/>
+        <location line="+371"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-361"/>
+        <location line="-363"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -860,7 +881,7 @@ from eviction, so momentarily the cache may exceed the limit.</source>
         <translation>(включается в Настройки -&gt; Отладочная информация)</translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+33"/>
         <source>Ready</source>
         <translation>Готово</translation>
     </message>
@@ -912,13 +933,11 @@ Expected: %2</source>
     </message>
     <message>
         <location line="+15"/>
-        <location line="+562"/>
-        <location line="+6"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location line="-567"/>
+        <location line="+1"/>
         <source>Failed to open one of the files for comparison.</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
@@ -955,7 +974,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Не удалось прочитать файлы полностью.</translation>
     </message>
     <message>
-        <location line="+464"/>
+        <location line="+477"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -964,27 +983,72 @@ Restart the application to apply the change.</source>
 Перезапустите приложение, чтобы применить изменение.</translation>
     </message>
     <message>
-        <location line="+34"/>
-        <source>Save PNG</source>
-        <translation>Сохранить PNG</translation>
+        <location line="+12"/>
+        <source>A PNG export is already running.</source>
+        <translation>Экспорт в формат PNG уже выполняется.</translation>
     </message>
     <message>
-        <location line="+0"/>
+        <location line="+48"/>
+        <source>Save visible area as PNG</source>
+        <translation>Сохранить видимую область как PNG</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Save entire image (1:1) as PNG</source>
+        <translation>Сохранить всё изображение (1:1) в формате PNG</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Save entire image at current scale as PNG</source>
+        <translation>Сохранить всё изображение в текущем масштабе как PNG</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>There is no visible image area to export.</source>
+        <translation>Нет видимой области изображения для экспорта.</translation>
+    </message>
+    <message>
+        <location line="+17"/>
+        <source>Please use the .png file extension for PNG exports.</source>
+        <translation>Для экспорта в формате PNG используйте расширение файла .png.</translation>
+    </message>
+    <message>
+        <location line="+32"/>
+        <source>The PNG destination must not be the currently opened source file.</source>
+        <translation>Файл назначения PNG не должен быть тем же самым файлом, который открыт в данный момент.</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>The requested PNG dimensions are invalid or too large for this Qt build, or the export task could not be started.</source>
+        <translation>Запрошенные размеры PNG-изображения недопустимы или слишком велики для данной сборки Qt, либо не удалось запустить задачу экспорта.</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>PNG export started…</source>
+        <translation>Начат экспорт в PNG…</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>PNG saved: %1</source>
+        <translation>PNG сохранено: %1</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Failed to save PNG:
+%1</source>
+        <translation>Не удалось сохранить PNG:
+%1</translation>
+    </message>
+    
+    <message>
+        <location line="-82"/>
         <source>PNG (*.png)</source>
         <translation>PNG (*.png)</translation>
     </message>
+    
+    
     <message>
-        <location line="+21"/>
-        <source>The image could not be rendered. Check its dimensions and available memory.</source>
-        <translation>Не удалось отобразить изображение. Проверьте его размеры и доступный объем памяти.</translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>Failed to save.</source>
-        <translation>Не удалось сохранить.</translation>
-    </message>
-    <message>
-        <location line="+16"/>
+        <location line="+96"/>
         <source>Byte-0-scope v%1</source>
         <translation>Байт-0-скоп v%1</translation>
     </message>
@@ -994,7 +1058,7 @@ Restart the application to apply the change.</source>
         <translation>%1: [%2] [0x%3 / %4 байт] [%5×%6]</translation>
     </message>
     <message>
-        <location line="+298"/>
+        <location line="+336"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1592,7 +1656,7 @@ Auto-count: %1.</source>
 <context>
     <name>PanoramaWidget</name>
     <message>
-        <location filename="../panoramawidget.cpp" line="+99"/>
+        <location filename="../panoramawidget.cpp" line="+146"/>
         <source>No image</source>
         <translation>Нет изображения</translation>
     </message>
