@@ -11,6 +11,9 @@
 #include <QPainter>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QtMath>
+#include <cmath>
+#include <limits>
 
 // --- Настройки модуля PanoramaWidget (префикс PW_) ---
 
@@ -65,6 +68,14 @@ QRect PanoramaWidget::computeViewportRect() const
 {
     if (!m_main || m_main->imageWidth() <= 0)
         return QRect();
+
+    // Fit-to-window explicitly promises that the complete image is visible.
+    // Do not derive a smaller frame from the scrollbars: integer downsampling
+    // and QScrollArea's one-pixel rounding can otherwise make the panorama
+    // suggest that only part of the image is in view.
+    if (m_main->fitToWindow())
+        return QRect(m_dx, m_dy, m_dw, m_dh);
+
     QScrollArea *sa = m_main->scrollArea();
     if (!sa)
         return QRect();
@@ -72,19 +83,55 @@ QRect PanoramaWidget::computeViewportRect() const
     const int imgW = m_main->imageWidth();
     const int imgH = m_main->imageHeight();
     const double canvasScale = qMax(1, m_main->scale());
+    const double downsample = qMax(1, m_main->downsample());
 
-    const double viewX = sa->horizontalScrollBar()->value() / canvasScale;
-    const double viewY = sa->verticalScrollBar()->value()   / canvasScale;
-    const double viewW = sa->viewport()->width()  / canvasScale;
-    const double viewH = sa->viewport()->height() / canvasScale;
+    // Scrollbar coordinates are in downsampled canvas pixels; panorama
+    // coordinates are in source-image pixels. Convert through both factors.
+    const double viewX = sa->horizontalScrollBar()->value()
+                       / canvasScale * downsample;
+    const double viewY = sa->verticalScrollBar()->value()
+                       / canvasScale * downsample;
+    const double viewW = sa->viewport()->width()
+                       / canvasScale * downsample;
+    const double viewH = sa->viewport()->height()
+                       / canvasScale * downsample;
 
-    const double w = qMax(0.0, qMin(viewW, imgW - viewX));
-    const double h = qMax(0.0, qMin(viewH, imgH - viewY));
+    const double left = qBound(0.0, viewX, double(imgW));
+    const double top = qBound(0.0, viewY, double(imgH));
+    const double right = qBound(left, viewX + viewW, double(imgW));
+    const double bottom = qBound(top, viewY + viewH, double(imgH));
+    const double w = qMax(0.0, right - left);
+    const double h = qMax(0.0, bottom - top);
 
-    const int sx = m_dx + int(viewX * m_scale);
-    const int sy = m_dy + int(viewY * m_scale);
-    const int sw = qMax(PW_MIN_VIEWPORT_PX, int(w * m_scale));
-    const int sh = qMax(PW_MIN_VIEWPORT_PX, int(h * m_scale));
+    if (w <= 0.0 || h <= 0.0 || m_dw <= 0 || m_dh <= 0)
+        return QRect();
+
+    int sx = m_dx + int(std::floor(left * m_scale));
+    int sy = m_dy + int(std::floor(top * m_scale));
+    int ex = m_dx + int(std::ceil(right * m_scale));
+    int ey = m_dy + int(std::ceil(bottom * m_scale));
+
+    // Keep all edges inside the miniature. The explicit full-image case is
+    // handled above; these clamps protect fractional and edge coordinates.
+    const int imageRight = m_dx + m_dw;
+    const int imageBottom = m_dy + m_dh;
+    sx = qBound(m_dx, sx, imageRight);
+    sy = qBound(m_dy, sy, imageBottom);
+    ex = qBound(sx, ex, imageRight);
+    ey = qBound(sy, ey, imageBottom);
+
+    int sw = ex - sx;
+    int sh = ey - sy;
+    const int minW = qMin(PW_MIN_VIEWPORT_PX, m_dw);
+    const int minH = qMin(PW_MIN_VIEWPORT_PX, m_dh);
+    if (sw < minW) {
+        sw = minW;
+        sx = qBound(m_dx, sx - (sw - (ex - sx)) / 2, imageRight - sw);
+    }
+    if (sh < minH) {
+        sh = minH;
+        sy = qBound(m_dy, sy - (sh - (ey - sy)) / 2, imageBottom - sh);
+    }
     return QRect(sx, sy, sw, sh);
 }
 
@@ -100,16 +147,16 @@ void PanoramaWidget::paintEvent(QPaintEvent *)
         return;
     }
 
-    const int ww = width()  - PW_CONTENT_MARGIN;
-    const int wh = height() - PW_CONTENT_MARGIN;
+    const int ww = qMax(1, width()  - PW_CONTENT_MARGIN);
+    const int wh = qMax(1, height() - PW_CONTENT_MARGIN);
     const int iw = m_main->imageWidth();
     const int ih = m_main->imageHeight();
     if (iw <= 0 || ih <= 0)
         return;
 
     m_scale = qMin(double(ww) / iw, double(wh) / ih);
-    m_dw = int(iw * m_scale);
-    m_dh = int(ih * m_scale);
+    m_dw = qMax(1, int(iw * m_scale));
+    m_dh = qMax(1, int(ih * m_scale));
     m_dx = (width()  - m_dw) / 2;
     m_dy = (height() - m_dh) / 2;
 
@@ -192,8 +239,15 @@ void PanoramaWidget::mouseReleaseEvent(QMouseEvent *e)
         if (m_scale > 0 && m_main) {
             const double imgX = (m_currentViewport.x() - m_dx) / m_scale;
             const double imgY = (m_currentViewport.y() - m_dy) / m_scale;
-            const int sx = int(imgX * qMax(1, m_main->scale()));
-            const int sy = int(imgY * qMax(1, m_main->scale()));
+            const double downsample = qMax(1, m_main->downsample());
+            const qint64 sx64 = qRound64(
+                imgX * qMax(1, m_main->scale()) / downsample);
+            const qint64 sy64 = qRound64(
+                imgY * qMax(1, m_main->scale()) / downsample);
+            const int sx = int(qBound<qint64>(0, sx64,
+                std::numeric_limits<int>::max()));
+            const int sy = int(qBound<qint64>(0, sy64,
+                std::numeric_limits<int>::max()));
             emit scrollToRequested(sx, sy);
         }
 

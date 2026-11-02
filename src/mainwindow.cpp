@@ -1168,6 +1168,7 @@ void MainWindow::onSettingsChanged()
 {
     if (!m_controls)
         return;
+    const bool wasFitToWindow = m_fitToWindow;
     const int oldBpp = m_bppMode;
     m_bppMode = m_controls->bppMode();
 
@@ -1208,6 +1209,18 @@ void MainWindow::onSettingsChanged()
 
     recomputeGeometry();
     refreshTitle();
+
+    // When leaving Fit-to-window, restore the view around the pixel that was
+    // locked by the user. Defer until QScrollArea has recalculated its ranges
+    // for the newly sized canvas; otherwise setValue() may be clamped using
+    // the old scrollbar maximum.
+    if (wasFitToWindow && !m_fitToWindow && m_canvas
+            && m_canvas->hasLockedPixel()) {
+        const QPoint selectedPixel = m_canvas->lockedSourcePixelPosition();
+        QTimer::singleShot(0, this, [this, selectedPixel]() {
+            centerViewportOnSourcePixel(selectedPixel);
+        });
+    }
 }
 
 void MainWindow::onHoverChanged(qint64 addr)
@@ -1609,6 +1622,46 @@ void MainWindow::applyFitToWindow()
             m_controls->setScaleSilent(m_scale);
         m_canvas->rebuild();
     }
+}
+
+void MainWindow::centerViewportOnSourcePixel(const QPoint &sourcePixel)
+{
+    if (!m_centerScroll || !m_canvas
+            || sourcePixel.x() < 0 || sourcePixel.y() < 0
+            || sourcePixel.x() >= m_imageWidth
+            || sourcePixel.y() >= m_imageHeight)
+        return;
+
+    QScrollBar *h = m_centerScroll->horizontalScrollBar();
+    QScrollBar *v = m_centerScroll->verticalScrollBar();
+    QWidget *viewport = m_centerScroll->viewport();
+    if (!h || !v || !viewport)
+        return;
+
+    // The locked position is stored in source-image coordinates. Convert it
+    // back to the currently displayed orientation so mirror changes made
+    // while Fit-to-window was active are respected.
+    int displayX = m_mirrorH ? (m_imageWidth - 1 - sourcePixel.x())
+                             : sourcePixel.x();
+    int displayY = m_mirrorV ? (m_imageHeight - 1 - sourcePixel.y())
+                             : sourcePixel.y();
+
+    const int ds = qMax(1, m_downsample);
+    const int scale = qMax(1, m_scale);
+    const qint64 canvasX = qint64(displayX / ds) * scale + scale / 2;
+    const qint64 canvasY = qint64(displayY / ds) * scale + scale / 2;
+    const qint64 targetH = canvasX - viewport->width() / 2;
+    const qint64 targetV = canvasY - viewport->height() / 2;
+
+    // Scrollbar ranges are int-based in Qt 5.6. Keep all intermediate math
+    // wide, then clamp before converting back to int.
+    const int newH = int(qBound<qint64>(h->minimum(), targetH, h->maximum()));
+    const int newV = int(qBound<qint64>(v->minimum(), targetV, v->maximum()));
+    h->setValue(newH);
+    v->setValue(newV);
+
+    if (m_panorama)
+        m_panorama->updatePanorama();
 }
 
 void MainWindow::autoFitScale()

@@ -78,6 +78,8 @@ void CanvasWidget::clearLock()
         return;
     m_locked = false;
     m_lockedAddr = -1;
+    m_lockedSourcePixel = QPoint();
+    m_lockedSourcePixelValid = false;
     emit lockedChanged(-1);
     update();
 }
@@ -371,8 +373,11 @@ QSet<TileKey> CanvasWidget::visibleTiles() const
     return result;
 }
 
-qint64 CanvasWidget::byteAddressAt(const QPoint &pos) const
+qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel) const
 {
+    if (sourcePixel)
+        *sourcePixel = QPoint(-1, -1);
+
     if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main
             || pos.x() < 0 || pos.y() < 0)
         return -1;
@@ -403,6 +408,12 @@ qint64 CanvasWidget::byteAddressAt(const QPoint &pos) const
         x = m_imageWidth - 1 - x;
     if (m_main->mirrorVertical())
         y = m_imageHeight - 1 - y;
+
+    // Keep the exact source pixel selected by the mouse. For bit-packed
+    // formats several pixels may share one byte, so the byte address alone
+    // is not sufficient to restore the user's viewport position later.
+    if (sourcePixel)
+        *sourcePixel = QPoint(x, y);
 
     qint64 relative = 0;
     if (m_main->isBitpacked()) {
@@ -438,7 +449,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
     }
 
     if (e->button() == Qt::LeftButton) {
-        const qint64 a = byteAddressAt(e->pos());
+        QPoint sourcePixel;
+        const qint64 a = byteAddressAt(e->pos(), &sourcePixel);
         if (a < 0) {
             if (m_regionPickMode) {
                 setRegionPickMode(false);
@@ -454,6 +466,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
         if (m_regionPickMode) {
             m_locked     = true;
             m_lockedAddr = a;
+            m_lockedSourcePixel = sourcePixel;
+            m_lockedSourcePixelValid = true;
             m_hoverAddr  = a;
             emit lockedChanged(a);
             emit hoverChanged(a);
@@ -465,11 +479,15 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
         if (m_locked) {
             m_locked     = false;
             m_lockedAddr = -1;
+            m_lockedSourcePixel = QPoint();
+            m_lockedSourcePixelValid = false;
             m_hoverAddr  = a;
             emit lockedChanged(-1);
         } else {
             m_locked     = true;
             m_lockedAddr = a;
+            m_lockedSourcePixel = sourcePixel;
+            m_lockedSourcePixelValid = true;
             emit lockedChanged(a);
         }
         emit hoverChanged(a);
@@ -536,6 +554,8 @@ void CanvasWidget::clearHover()
     m_hoverAddr  = -1;
     m_locked     = false;
     m_lockedAddr = -1;
+    m_lockedSourcePixel = QPoint();
+    m_lockedSourcePixelValid = false;
     update();
 }
 

@@ -154,6 +154,7 @@ private:
     void calculateDimensions();
     void applyFitToWindow();
     void autoFitScale();
+    void centerViewportOnSourcePixel(const QPoint &sourcePixel);
     void applyPerfFromSlider(int value);
     void resetToDemo();
     void ensureByteHistogram();

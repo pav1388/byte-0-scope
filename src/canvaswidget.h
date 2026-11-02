@@ -37,6 +37,11 @@ public:
     void setRegionPickMode(bool enabled);
     bool regionPickMode() const { return m_regionPickMode; }
     void clearLock();
+    bool hasLockedPixel() const
+    {
+        return m_locked && m_lockedAddr >= 0 && m_lockedSourcePixelValid;
+    }
+    QPoint lockedSourcePixelPosition() const { return m_lockedSourcePixel; }
 
     QImage renderToImage(const QSize &targetSize);   // для PNG-экспорта
     QSize  scaledSize() const;
@@ -64,7 +69,8 @@ private slots:
     void prefetchTiles();
 
 private:
-    qint64        byteAddressAt(const QPoint &pos) const;
+    qint64        byteAddressAt(const QPoint &pos,
+                                QPoint *sourcePixel = nullptr) const;
     QSet<TileKey> visibleTiles() const;
 
     MainWindow *m_main = nullptr;
@@ -77,6 +83,8 @@ private:
     qint64 m_hoverAddr  = -1;
     qint64 m_lockedAddr = -1;
     bool   m_locked     = false;
+    QPoint m_lockedSourcePixel;
+    bool   m_lockedSourcePixelValid = false;
 
     bool   m_regionPickMode = false;
     bool   m_dragging       = false;
