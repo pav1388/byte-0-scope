@@ -8,6 +8,7 @@
 #include <QWidget>
 #include <QImage>
 #include <QPoint>
+#include <QRect>
 #include <QSize>
 #include <QTimer>
 #include <QSet>
@@ -94,8 +95,9 @@ private:
     QSet<TileKey> m_lastPrefetchTiles;
 
     TileManager *m_tiles = nullptr;
-	
-	QImage  m_frozenSnapshot;
+
+    QImage  m_frozenSnapshot;
+    QRect   m_snapshotRect;
     bool    m_snapshotActive = false;
     bool    allVisibleTilesReady() const;
 };

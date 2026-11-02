@@ -37,7 +37,7 @@
 #define PS_RECORD_SIZE_MAX          16
 #define PS_COUNT_MAX                65536
 #define PS_MIN_COUNT_MIN            2
-#define PS_MIN_COUNT_MAX            1000
+#define PS_MIN_COUNT_MAX            65536
 #define PS_STEP_MIN                 1
 #define PS_STEP_MAX                 256
 

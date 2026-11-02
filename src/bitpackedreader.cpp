@@ -5,59 +5,59 @@
 
 #include "bitpackedreader.h"
 
+#include <limits>
+
 BitPackedReader::BitPackedReader(int bitsPerPixel, const QString &bitOrder,
                                  int rowPaddingBits, const QString &pixelOrder)
     : m_bpp(qBound(1, bitsPerPixel, 8)),
       m_bitOrder(bitOrder.toLower()),
       m_pixelOrder(pixelOrder.toLower()),
       m_rowPadding(qMax(0, rowPaddingBits)),
-      m_maxValue((1 << bitsPerPixel) - 1)
+      m_maxValue((1 << qBound(1, bitsPerPixel, 8)) - 1)
 {
 }
 
 int BitPackedReader::rowBytes(int rowWidth) const
 {
-    const int totalBits = rowWidth * m_bpp + m_rowPadding;
-    return (totalBits + 7) / 8;
+    if (rowWidth <= 0)
+        return 0;
+    const qint64 totalBits = qint64(rowWidth) * m_bpp + m_rowPadding;
+    const qint64 bytes = (totalBits + 7) / 8;
+    return (bytes > 0 && bytes <= std::numeric_limits<int>::max())
+        ? int(bytes) : 0;
 }
 
 QVector<quint8> BitPackedReader::extractRow(const QByteArray &raw, int rowWidth) const
 {
+    // The application width control is capped at 65536. Reject unreasonable
+    // direct API calls rather than attempting multi-gigabyte allocations.
+    if (rowWidth <= 0 || rowWidth > 65536)
+        return QVector<quint8>();
+
     QVector<quint8> out(rowWidth, 0);
-    if (raw.isEmpty() || rowWidth <= 0)
+    if (raw.isEmpty())
         return out;
 
     const uchar *bytes = reinterpret_cast<const uchar *>(raw.constData());
-    const int nBytes = raw.size();
-    const int neededBits = rowWidth * m_bpp;
-
-    QVector<quint8> bits(neededBits, 0);
-    int bitPos = 0;
-    for (int i = 0; i < nBytes && bitPos < neededBits; ++i) {
-        const uchar byte = bytes[i];
-        for (int k = 0; k < 8 && bitPos < neededBits; ++k) {
-            const int bit = (m_bitOrder == QLatin1String("lsb"))
-                ? ((byte >> k) & 1)
-                : ((byte >> (7 - k)) & 1);
-            bits[bitPos++] = quint8(bit);
-        }
-    }
-
-    // Упаковка битов в пиксели
-    if (m_bpp == 1) {
-        for (int i = 0; i < rowWidth; ++i)
-            out[i] = bits[i];
-        return out;
-    }
-
+    const qint64 availableBits = qint64(raw.size()) * 8;
     for (int i = 0; i < rowWidth; ++i) {
+        const qint64 firstBit = qint64(i) * m_bpp;
         int value = 0;
-        if (m_pixelOrder == QLatin1String("lsb")) {
-            for (int k = 0; k < m_bpp; ++k)
-                value |= (bits[i * m_bpp + k] & 1) << k;
-        } else {
-            for (int k = 0; k < m_bpp; ++k)
-                value = (value << 1) | (bits[i * m_bpp + k] & 1);
+        for (int k = 0; k < m_bpp; ++k) {
+            const qint64 bitIndex = firstBit + k;
+            int bit = 0;
+            if (bitIndex < availableBits) {
+                const qint64 byteIndex = bitIndex >> 3;
+                const int bitInByte = int(bitIndex & 7);
+                const uchar byte = bytes[byteIndex];
+                bit = (m_bitOrder == QLatin1String("lsb"))
+                    ? ((byte >> bitInByte) & 1)
+                    : ((byte >> (7 - bitInByte)) & 1);
+            }
+            if (m_pixelOrder == QLatin1String("lsb"))
+                value |= bit << k;
+            else
+                value = (value << 1) | bit;
         }
         out[i] = quint8(value);
     }

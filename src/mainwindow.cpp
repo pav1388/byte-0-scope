@@ -127,19 +127,69 @@ static int largestDivisorLE(int n, int cap)
 {
     if (n <= 0)
         return 1;
-    if (cap < 1)
-        cap = 1;
-    int best = 1;
-    for (int i = 1; i * i <= n; ++i) {
-        if (n % i != 0)
-            continue;
-        if (i <= cap && i > best)
-            best = i;
-        const int q = n / i;
-        if (q <= cap && q > best)
-            best = q;
+
+    // The width control is limited to 65536. Searching down from that cap is
+    // bounded and avoids the i*i signed-overflow bug in the old sqrt loop.
+    const int limit = qBound(1, cap, 65536);
+    for (int divisor = qMin(n, limit); divisor >= 1; --divisor) {
+        if (n % divisor == 0)
+            return divisor;
     }
-    return best;
+    return 1;
+}
+
+static quint64 effectiveRegionLength(qint64 fileSize, quint64 offset,
+                                     quint64 requestedLength)
+{
+    if (fileSize <= 0 || offset >= quint64(fileSize))
+        return 0;
+    const quint64 available = quint64(fileSize) - offset;
+    return requestedLength > 0 ? qMin(requestedLength, available) : available;
+}
+
+static int pixelCountForBytes(quint64 byteCount, bool bitpacked,
+                              int bitsPerPixel, int bytesPerPixel)
+{
+    const quint64 intMax = quint64(std::numeric_limits<int>::max());
+    quint64 pixels = 0;
+    if (bitpacked) {
+        const quint64 bpp = quint64(qBound(1, bitsPerPixel, 8));
+        // Saturate before multiplying by eight to avoid overflow on huge files.
+        const quint64 maxBytesWithoutSaturation = (intMax * bpp) / 8;
+        if (byteCount > maxBytesWithoutSaturation)
+            return std::numeric_limits<int>::max();
+        pixels = (byteCount * 8) / bpp;
+    } else {
+        pixels = byteCount / quint64(qMax(1, bytesPerPixel));
+    }
+    return int(qMin(pixels, intMax));
+}
+
+static qint64 imageHeightForBytes(quint64 byteCount, int width,
+                                  bool bitpacked, int bitsPerPixel,
+                                  int rowPaddingBits, int bytesPerPixel)
+{
+    if (byteCount == 0 || width <= 0)
+        return 0;
+
+    quint64 rows = 0;
+    if (bitpacked) {
+        const qint64 rowBits = qint64(width) * qBound(1, bitsPerPixel, 8)
+                             + qMax(0, rowPaddingBits);
+        const qint64 rowBytes = (rowBits + 7) / 8;
+        if (rowBytes <= 0)
+            return 0;
+        const quint64 stride = quint64(rowBytes);
+        rows = byteCount / stride + (byteCount % stride != 0 ? 1 : 0);
+    } else {
+        const quint64 bpp = quint64(qMax(1, bytesPerPixel));
+        const quint64 pixels = byteCount / bpp;
+        const quint64 w = quint64(width);
+        rows = pixels / w + (pixels % w != 0 ? 1 : 0);
+    }
+
+    return rows > quint64(std::numeric_limits<qint64>::max())
+        ? std::numeric_limits<qint64>::max() : qint64(rows);
 }
 
 static QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX)
@@ -592,7 +642,7 @@ void MainWindow::buildUi()
     sldRow->addWidget(m_perfSlider);
 
     auto *lblPlus = new QLabel(tr("+"), this);
-    lblPlus->setToolTip(tr("1024 px per tile · cache limit 1 GB"));
+    lblPlus->setToolTip(tr("2048 px per tile · cache limit 1 GB"));
     sldRow->addWidget(lblPlus);
     perfLay->addLayout(sldRow);
 
@@ -709,7 +759,7 @@ void MainWindow::loadFile(const QString &path)
     }
     if (!cfgLoaded)
         applyDefaultConfig();
-	
+
 	applySquareWidthHint();
     recomputeGeometry();
     refreshTitle();
@@ -756,7 +806,7 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
 	m_trainingMode = false;
 	if (m_trainingBtn)
 		m_trainingBtn->setVisible(false);
-	
+
     QFile f1(p1), f2(p2);
     if (!f1.open(QIODevice::ReadOnly) || !f2.open(QIODevice::ReadOnly)) {
         QMessageBox::critical(this, tr("Error"),
@@ -844,7 +894,7 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     }
     if (!cfgLoaded)
         applyDefaultConfig();
-	
+
 	applySquareWidthHint();
     recomputeGeometry();
     refreshTitle();
@@ -883,11 +933,8 @@ void MainWindow::resetToDemo()
             tr("<b>Byte-0-scope - Interactive binary data visualizer</b>"));
     }
 
-    if (m_canvas) {
+    if (m_canvas)
         m_canvas->clearHover();
-        if (m_canvas->tileManager())
-            m_canvas->tileManager()->clearCache();
-    }
     if (m_byteInfo)
         m_byteInfo->updateInfo(-1);
 
@@ -911,7 +958,7 @@ void MainWindow::onPaletteChanged(const QString &value)
 
     if (!m_paletteParams.contains(id))
         m_paletteParams[id] = m_paletteManager->defaultParams(id);
-	
+
 	if (id == QStringLiteral("from_file")) {
 		QVariantMap p = m_paletteParams.value(id).toMap();
 		p["bpp"] = m_bppMode;
@@ -1015,22 +1062,16 @@ void MainWindow::recomputeGeometry()
 
 int MainWindow::calculateWidth() const
 {
-    if (m_fileSize <= 0)
-        return 0;
-
-    const quint64 actualLen = qMin<quint64>(
-        m_length ? m_length : (quint64(m_fileSize) - m_offset),
-        quint64(m_fileSize) - m_offset);
+    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
     if (actualLen == 0)
         return 0;
 
-    const int bp = qMax(1, bytesPerPixel());
-    const int pixels = isBitpacked()
-        ? int((actualLen * 8) / qMax(1, m_bppMode))
-        : int(actualLen / bp);
+    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
+                                          m_bppMode, bytesPerPixel());
     if (pixels <= 0)
         return 0;
 
+    const int bp = qMax(1, bytesPerPixel());
     switch (m_widthMode) {
     case 0: return qMax(1, m_fixedWidth);
     case 1: return qMax(1, int(qSqrt(double(pixels))));
@@ -1046,19 +1087,12 @@ int MainWindow::calculateWidth() const
 
 void MainWindow::applySquareWidthHint()
 {
-    if (m_fileSize <= 0)
+    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
+    if (actualLen == 0)
         return;
 
-    const quint64 length = m_length ? m_length : quint64(m_fileSize);
-    const quint64 end = qMin<quint64>(m_offset + length, quint64(m_fileSize));
-    if (end <= m_offset)
-        return;
-    const quint64 actualLen = end - m_offset;
-
-    const int bp = qMax(1, bytesPerPixel());
-    const int pixels = isBitpacked()
-        ? int((actualLen * 8) / qMax(1, m_bppMode))
-        : int(actualLen / bp);
+    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
+                                          m_bppMode, bytesPerPixel());
     if (pixels <= 0)
         return;
 
@@ -1071,25 +1105,29 @@ void MainWindow::applySquareWidthHint()
 void MainWindow::calculateDimensions()
 {
     m_imageWidth = m_imageHeight = 0;
-    if (m_fileSize <= 0)
+    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
+    if (actualLen == 0)
         return;
 
-    const quint64 length = m_length ? m_length : quint64(m_fileSize);
-    const quint64 end = qMin<quint64>(m_offset + length, quint64(m_fileSize));
-    if (end <= m_offset)
-        return;
-    const quint64 actualLen = end - m_offset;
-
-    const int pixels = isBitpacked()
-        ? int((actualLen * 8) / qMax(1, m_bppMode))
-        : int(actualLen / qMax(1, bytesPerPixel()));
+    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
+                                          m_bppMode, bytesPerPixel());
     if (pixels <= 0)
         return;
 
     m_imageWidth = calculateWidth();
     if (m_imageWidth <= 0)
         return;
-    m_imageHeight = (pixels + m_imageWidth - 1) / m_imageWidth;
+
+    // For bit-packed data, each row has its own padding. Derive the number
+    // of rows from the actual byte stride, not from a flat pixel count.
+    const qint64 height = imageHeightForBytes(
+        actualLen, m_imageWidth, isBitpacked(), m_bppMode,
+        m_rowPaddingBits, bytesPerPixel());
+    if (height <= 0 || height > std::numeric_limits<int>::max()) {
+        m_imageWidth = m_imageHeight = 0;
+        return;
+    }
+    m_imageHeight = int(height);
 
     if (m_centerScroll) {
         const QSize vp = m_centerScroll->viewport()->size();
@@ -1132,13 +1170,13 @@ void MainWindow::onSettingsChanged()
         return;
     const int oldBpp = m_bppMode;
     m_bppMode = m_controls->bppMode();
-	
+
 	if (m_paletteParams.contains(QStringLiteral("from_file"))) {
 		QVariantMap p = m_paletteParams.value(QStringLiteral("from_file")).toMap();
 		p["bpp"] = m_bppMode;
 		m_paletteParams[QStringLiteral("from_file")] = p;
 	}
-	
+
     m_bitOrder = m_controls->bitOrder();
     m_byteOrder = m_controls->byteOrder();
 	m_pixelOrder = m_controls->pixelOrder();
@@ -1160,18 +1198,12 @@ void MainWindow::onSettingsChanged()
     if (m_fitToWindow) {
         applyFitToWindow();
     } else if (m_autoScale) {
-        if (m_canvas && m_downsample != 1) {
+        if (m_canvas && m_downsample != 1)
             m_downsample = 1;
-            if (m_canvas->tileManager())
-                m_canvas->tileManager()->clearCache();
-        }
         autoFitScale();
     } else {
-        if (m_canvas && m_downsample != 1) {
+        if (m_canvas && m_downsample != 1)
             m_downsample = 1;
-            if (m_canvas->tileManager())
-                m_canvas->tileManager()->clearCache();
-        }
     }
 
     recomputeGeometry();
@@ -1337,8 +1369,12 @@ void MainWindow::exportPng()
     m_busyPngExport = false;
     updateBusyLabel();
 
-    if (out.isNull())
+    if (out.isNull()) {
+        QMessageBox::warning(
+            this, tr("Error"),
+            tr("The image could not be rendered. Check its dimensions and available memory."));
         return;
+    }
 
     if (!out.save(path, "PNG")) {
         QMessageBox::warning(this, tr("Error"), tr("Failed to save."));
@@ -1468,7 +1504,7 @@ void MainWindow::loadSettings()
 	m_language = s.value("language", QStringLiteral(MW_LANG_EN)).toString();
 	if (m_language.isEmpty())
 		m_language = QStringLiteral(MW_LANG_EN);
-	
+
     const QStringList recents = s.value("recent_files").toStringList();
     m_recentFiles = SettingsManager::filterExisting(recents, MW_RECENT_MAX);
 
@@ -1544,18 +1580,13 @@ void MainWindow::applyFitToWindow()
     if (w <= 0)
         return;
 
-    const quint64 length = m_length ? m_length : quint64(m_fileSize);
-    const quint64 end = qMin<quint64>(m_offset + length, quint64(m_fileSize));
-    if (end <= m_offset)
+    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
+    const qint64 height = imageHeightForBytes(
+        actualLen, w, isBitpacked(), m_bppMode,
+        m_rowPaddingBits, bytesPerPixel());
+    if (height <= 0 || height > std::numeric_limits<int>::max())
         return;
-    const quint64 actualLen = end - m_offset;
-
-    const int pixels = isBitpacked()
-        ? int((actualLen * 8) / qMax(1, m_bppMode))
-        : int(actualLen / qMax(1, bytesPerPixel()));
-    const int h = (pixels + w - 1) / w;
-    if (h <= 0)
-        return;
+    const int h = int(height);
 
     const QSize vp = m_centerScroll->viewport()->size();
     const int availW = qMax(1, vp.width()  - 2);
@@ -1591,18 +1622,13 @@ void MainWindow::autoFitScale()
     if (w <= 0)
         return;
 
-    const quint64 length = m_length ? m_length : quint64(m_fileSize);
-    const quint64 end = qMin<quint64>(m_offset + length, quint64(m_fileSize));
-    if (end <= m_offset)
+    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
+    const qint64 height = imageHeightForBytes(
+        actualLen, w, isBitpacked(), m_bppMode,
+        m_rowPaddingBits, bytesPerPixel());
+    if (height <= 0 || height > std::numeric_limits<int>::max())
         return;
-    const quint64 actualLen = end - m_offset;
-
-    const int pixels = isBitpacked()
-        ? int((actualLen * 8) / qMax(1, m_bppMode))
-        : int(actualLen / qMax(1, bytesPerPixel()));
-    const int h = (pixels + w - 1) / w;
-    if (h <= 0)
-        return;
+    const int h = int(height);
 
     const QSize vp = m_centerScroll->viewport()->size();
     const int availW = qMax(1, vp.width()  - 20);
@@ -1640,29 +1666,26 @@ void MainWindow::applyPerfSettings()
     const int v = m_pendingPerfValue;
     m_pendingPerfValue = -1;
     applyPerfFromSlider(v);
-    if (m_canvas && m_canvas->tileManager()) {
-        m_canvas->tileManager()->clearCache();
-        m_canvas->setForceRedraw();
-    }
 }
 
 void MainWindow::applyPerfFromSlider(int value)
 {
+    value = qBound(1, value, 20);
     m_perfSliderValue = value;
 
-    const double norm  = (value - 1) / 19.0;
-    const double logTs = std::log(256.0) + norm * (std::log(1024.0) - std::log(256.0));
-    m_tileSize = qBound(256, int(std::exp(logTs) + 0.5), 1024);
+    const double norm = (value - 1) / 19.0;
+    const double logTs = std::log(256.0) + norm * (std::log(2048.0) - std::log(256.0));
+    m_tileSize = qBound(256, int(std::exp(logTs) + 0.5), 2048);
 
     const double logM = norm * std::log(6.0);
     m_tilePrefetchMargin = qBound(2, int(std::exp(logM) + 0.5), 7);
 
     const double logC = std::log(180.0) + norm * (std::log(1000.0) - std::log(180.0));
     const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), 1000);
+
     if (m_canvas && m_canvas->tileManager()) {
         m_canvas->tileManager()->setCacheLimitMb(cacheMb);
-        m_canvas->tileManager()->clearCache();
-        m_canvas->setForceRedraw();
+        m_canvas->rebuild();
     }
 }
 
@@ -2200,11 +2223,8 @@ void MainWindow::startTraining()
     }
 
     // 3. Перестраиваем
-    if (m_canvas) {
+    if (m_canvas)
         m_canvas->clearHover();
-        if (m_canvas->tileManager())
-            m_canvas->tileManager()->clearCache();
-    }
     recomputeGeometry();
     refreshTitle();
     if (m_canvas)

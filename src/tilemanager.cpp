@@ -12,12 +12,14 @@
 #include <QDateTime>
 #include <QMetaObject>
 #include <QPointer>
+#include <QPainter>
 #include <QRunnable>
 #include <QThread>
 #include <QThreadPool>
-#include <QtMath>
 #include <algorithm>
 #include <climits>
+#include <limits>
+#include <utility>
 
 namespace {
 
@@ -31,185 +33,246 @@ bool shouldAbort(const RenderContext &ctx, int row) noexcept
     return (row & 7) == 0 && cancelled(ctx);
 }
 
-void fillBitpacked(QImage &img, const RenderContext &ctx,
-                   int tilePx, int tilePy, int tw, int th)
+bool validSourceRegion(const RenderContext &ctx, const uchar **raw,
+                       qint64 *regionLength)
 {
-    BitPackedReader reader(ctx.bppMode, ctx.bitOrder,
+    const qint64 size = ctx.byteSize();
+    const uchar *bytes = ctx.bytes();
+
+    if (size < 0 || ctx.regionStart < 0 || ctx.regionEnd < ctx.regionStart
+            || ctx.regionStart > size || ctx.regionEnd > size)
+        return false;
+
+    if (size > 0 && !bytes)
+        return false;
+
+    if (raw)
+        *raw = bytes;
+    if (regionLength)
+        *regionLength = ctx.regionEnd - ctx.regionStart;
+    return true;
+}
+
+bool sampledCoordinate(int tileSourceOrigin, int localOutputCoordinate,
+                       int downsample, int sourceExtent, bool mirrored,
+                       int *result)
+{
+    if (!result || sourceExtent <= 0 || localOutputCoordinate < 0)
+        return false;
+
+    const qint64 source = qint64(tileSourceOrigin)
+                        + qint64(localOutputCoordinate) * qMax(1, downsample);
+    if (source < 0 || source >= sourceExtent)
+        return false;
+
+    const qint64 mapped = mirrored ? qint64(sourceExtent) - 1 - source : source;
+    if (mapped < 0 || mapped >= sourceExtent)
+        return false;
+
+    *result = int(mapped);
+    return true;
+}
+
+bool sourcePixelOffset(qint64 pixelIndex, int bytesPerPixel,
+                       qint64 regionLength, qint64 *relativeOffset)
+{
+    if (!relativeOffset || pixelIndex < 0 || bytesPerPixel <= 0
+            || regionLength < bytesPerPixel)
+        return false;
+
+    const qint64 bpp = bytesPerPixel;
+    if (pixelIndex > (regionLength - bpp) / bpp)
+        return false;
+
+    *relativeOffset = pixelIndex * bpp;
+    return true;
+}
+
+void fillBitpacked(QImage &img, const RenderContext &ctx,
+                   int sourceX0, int sourceY0, int tw, int th, int ds,
+                   const uchar *raw, qint64 regionLength)
+{
+    const int bpp = ctx.bppMode;
+    if (bpp < 1 || bpp > 8)
+        return;
+
+    // Use 64-bit row arithmetic. Padding belongs to every source row and must
+    // not be lost when a tile begins at a later row.
+    const qint64 rowBits = qint64(ctx.imageWidth) * bpp
+                         + qMax(0, ctx.rowPaddingBits);
+    const qint64 rowBytes = (rowBits + 7) / 8;
+    if (rowBytes <= 0)
+        return;
+
+    BitPackedReader reader(bpp, ctx.bitOrder,
                            ctx.rowPaddingBits, ctx.pixelOrder);
     const QVector<QRgb> lut = reader.buildLut(ctx.palette);
-    const int rowBytes = reader.rowBytes(ctx.imageWidth);
-    const qint64 dataEnd = ctx.byteSize();
+    const bool lsbBits = (ctx.bitOrder == QLatin1String("lsb"));
+    const bool lsbPixels = (ctx.pixelOrder == QLatin1String("lsb"));
 
     for (int y = 0; y < th; ++y) {
         if (shouldAbort(ctx, y))
             return;
-        int gy = tilePy + y;
-        if (ctx.mirrorV)
-            gy = ctx.imageHeight - 1 - gy;
-        if (gy < 0 || gy >= ctx.imageHeight)
+
+        int gy = 0;
+        if (!sampledCoordinate(sourceY0, y, ds, ctx.imageHeight,
+                               ctx.mirrorV, &gy))
             continue;
 
-        const qint64 start = ctx.regionStart + qint64(gy) * rowBytes;
-        if (start >= ctx.regionEnd || start >= dataEnd)
+        const qint64 rowRelative = qint64(gy) * rowBytes;
+        if (rowRelative >= regionLength)
             continue;
-        const qint64 end = qMin<qint64>(qMin(start + rowBytes, ctx.regionEnd), dataEnd);
 
-        QByteArray raw(reinterpret_cast<const char *>(ctx.bytes() + start),
-                       int(end - start));
-        if (raw.size() < rowBytes)
-            raw.append(QByteArray(rowBytes - raw.size(), '\0'));
-
-        const QVector<quint8> idx = reader.extractRow(raw, ctx.imageWidth);
+        const qint64 available = qMin(rowBytes, regionLength - rowRelative);
+        const uchar *row = (raw && available > 0)
+            ? raw + ctx.regionStart + rowRelative : nullptr;
 
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
         for (int x = 0; x < tw; ++x) {
-            int gx = tilePx + x;
-            if (ctx.mirrorH)
-                gx = ctx.imageWidth - 1 - gx;
-            if (gx < 0 || gx >= ctx.imageWidth || gx >= idx.size())
+            int gx = 0;
+            if (!sampledCoordinate(sourceX0, x, ds, ctx.imageWidth,
+                                   ctx.mirrorH, &gx))
                 continue;
-            line[x] = lut.value(idx[gx], qRgb(0, 0, 0));
+
+            const qint64 firstBit = qint64(gx) * bpp;
+            int value = 0;
+            for (int k = 0; k < bpp; ++k) {
+                const qint64 bitIndex = firstBit + k;
+                const qint64 byteIndex = bitIndex >> 3;
+                int bit = 0;
+                if (row && byteIndex < available) {
+                    const int bitInByte = int(bitIndex & 7);
+                    const uchar byte = row[byteIndex];
+                    bit = lsbBits ? ((byte >> bitInByte) & 1)
+                                  : ((byte >> (7 - bitInByte)) & 1);
+                }
+                if (lsbPixels)
+                    value |= bit << k;
+                else
+                    value = (value << 1) | bit;
+            }
+            line[x] = lut.value(value, qRgb(0, 0, 0));
         }
     }
 }
 
 void fillSingleByte(QImage &img, const RenderContext &ctx,
-                    int tilePx, int tilePy, int tw, int th)
+                    int sourceX0, int sourceY0, int tw, int th, int ds,
+                    const uchar *raw, qint64 regionLength)
 {
-    QRgb paletteArg[256];
+    QRgb palette[256];
     for (int i = 0; i < 256; ++i) {
         const QColor c = (i < ctx.palette.size()) ? ctx.palette[i]
                                                   : QColor(i, i, i);
-        paletteArg[i] = qRgba(c.red(), c.green(), c.blue(), 255);
+        palette[i] = qRgba(c.red(), c.green(), c.blue(), 255);
     }
 
-    // Для bit_order = "lsb" в 8bpp каждый байт диск-формата
-    // интерпретируется как bit-reversed. Предвычисляем палитру,
-    // чтобы не делать reverseBits8 на каждый пиксель.
-    const bool rev = (ctx.bitOrder == QLatin1String("lsb"));
-    QRgb paletteRev[256];
-    if (rev) {
+    const bool reverse = (ctx.bitOrder == QLatin1String("lsb"));
+    QRgb reversePalette[256];
+    if (reverse) {
         for (int i = 0; i < 256; ++i)
-            paletteRev[i] = paletteArg[PixelDecoder::reverseBits8(quint8(i))];
+            reversePalette[i] = palette[PixelDecoder::reverseBits8(quint8(i))];
     }
-    const QRgb *pal = rev ? paletteRev : paletteArg;
-
-    const uchar *raw = ctx.bytes();
-    const qint64 dataSize = ctx.byteSize();
+    const QRgb *lut = reverse ? reversePalette : palette;
 
     for (int y = 0; y < th; ++y) {
         if (shouldAbort(ctx, y))
             return;
-        int gy = tilePy + y;
-        if (ctx.mirrorV)
-            gy = ctx.imageHeight - 1 - gy;
-        if (gy < 0 || gy >= ctx.imageHeight)
+
+        int gy = 0;
+        if (!sampledCoordinate(sourceY0, y, ds, ctx.imageHeight,
+                               ctx.mirrorV, &gy))
             continue;
 
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
         for (int x = 0; x < tw; ++x) {
-            int gx = tilePx + x;
-            if (ctx.mirrorH)
-                gx = ctx.imageWidth - 1 - gx;
-            if (gx < 0 || gx >= ctx.imageWidth)
+            int gx = 0;
+            if (!sampledCoordinate(sourceX0, x, ds, ctx.imageWidth,
+                                   ctx.mirrorH, &gx))
                 continue;
 
-            const qint64 byteOff = ctx.regionStart
-                                 + qint64(gy) * ctx.imageWidth + gx;
-            if (byteOff >= ctx.regionEnd)
+            const qint64 pixelIndex = qint64(gy) * ctx.imageWidth + gx;
+            qint64 relative = 0;
+            if (!sourcePixelOffset(pixelIndex, 1, regionLength, &relative))
                 continue;
-            if (byteOff < 0 || byteOff >= dataSize)
-                continue;
-            line[x] = pal[raw[byteOff]];
+
+            line[x] = lut[raw[ctx.regionStart + relative]];
         }
     }
 }
 
 void fillGrayscale(QImage &img, const RenderContext &ctx,
-                   int tilePx, int tilePy, int tw, int th)
+                   int sourceX0, int sourceY0, int tw, int th, int ds,
+                   const uchar *raw, qint64 regionLength)
 {
-    const bool rev = (ctx.bitOrder == QLatin1String("lsb"));
-
-    // 256-байтная LUT для bit-reversal — дешевле, чем reverseBits8
-    // в горячем цикле.
-    quint8 revLut[256];
-    if (rev) {
+    const bool reverse = (ctx.bitOrder == QLatin1String("lsb"));
+    quint8 reverseLut[256];
+    if (reverse) {
         for (int i = 0; i < 256; ++i)
-            revLut[i] = PixelDecoder::reverseBits8(quint8(i));
+            reverseLut[i] = PixelDecoder::reverseBits8(quint8(i));
     }
-
-    const uchar *raw = ctx.bytes();
-    const qint64 dataSize = ctx.byteSize();
 
     for (int y = 0; y < th; ++y) {
         if (shouldAbort(ctx, y))
             return;
-        int gy = tilePy + y;
-        if (ctx.mirrorV)
-            gy = ctx.imageHeight - 1 - gy;
-        if (gy < 0 || gy >= ctx.imageHeight)
+
+        int gy = 0;
+        if (!sampledCoordinate(sourceY0, y, ds, ctx.imageHeight,
+                               ctx.mirrorV, &gy))
             continue;
 
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
         for (int x = 0; x < tw; ++x) {
-            int gx = tilePx + x;
-            if (ctx.mirrorH)
-                gx = ctx.imageWidth - 1 - gx;
-            if (gx < 0 || gx >= ctx.imageWidth)
+            int gx = 0;
+            if (!sampledCoordinate(sourceX0, x, ds, ctx.imageWidth,
+                                   ctx.mirrorH, &gx))
                 continue;
 
-            const qint64 byteOff = ctx.regionStart
-                                 + qint64(gy) * ctx.imageWidth + gx;
-            if (byteOff >= ctx.regionEnd)
+            const qint64 pixelIndex = qint64(gy) * ctx.imageWidth + gx;
+            qint64 relative = 0;
+            if (!sourcePixelOffset(pixelIndex, 1, regionLength, &relative))
                 continue;
-            if (byteOff < 0 || byteOff >= dataSize)
-                continue;
-            int v = raw[byteOff];
-            if (rev)
-                v = revLut[v];
-            line[x] = qRgba(v, v, v, 255);
+
+            int value = raw[ctx.regionStart + relative];
+            if (reverse)
+                value = reverseLut[value];
+            line[x] = qRgba(value, value, value, 255);
         }
     }
 }
 
 void fillMultibyte(QImage &img, const RenderContext &ctx,
-                   int tilePx, int tilePy, int tw, int th)
+                   int sourceX0, int sourceY0, int tw, int th, int ds,
+                   const uchar *raw, qint64 regionLength)
 {
-    const int bpp = qMax(1, ctx.bytesPerPixel);
-    const QString &pal = ctx.paletteId;
-    const QVariantMap &palParams = ctx.paletteParams;
-    const uchar *raw = ctx.bytes();
-    const qint64 dataSize = ctx.byteSize();
+    const int bpp = qBound(1, ctx.bytesPerPixel, 8);
+    const QString &paletteId = ctx.paletteId;
+    const QVariantMap &paletteParams = ctx.paletteParams;
 
     for (int y = 0; y < th; ++y) {
         if (shouldAbort(ctx, y))
             return;
-        int gy = tilePy + y;
-        if (ctx.mirrorV)
-            gy = ctx.imageHeight - 1 - gy;
-        if (gy < 0 || gy >= ctx.imageHeight)
+
+        int gy = 0;
+        if (!sampledCoordinate(sourceY0, y, ds, ctx.imageHeight,
+                               ctx.mirrorV, &gy))
             continue;
 
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
         for (int x = 0; x < tw; ++x) {
-            int gx = tilePx + x;
-            if (ctx.mirrorH)
-                gx = ctx.imageWidth - 1 - gx;
-            if (gx < 0 || gx >= ctx.imageWidth)
+            int gx = 0;
+            if (!sampledCoordinate(sourceX0, x, ds, ctx.imageWidth,
+                                   ctx.mirrorH, &gx))
                 continue;
 
-            const qint64 off = ctx.regionStart
-                             + qint64(gy) * ctx.imageWidth * bpp
-                             + qint64(gx) * bpp;
-            if (off + bpp > ctx.regionEnd)
-                continue;
-            if (off < 0 || off + bpp > dataSize)
+            const qint64 pixelIndex = qint64(gy) * ctx.imageWidth + gx;
+            qint64 relative = 0;
+            if (!sourcePixelOffset(pixelIndex, bpp, regionLength, &relative))
                 continue;
 
-            line[x] = PixelDecoder::decodeArgbRaw(raw + off, bpp, pal,
-                                                  ctx.bitOrder,
-                                                  ctx.byteOrder,
-                                                  palParams);
+            line[x] = PixelDecoder::decodeArgbRaw(
+                raw + ctx.regionStart + relative, bpp, paletteId,
+                ctx.bitOrder, ctx.byteOrder, paletteParams);
         }
     }
 }
@@ -217,52 +280,68 @@ void fillMultibyte(QImage &img, const RenderContext &ctx,
 } // namespace
 
 // =========================================================================
-//  Задача для QThreadPool
+// Worker task for QThreadPool
 // =========================================================================
 class TileRenderTask : public QRunnable {
 public:
-    TileRenderTask(TileKey key, RenderContextPtr ctx, quint64 gen,
-                   QPointer<TileManager> mgr)
-        : m_key(key), m_ctx(std::move(ctx)), m_gen(gen), m_mgr(mgr)
+    TileRenderTask(TileKey key, RenderContextPtr ctx, quint64 generation,
+                   QPointer<TileManager> manager)
+        : m_key(key), m_context(std::move(ctx)),
+          m_generation(generation), m_manager(manager)
     {
         setAutoDelete(true);
     }
 
     void run() override
     {
-        QImage img;
-        if (!(m_ctx->cancel && m_ctx->cancel->isCancelled()))
-            img = TileManager::renderTile(*m_ctx, m_key);
+        QImage image;
+        if (m_context && !cancelled(*m_context))
+            image = TileManager::renderTile(*m_context, m_key);
 
-        if (m_mgr) {
-            QMetaObject::invokeMethod(m_mgr, "onTileRendered",
+        // The manager's destructor waits for the pool, so the guarded QObject
+        // remains alive while this completion is being posted.
+        if (m_manager) {
+            QMetaObject::invokeMethod(m_manager.data(), "onTileRendered",
                                       Qt::QueuedConnection,
                                       Q_ARG(TileKey, m_key),
-                                      Q_ARG(QImage, img),
-                                      Q_ARG(quint64, m_gen));
+                                      Q_ARG(QImage, image),
+                                      Q_ARG(quint64, m_generation));
         }
     }
 
 private:
-    TileKey               m_key;
-    RenderContextPtr      m_ctx;
-    quint64               m_gen;
-    QPointer<TileManager> m_mgr;
+    TileKey m_key;
+    RenderContextPtr m_context;
+    quint64 m_generation;
+    QPointer<TileManager> m_manager;
 };
 
 // =========================================================================
-//  TileManager
+// TileManager
 // =========================================================================
-
 TileManager::TileManager(CanvasWidget *canvas)
     : QObject(canvas), m_canvas(canvas)
 {
     qRegisterMetaType<TileKey>("TileKey");
     m_pool = new QThreadPool(this);
-    m_pool->setMaxThreadCount(qMax(2, QThread::idealThreadCount() - 1));
+
+    int idealThreads = QThread::idealThreadCount();
+    if (idealThreads <= 0)
+        idealThreads = 2;
+    // A small cap prevents a high-performance setting plus 2048px tiles from
+    // allocating many large temporary QImages at once.
+    m_pool->setMaxThreadCount(qBound(1, idealThreads - 1, 4));
 }
 
-TileManager::~TileManager() = default;
+TileManager::~TileManager()
+{
+    if (m_context && m_context->cancel)
+        m_context->cancel->cancel();
+    if (m_pool) {
+        m_pool->clear();
+        m_pool->waitForDone();
+    }
+}
 
 qint64 TileManager::now() const
 {
@@ -271,7 +350,9 @@ qint64 TileManager::now() const
 
 void TileManager::setCacheLimitMb(int mb)
 {
-    m_cacheLimitBytes = qint64(qMax(16, mb)) * 1024LL * 1024LL;
+    const int safeMb = qBound(16, mb, 2048);
+    m_cacheLimitBytes = qint64(safeMb) * 1024LL * 1024LL;
+    cleanupByMemory();
 }
 
 int TileManager::cacheLimitMb() const
@@ -290,6 +371,9 @@ void TileManager::clearCache()
     m_visibleTiles.clear();
     m_context.reset();
     ++m_generation;
+
+    // Do not reset m_activeTasks here. Old-generation jobs are still submitted
+    // to QThreadPool and must decrement the real in-flight counter on completion.
 }
 
 int TileManager::currentTileSize() const
@@ -300,133 +384,256 @@ int TileManager::currentTileSize() const
 qint64 TileManager::cacheBytes() const
 {
     qint64 total = 0;
-    for (auto it = m_tiles.constBegin(); it != m_tiles.constEnd(); ++it)
-        total += qint64(it.value().byteCount());
+    for (auto it = m_tiles.constBegin(); it != m_tiles.constEnd(); ++it) {
+        const qint64 bytes = it.value().byteCount();
+        if (bytes > 0 && total <= std::numeric_limits<qint64>::max() - bytes)
+            total += bytes;
+    }
     return total;
 }
 
 RenderContextPtr TileManager::buildContext() const
 {
     if (!m_canvas || !m_canvas->mainWindow())
-        return {};
+        return RenderContextPtr();
 
     MainWindow *mw = m_canvas->mainWindow();
+    std::shared_ptr<RenderContext> context = std::make_shared<RenderContext>();
 
-    auto ctx = std::make_shared<RenderContext>();
-
-    if (auto mf = mw->sourceMapped())
-        ctx->mapped = mf;
+    const MappedFilePtr mapped = mw->sourceMapped();
+    if (mapped)
+        context->mapped = mapped;
     else
-        ctx->data = mw->sourceBytes();
+        context->data = mw->sourceBytes();
 
-    ctx->imageWidth   = m_canvas->imageWidth();
-    ctx->imageHeight  = m_canvas->imageHeight();
-    ctx->tileSize     = qMax(16, mw->tileSize());
+    context->imageWidth = m_canvas->imageWidth();
+    context->imageHeight = m_canvas->imageHeight();
+    context->tileSize = normalizedTileSourceSize(mw->tileSize());
 
-    ctx->bitpacked      = mw->isBitpacked();
-    ctx->bppMode        = mw->bppMode();
-    ctx->bytesPerPixel  = qMax(1, mw->bytesPerPixel());
-    ctx->rowPaddingBits = mw->rowPaddingBits();
-    ctx->bitOrder       = mw->bitOrder();
-    ctx->pixelOrder     = mw->pixelOrder();
-	ctx->byteOrder      = mw->byteOrder();
-	
-    ctx->mirrorH = mw->mirrorHorizontal();
-    ctx->mirrorV = mw->mirrorVertical();
+    context->bitpacked = mw->isBitpacked();
+    context->bppMode = qBound(1, mw->bppMode(), 8);
+    context->bytesPerPixel = qBound(1, mw->bytesPerPixel(), 8);
+    context->rowPaddingBits = qMax(0, mw->rowPaddingBits());
+    context->bitOrder = mw->bitOrder();
+    context->pixelOrder = mw->pixelOrder();
+    context->byteOrder = mw->byteOrder();
 
-    ctx->paletteId     = mw->currentPaletteId();
-    ctx->palette       = mw->currentPalette();
-    ctx->paletteParams = mw->paletteParams().value(ctx->paletteId).toMap();
+    context->mirrorH = mw->mirrorHorizontal();
+    context->mirrorV = mw->mirrorVertical();
 
-    const quint64 offset  = mw->offset();
-    const quint64 length  = mw->length() > 0 ? mw->length() : mw->fileSize();
-    const quint64 fs      = mw->fileSize();
-    const quint64 realLen = qMin(length, fs > offset ? (fs - offset) : quint64(0));
-    ctx->regionStart = qint64(offset);
-    ctx->regionEnd   = qint64(offset + realLen);
+    context->paletteId = mw->currentPaletteId();
+    context->palette = mw->currentPalette();
+    context->paletteParams = mw->paletteParams()
+                             .value(context->paletteId).toMap();
 
-    ctx->cancel = std::make_shared<CancelFlag>();
-    return ctx;
+    // Derive the region against the actual retained byte source, not a stale
+    // UI file-size value. This prevents negative/out-of-range memory offsets.
+    const qint64 sourceSize = context->byteSize();
+    const quint64 requestedOffset = mw->offset();
+    if (sourceSize >= 0 && requestedOffset <= quint64(sourceSize)) {
+        const qint64 start = qint64(requestedOffset);
+        const quint64 available = quint64(sourceSize - start);
+        const quint64 requestedLength = mw->length() > 0
+            ? mw->length() : available;
+        const quint64 actualLength = qMin(requestedLength, available);
+        context->regionStart = start;
+        context->regionEnd = start + qint64(actualLength);
+    } else {
+        context->regionStart = 0;
+        context->regionEnd = 0;
+    }
+
+    context->cancel = std::make_shared<CancelFlag>();
+    return context;
 }
 
 QImage TileManager::renderTile(const RenderContext &ctx, const TileKey &key)
 {
-    if (ctx.imageWidth <= 0 || ctx.imageHeight <= 0 || ctx.tileSize <= 0)
-        return {};
+    if (ctx.imageWidth <= 0 || ctx.imageHeight <= 0 || ctx.tileSize <= 0
+            || key.tx < 0 || key.ty < 0)
+        return QImage();
 
-    const int ts = ctx.tileSize;
-    const int px = key.tx * ts;
-    const int py = key.ty * ts;
-    const int tw = qMin(ts, ctx.imageWidth  - px);
-    const int th = qMin(ts, ctx.imageHeight - py);
-    if (tw <= 0 || th <= 0)
-        return {};
+    const int ds = qMax(1, key.ds);
+    const int outputTileSize = tileOutputSize(ctx.tileSize, ds);
+    const int outputWidth = tileOutputExtent(ctx.imageWidth, ds);
+    const int outputHeight = tileOutputExtent(ctx.imageHeight, ds);
+    if (outputTileSize <= 0 || outputWidth <= 0 || outputHeight <= 0)
+        return QImage();
+
+    const qint64 outputX64 = qint64(key.tx) * outputTileSize;
+    const qint64 outputY64 = qint64(key.ty) * outputTileSize;
+    if (outputX64 >= outputWidth || outputY64 >= outputHeight)
+        return QImage();
+
+    const int outputX = int(outputX64);
+    const int outputY = int(outputY64);
+    const int tileWidth = qMin(outputTileSize, outputWidth - outputX);
+    const int tileHeight = qMin(outputTileSize, outputHeight - outputY);
+    if (tileWidth <= 0 || tileHeight <= 0)
+        return QImage();
+
+    const qint64 sourceX64 = qint64(outputX) * ds;
+    const qint64 sourceY64 = qint64(outputY) * ds;
+    if (sourceX64 >= ctx.imageWidth || sourceY64 >= ctx.imageHeight)
+        return QImage();
 
     if (cancelled(ctx))
-        return {};
+        return QImage();
 
-    QImage img(tw, th, QImage::Format_ARGB32);
-    img.fill(Qt::black);
+    QImage image(tileWidth, tileHeight, QImage::Format_ARGB32);
+    if (image.isNull())
+        return QImage();
+    image.fill(Qt::black);
 
-    if (ctx.bitpacked) {
-        fillBitpacked(img, ctx, px, py, tw, th);
-    } else if (ctx.bytesPerPixel == 1
-               && ctx.paletteId == QLatin1String("gray")) {
-        fillGrayscale(img, ctx, px, py, tw, th);
-    } else if (ctx.bytesPerPixel == 1) {
-        fillSingleByte(img, ctx, px, py, tw, th);
-    } else {
-        fillMultibyte(img, ctx, px, py, tw, th);
+    const uchar *raw = nullptr;
+    qint64 regionLength = 0;
+    if (validSourceRegion(ctx, &raw, &regionLength) && regionLength > 0 && raw) {
+        const int sourceX = int(sourceX64);
+        const int sourceY = int(sourceY64);
+
+        if (ctx.bitpacked) {
+            fillBitpacked(image, ctx, sourceX, sourceY,
+                          tileWidth, tileHeight, ds, raw, regionLength);
+        } else if (ctx.bytesPerPixel == 1
+                   && ctx.paletteId == QLatin1String("gray")) {
+            fillGrayscale(image, ctx, sourceX, sourceY,
+                          tileWidth, tileHeight, ds, raw, regionLength);
+        } else if (ctx.bytesPerPixel == 1) {
+            fillSingleByte(image, ctx, sourceX, sourceY,
+                           tileWidth, tileHeight, ds, raw, regionLength);
+        } else {
+            fillMultibyte(image, ctx, sourceX, sourceY,
+                          tileWidth, tileHeight, ds, raw, regionLength);
+        }
     }
 
     if (cancelled(ctx))
-        return {};
+        return QImage();
 
-    if (key.ds > 1) {
-        const int w = qMax(1, tw / key.ds);
-        const int h = qMax(1, th / key.ds);
-        if (w != tw || h != th)
-            img = img.scaled(w, h, Qt::IgnoreAspectRatio,
-                             Qt::FastTransformation);
-    }
-
-    return img;
+    return image;
 }
 
 void TileManager::scheduleRender(const TileKey &key, bool highPriority)
 {
-    if (m_pending.contains(key))
+    if (!m_pool || key.tx < 0 || key.ty < 0 || key.ds < 1
+            || m_pending.contains(key) || m_tiles.contains(key))
         return;
+
     if (!m_context)
         m_context = buildContext();
-    if (!m_context || !m_pool)
+    if (!m_context)
         return;
 
     m_pending.insert(key);
-
-    auto *task = new TileRenderTask(key, m_context, m_generation, this);
-    m_pool->start(task, highPriority ? 10 : 0);
-
-    if (m_activeTasks++ == 0)
+    TileRenderTask *task = new TileRenderTask(key, m_context,
+                                               m_generation, this);
+    ++m_activeTasks;
+    if (m_activeTasks == 1)
         emit activeTasksChanged(m_activeTasks);
+    m_pool->start(task, highPriority ? 10 : 0);
 }
 
 QImage TileManager::getTile(int tileX, int tileY)
 {
-    if (!m_canvas || !m_canvas->mainWindow())
-        return {};
+    if (!m_canvas || !m_canvas->mainWindow() || tileX < 0 || tileY < 0)
+        return QImage();
 
     const int ds = qMax(1, m_canvas->downsample());
-    TileKey key{tileX, tileY, ds};
+    const int outputWidth = tileOutputExtent(m_canvas->imageWidth(), ds);
+    const int outputHeight = tileOutputExtent(m_canvas->imageHeight(), ds);
+    const int outputTileSize = tileOutputSize(
+        normalizedTileSourceSize(m_canvas->mainWindow()->tileSize()), ds);
+    if (outputTileSize <= 0
+            || qint64(tileX) * outputTileSize >= outputWidth
+            || qint64(tileY) * outputTileSize >= outputHeight)
+        return QImage();
 
+    const TileKey key(tileX, tileY, ds);
     auto it = m_tiles.constFind(key);
     if (it != m_tiles.constEnd()) {
         m_accessTimes[key] = now();
         return it.value();
     }
 
-    scheduleRender(key, /*highPriority=*/true);
+    scheduleRender(key, true);
     return QImage();
+}
+
+QImage TileManager::renderImage(const QSize &targetSize, int scale,
+                                int downsample) const
+{
+    if (!m_canvas || !m_canvas->mainWindow()
+            || targetSize.width() <= 0 || targetSize.height() <= 0)
+        return QImage();
+
+    const RenderContextPtr context = buildContext();
+    if (!context || context->imageWidth <= 0 || context->imageHeight <= 0)
+        return QImage();
+
+    const int s = qMax(1, scale);
+    const int ds = qMax(1, downsample);
+    const int outputWidth = tileOutputExtent(context->imageWidth, ds);
+    const int outputHeight = tileOutputExtent(context->imageHeight, ds);
+    const qint64 expectedWidth = qint64(outputWidth) * s;
+    const qint64 expectedHeight = qint64(outputHeight) * s;
+    if (expectedWidth <= 0 || expectedHeight <= 0
+            || expectedWidth > std::numeric_limits<int>::max()
+            || expectedHeight > std::numeric_limits<int>::max())
+        return QImage();
+
+    const QSize expectedSize = QSize(int(expectedWidth), int(expectedHeight));
+    if (targetSize != expectedSize)
+        return QImage();
+
+    // Qt 5.6's QImage byteCount/scanline sizes are int-based. Refuse an
+    // export that cannot be represented safely instead of risking overflow
+    // or a multi-gigabyte allocation attempt.
+    const qint64 rowBytes = qint64(targetSize.width()) * 4;
+    if (rowBytes <= 0 || rowBytes > INT_MAX
+            || qint64(targetSize.height()) > INT_MAX / rowBytes)
+        return QImage();
+
+    QImage output(targetSize, QImage::Format_ARGB32);
+    if (output.isNull())
+        return QImage();
+    const int outputTileSize = tileOutputSize(context->tileSize, ds);
+    if (outputTileSize <= 0)
+        return QImage();
+    const int tilesX = int((qint64(outputWidth) + outputTileSize - 1)
+                           / outputTileSize);
+    const int tilesY = int((qint64(outputHeight) + outputTileSize - 1)
+                           / outputTileSize);
+
+    QPainter painter(&output);
+    if (!painter.isActive())
+        return QImage();
+    // Match the widget's actual background brush so transparent source pixels
+    // are composited identically on screen and in the exported PNG.
+    painter.fillRect(output.rect(), m_canvas->palette().window());
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+    for (int ty = 0; ty < tilesY; ++ty) {
+        for (int tx = 0; tx < tilesX; ++tx) {
+            if (cancelled(*context))
+                return QImage();
+
+            const QImage tile = renderTile(*context, TileKey(tx, ty, ds));
+            if (tile.isNull())
+                return QImage();
+
+            const qint64 x = qint64(tx) * outputTileSize * s;
+            const qint64 y = qint64(ty) * outputTileSize * s;
+            const qint64 w = qint64(tile.width()) * s;
+            const qint64 h = qint64(tile.height()) * s;
+            if (x < 0 || y < 0 || w <= 0 || h <= 0
+                    || x + w > targetSize.width()
+                    || y + h > targetSize.height())
+                continue;
+
+            painter.drawImage(QRect(int(x), int(y), int(w), int(h)), tile);
+        }
+    }
+    painter.end();
+    return output;
 }
 
 void TileManager::setVisibleTiles(const QSet<TileKey> &visible)
@@ -437,69 +644,83 @@ void TileManager::setVisibleTiles(const QSet<TileKey> &visible)
     cleanupByMemory();
 }
 
-void TileManager::onTileRendered(const TileKey &key, const QImage &img,
-                                 quint64 gen)
+void TileManager::onTileRendered(const TileKey &key, const QImage &image,
+                                 quint64 generation)
 {
-    if (m_activeTasks > 0 && --m_activeTasks == 0)
-        emit activeTasksChanged(0);
+    if (m_activeTasks > 0) {
+        --m_activeTasks;
+        if (m_activeTasks == 0)
+            emit activeTasksChanged(0);
+    }
 
-    if (gen != m_generation)
+    if (generation != m_generation)
         return;
 
     m_pending.remove(key);
-    if (img.isNull())
+    if (image.isNull())
         return;
 
-    m_tiles.insert(key, img);
+    m_tiles.insert(key, image);
     m_accessTimes.insert(key, now());
     cleanupByMemory();
-
     emit tileReady(key);
 }
 
 void TileManager::prefetchAround(const QSet<TileKey> &visible)
 {
-    if (visible.isEmpty() || !m_canvas)
+    if (visible.isEmpty() || !m_canvas || !m_canvas->mainWindow())
         return;
+
     MainWindow *mw = m_canvas->mainWindow();
-    if (!mw)
+    const int ds = qMax(1, m_canvas->downsample());
+    const int tileSourceSize = normalizedTileSourceSize(mw->tileSize());
+    const int outputTileSize = tileOutputSize(tileSourceSize, ds);
+    const int outputWidth = tileOutputExtent(m_canvas->imageWidth(), ds);
+    const int outputHeight = tileOutputExtent(m_canvas->imageHeight(), ds);
+    if (outputTileSize <= 0 || outputWidth <= 0 || outputHeight <= 0)
         return;
 
-    const int ds = qMax(1, m_canvas->downsample());
-    const int ts = qMax(16, mw->tileSize());
-
-    const int renderedTileW = qMax(1, ts / ds);
-    const qint64 tileBytes  = qint64(renderedTileW) * renderedTileW * 4;
-    const qint64 maxTiles   = m_cacheLimitBytes / qMax<qint64>(1, tileBytes);
+    const qint64 tileBytes = qint64(outputTileSize)
+                           * outputTileSize * 4;
+    const qint64 maxTiles = m_cacheLimitBytes / qMax<qint64>(1, tileBytes);
     if (qint64(visible.size()) >= maxTiles)
         return;
 
-    const int margin = qMax(0, mw->tilePrefetchMargin());
-    const int iw = m_canvas->imageWidth();
-    const int ih = m_canvas->imageHeight();
-
-    const int maxTx = (iw + ts - 1) / ts;
-    const int maxTy = (ih + ts - 1) / ts;
-
-    int minX = INT_MAX, maxX = INT_MIN, minY = INT_MAX, maxY = INT_MIN;
-    for (const TileKey &k : visible) {
-        minX = qMin(minX, k.tx);
-        maxX = qMax(maxX, k.tx);
-        minY = qMin(minY, k.ty);
-        maxY = qMax(maxY, k.ty);
+    int minX = INT_MAX, maxX = -1, minY = INT_MAX, maxY = -1;
+    for (const TileKey &key : visible) {
+        if (key.ds != ds || key.tx < 0 || key.ty < 0)
+            continue;
+        minX = qMin(minX, key.tx);
+        maxX = qMax(maxX, key.tx);
+        minY = qMin(minY, key.ty);
+        maxY = qMax(maxY, key.ty);
     }
+    if (maxX < 0 || maxY < 0)
+        return;
+
+    const qint64 tilesX64 = (qint64(outputWidth) + outputTileSize - 1)
+                          / outputTileSize;
+    const qint64 tilesY64 = (qint64(outputHeight) + outputTileSize - 1)
+                          / outputTileSize;
+    const int maxTx = int(qMin<qint64>(tilesX64, INT_MAX));
+    const int maxTy = int(qMin<qint64>(tilesY64, INT_MAX));
+    const int margin = qBound(0, mw->tilePrefetchMargin(), 32);
+
+    const int beginX = int(qMax<qint64>(0, qint64(minX) - margin));
+    const int beginY = int(qMax<qint64>(0, qint64(minY) - margin));
+    const int endX = int(qMin<qint64>(maxTx - 1, qint64(maxX) + margin));
+    const int endY = int(qMin<qint64>(maxTy - 1, qint64(maxY) + margin));
 
     int budget = 64;
-    for (int ty = qMax(0, minY - margin);
-         ty <= qMin(maxTy - 1, maxY + margin); ++ty) {
-        for (int tx = qMax(0, minX - margin);
-             tx <= qMin(maxTx - 1, maxX + margin); ++tx) {
-            TileKey k{tx, ty, ds};
-            if (m_tiles.contains(k) || m_pending.contains(k))
+    for (int ty = beginY; ty <= endY; ++ty) {
+        for (int tx = beginX; tx <= endX; ++tx) {
+            const TileKey key(tx, ty, ds);
+            if (m_tiles.contains(key) || m_pending.contains(key))
                 continue;
-            if (budget-- <= 0)
+            if (budget <= 0)
                 return;
-            scheduleRender(k, /*highPriority=*/false);
+            --budget;
+            scheduleRender(key, false);
         }
     }
 }
@@ -511,21 +732,22 @@ void TileManager::cleanupByMemory()
 
     qint64 nonVisibleBytes = 0;
     for (auto it = m_tiles.constBegin(); it != m_tiles.constEnd(); ++it) {
-        if (!m_visibleTiles.contains(it.key()))
-            nonVisibleBytes += qint64(it.value().byteCount());
+        if (m_visibleTiles.contains(it.key()))
+            continue;
+        const qint64 bytes = it.value().byteCount();
+        if (bytes > 0 && nonVisibleBytes <= std::numeric_limits<qint64>::max() - bytes)
+            nonVisibleBytes += bytes;
     }
 
     if (nonVisibleBytes <= m_cacheLimitBytes)
         return;
 
-    const qint64 target = qint64(m_cacheLimitBytes * 0.75);
-
-    QVector<QPair<TileKey, qint64>> order;
+    const qint64 target = (m_cacheLimitBytes * 3) / 4;
+    QVector<QPair<TileKey, qint64> > order;
     order.reserve(m_accessTimes.size());
     for (auto it = m_accessTimes.constBegin(); it != m_accessTimes.constEnd(); ++it) {
-        if (m_visibleTiles.contains(it.key()))
-            continue;
-        order.append({it.key(), it.value()});
+        if (!m_visibleTiles.contains(it.key()))
+            order.append(qMakePair(it.key(), it.value()));
     }
 
     std::sort(order.begin(), order.end(),
@@ -534,16 +756,19 @@ void TileManager::cleanupByMemory()
                   return a.second < b.second;
               });
 
-    for (const auto &pair : order) {
+    for (const QPair<TileKey, qint64> &entry : order) {
         if (nonVisibleBytes <= target)
             break;
-        auto it = m_tiles.find(pair.first);
-        if (it == m_tiles.end()) {
-            m_accessTimes.remove(pair.first);
+
+        auto tileIt = m_tiles.find(entry.first);
+        if (tileIt == m_tiles.end()) {
+            m_accessTimes.remove(entry.first);
             continue;
         }
-        nonVisibleBytes -= qint64(it.value().byteCount());
-        m_tiles.erase(it);
-        m_accessTimes.remove(pair.first);
+
+        const qint64 bytes = tileIt.value().byteCount();
+        nonVisibleBytes = qMax<qint64>(0, nonVisibleBytes - qMax<qint64>(0, bytes));
+        m_tiles.erase(tileIt);
+        m_accessTimes.remove(entry.first);
     }
 }

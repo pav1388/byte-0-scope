@@ -14,8 +14,10 @@
 #include <QMetaType>
 #include <QObject>
 #include <QSet>
+#include <QSize>
 #include <QVariantMap>
 #include <QVector>
+#include <QtGlobal>
 
 #include <atomic>
 #include <memory>
@@ -24,6 +26,8 @@ class CanvasWidget;
 class MainWindow;
 class QThreadPool;
 
+// TileKey::tx/ty are tile indices in the downsampled output grid.
+// They are deliberately not source-image pixel coordinates.
 struct TileKey {
     int tx;
     int ty;
@@ -39,54 +43,89 @@ struct TileKey {
 
 Q_DECLARE_METATYPE(TileKey)
 
-inline uint qHash(const TileKey &k, uint seed = 0) Q_DECL_NOTHROW {
-    return qHash(k.tx, seed) ^ qHash(k.ty, seed << 1) ^ qHash(k.ds, seed << 2);
+inline uint qHash(const TileKey &k, uint seed = 0) Q_DECL_NOTHROW
+{
+    // A proper combine avoids the systematic collisions caused by a plain XOR.
+    uint h = qHash(k.tx, seed);
+    h = qHash(k.ty, h ^ 0x9e3779b9U);
+    h = qHash(k.ds, h ^ 0x85ebca6bU);
+    return h;
+}
+
+// All tile geometry uses the same global output grid:
+// source samples are taken at 0, ds, 2*ds, ... .
+inline int tileOutputExtent(int sourceExtent, int downsample)
+{
+    if (sourceExtent <= 0)
+        return 0;
+    const qint64 ds = qMax(1, downsample);
+    return int((qint64(sourceExtent) + ds - 1) / ds); // samples at 0, ds, 2*ds, ...
+}
+
+inline int tileOutputSize(int sourceTileSize, int downsample)
+{
+    const qint64 ts = qMax(1, sourceTileSize);
+    const qint64 ds = qMax(1, downsample);
+    // Tiny (1x1, 2x2, ...) output tiles create an enormous number of tasks
+    // for very large downsample factors. Keep a modest output-space floor;
+    // sampling remains global and tile boundaries remain exact.
+    return int(qMax<qint64>(64, (ts + ds - 1) / ds));
+}
+
+inline int normalizedTileSourceSize(int sourceTileSize)
+{
+    // Keep the renderer bounded even if a damaged settings file contains a bad value.
+    return qBound(16, sourceTileSize, 2048);
 }
 
 struct CancelFlag {
     std::atomic<bool> flag{false};
-    void cancel() noexcept              { flag.store(true,  std::memory_order_release); }
-    bool isCancelled() const noexcept   { return flag.load(std::memory_order_acquire); }
+    void cancel() noexcept             { flag.store(true, std::memory_order_release); }
+    bool isCancelled() const noexcept  { return flag.load(std::memory_order_acquire); }
 };
 
 using CancelFlagPtr = std::shared_ptr<CancelFlag>;
 
 struct RenderContext {
-    QByteArray    data;
+    QByteArray data;
     MappedFilePtr mapped;
 
-    qint64     regionStart = 0;
-    qint64     regionEnd   = 0;
-    int        imageWidth  = 0;
-    int        imageHeight = 0;
-    int        tileSize    = 448;
+    qint64 regionStart = 0;
+    qint64 regionEnd = 0;
+    int imageWidth = 0;
+    int imageHeight = 0;
+    int tileSize = 448;
 
-    bool       bitpacked      = false;
-    int        bppMode        = 8;
-    int        bytesPerPixel  = 1;
-    int        rowPaddingBits = 0;
-    QString    bitOrder;
-    QString    pixelOrder;
-	QString    byteOrder;
-	
-    bool       mirrorH = false;
-    bool       mirrorV = false;
+    bool bitpacked = false;
+    int bppMode = 8;
+    int bytesPerPixel = 1;
+    int rowPaddingBits = 0;
+    QString bitOrder;
+    QString pixelOrder;
+    QString byteOrder;
 
-    QString         paletteId;
+    bool mirrorH = false;
+    bool mirrorV = false;
+
+    QString paletteId;
     QVector<QColor> palette;
-    QVariantMap     paletteParams;
+    QVariantMap paletteParams;
 
     CancelFlagPtr cancel;
 
-    const uchar *bytes() const {
-        if (mapped && mapped->mapped)
+    const uchar *bytes() const
+    {
+        if (mapped)
             return mapped->mapped;
-        return reinterpret_cast<const uchar *>(data.constData());
+        return data.isEmpty()
+            ? nullptr
+            : reinterpret_cast<const uchar *>(data.constData());
     }
 
-    qint64 byteSize() const {
+    qint64 byteSize() const
+    {
         if (mapped)
-            return mapped->size;
+            return mapped->mapped ? mapped->size : 0;
         return data.size();
     }
 };
@@ -104,16 +143,17 @@ public:
     static QImage renderTile(const RenderContext &ctx, const TileKey &key);
 
     QImage getTile(int tileX, int tileY);
-    void   prefetchAround(const QSet<TileKey> &visible);
-    void   setVisibleTiles(const QSet<TileKey> &visible);
+    QImage renderImage(const QSize &targetSize, int scale, int downsample) const;
+    void prefetchAround(const QSet<TileKey> &visible);
+    void setVisibleTiles(const QSet<TileKey> &visible);
 
-    void   clearCache();
-    void   setCacheLimitMb(int mb);
+    void clearCache();
+    void setCacheLimitMb(int mb);
 
-    int    currentTileSize() const;
+    int currentTileSize() const;
     qint64 cacheBytes() const;
-    int    cacheLimitMb() const;
-    int    activeTasks() const { return m_activeTasks; }
+    int cacheLimitMb() const;
+    int activeTasks() const { return m_activeTasks; }
 
 signals:
     void tileReady(const TileKey &key);
@@ -124,21 +164,22 @@ private slots:
 
 private:
     RenderContextPtr buildContext() const;
-    void             scheduleRender(const TileKey &key, bool highPriority);
-    void             cleanupByMemory();
-    qint64           now() const;
+    void scheduleRender(const TileKey &key, bool highPriority);
+    void cleanupByMemory();
+    qint64 now() const;
 
     CanvasWidget *m_canvas = nullptr;
-
     RenderContextPtr m_context;
-    quint64          m_generation = 0;
+    quint64 m_generation = 0;
 
     QHash<TileKey, QImage> m_tiles;
     QHash<TileKey, qint64> m_accessTimes;
-    QSet<TileKey>          m_pending;
-    QSet<TileKey>          m_visibleTiles;
+    QSet<TileKey> m_pending;
+    QSet<TileKey> m_visibleTiles;
 
-    int           m_activeTasks     = 0;
-    qint64        m_cacheLimitBytes = 512LL * 1024 * 1024;
-    QThreadPool  *m_pool = nullptr;
+    // Counts every submitted task, including tasks from invalidated generations.
+    // It is decremented only when that task's completion reaches this object.
+    int m_activeTasks = 0;
+    qint64 m_cacheLimitBytes = 512LL * 1024 * 1024;
+    QThreadPool *m_pool = nullptr;
 };

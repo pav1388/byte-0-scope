@@ -390,27 +390,27 @@ Click again or press Esc to cancel.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+361"/>
+        <location line="+354"/>
         <source>For &quot;Manual&quot; — width in pixels.
 For &quot;Divisor ≤ N&quot; — upper width limit.</source>
         <translation>Для «Ручной» — ширина в пикселях.
 Для «Делитель ≤ N» — верхний предел ширины.</translation>
     </message>
     <message>
-        <location line="-351"/>
+        <location line="-344"/>
         <source>Width step:</source>
         <translation>Шаг ширины:</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+356"/>
+        <location line="+349"/>
         <source>Width change step with Ctrl+mouse wheel.
 Used in manual mode.</source>
         <translation>Шаг изменения ширины колесом мыши с Ctrl.
 Используется в ручном режиме.</translation>
     </message>
     <message>
-        <location line="-395"/>
+        <location line="-388"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
@@ -465,7 +465,7 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
         <translation>Восстановить параметры отображения по умолчанию</translation>
     </message>
     <message>
-        <location line="+219"/>
+        <location line="+212"/>
         <source>Bit extraction order for bit-packed pixels.
 MSB-first: highest bit of byte first.
 LSB-first: lowest bit of byte first.</source>
@@ -594,7 +594,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.cpp" line="+281"/>
+        <location filename="../mainwindow.cpp" line="+331"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -670,38 +670,38 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+906"/>
+        <location line="+888"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-906"/>
-        <location line="+906"/>
+        <location line="-888"/>
+        <location line="+888"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-902"/>
-        <location line="+934"/>
+        <location line="-884"/>
+        <location line="+916"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-929"/>
-        <location line="+925"/>
+        <location line="-911"/>
+        <location line="+907"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-920"/>
-        <location line="+920"/>
+        <location line="-902"/>
+        <location line="+902"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-906"/>
+        <location line="-888"/>
         <source>Byte tooltip</source>
-        <translation>Подсказка по байту</translation>
+        <translation>Всплывающая подсказка по байту</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -813,12 +813,7 @@ Applied the next time a file is opened.</source>
         <translation>128 px на тайл · лимит кэша 180 МБ {256 ?} {180 ?}</translation>
     </message>
     <message>
-        <location line="+21"/>
-        <source>1024 px per tile · cache limit 1 GB</source>
-        <translation>1024 px на тайл · лимит кэша 1 ГБ</translation>
-    </message>
-    <message>
-        <location line="-15"/>
+        <location line="+6"/>
         <source>Small tiles — more frequent updates, smaller pause per tile,
 but more overhead and more objects in the cache.
 
@@ -850,7 +845,12 @@ from eviction, so momentarily the cache may exceed the limit.</source>
         <translation>+</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+1"/>
+        <source>2048 px per tile · cache limit 1 GB</source>
+        <translation>2048 px на тайл · лимит кэша 1 ГБ</translation>
+    </message>
+    <message>
+        <location line="+10"/>
         <source>Debug</source>
         <translation>Отладка</translation>
     </message>
@@ -912,12 +912,13 @@ Expected: %2</source>
     </message>
     <message>
         <location line="+15"/>
-        <location line="+582"/>
+        <location line="+562"/>
+        <location line="+6"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location line="-581"/>
+        <location line="-567"/>
         <source>Failed to open one of the files for comparison.</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
@@ -954,7 +955,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Не удалось прочитать файлы полностью.</translation>
     </message>
     <message>
-        <location line="+482"/>
+        <location line="+464"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -973,7 +974,12 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+21"/>
+        <source>The image could not be rendered. Check its dimensions and available memory.</source>
+        <translation>Не удалось отобразить изображение. Проверьте его размеры и доступный объем памяти.</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Failed to save.</source>
         <translation>Не удалось сохранить.</translation>
     </message>
@@ -988,7 +994,7 @@ Restart the application to apply the change.</source>
         <translation>%1: [%2] [0x%3 / %4 байт] [%5×%6]</translation>
     </message>
     <message>
-        <location line="+311"/>
+        <location line="+298"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1038,7 +1044,7 @@ Restart the application to apply the change.</source>
         <translation>Б</translation>
     </message>
     <message>
-        <location line="+225"/>
+        <location line="+222"/>
         <source>Tutorial: adjust the display settings to reveal the image.</source>
         <translation>Обучение: настройте параметры отображения, чтобы увидеть изображение.</translation>
     </message>
