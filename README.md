@@ -1,107 +1,109 @@
-# Byte-0-scope / Байт-0-скоп — визуализатор бинарных данных
+# Byte-0-scope — binary data visualizer
 
-Интерактивное представление произвольных файлов в виде изображения:
-каждый байт (или бит, или многобайтовый пиксель) — точка на холсте.
-Помогает «увидеть» структуру данных: заголовки, палитры, спрайты,
-сжатые блоки, паддинг.
+[English](README.md) | [Русский](README.ru.md)
 
-Автор: pav13, 2026.
+Interactive representation of arbitrary files as an image:
+each byte (or bit, or multi-byte pixel) is a point on a canvas.
+Helps to "see" the structure of data: headers, palettes, sprites,
+compressed blocks, padding.
 
-Разработка: часть кода подготовлена с помощью ИИ-ассистента (DeepSeek).
+Author: pav13, 2026.
+
+Development: part of the code was prepared with the help of an AI assistant (DeepSeek).
 
 GitHub: https://github.com/pav1388/byte-0-scope
 
-Форум: https://www.emu-land.net/forum/index.php/topic,93496.0.html
+Forum: https://www.emu-land.net/forum/index.php/topic,93496.0.html
 
-## Скриншоты
+## Screenshots
 
 <p align="center">
   <img src="docs/screenshot-main.png" alt="main" width="400">
 </p>
 
-## Возможности
+## Features
 
-- Открытие файлов любого размера (от килобайт до гигабайт): mmap для больших, `QByteArray` для небольших — переключается в настройках
-- Битовые форматы: 1 / 2 / 3 / 4 / 8 bpp с настраиваемым порядком битов (MSB/LSB) и паддингом строк
-- Многобайтовые форматы: RGB, BGR, GBR, BRG, GRB, RBG, RGBA, ARGB, BGRA, ABGR, RGB565, BGR565, RGB555, ARGB1555, Integer 16/32/64, Float 32/64
-- Палитры: 60+ встроенных (серые, тепловые, виридис, плазма, радуга, HSV, Game Boy, CGA, EGA, C64, ZX Spectrum, терминальные и др.)
-- Конфигурируемые палитры: порог, полосы энтропии, битовая плоскость, повторы, пользовательские диапазоны, «из файла»
-- Специальные палитры: частота байтов, подсветка повторов
-- Масштабирование (1–32×), панорамирование, панорамный обзор с миниатюрой
-- Тайловый рендеринг с LRU-кэшем, prefetching соседних тайлов, настраиваемый размер тайла и лимит кэша
-- Информационная панель с детализацией байта (hex/dec/bin/ASCII) и пикселя (для многобайтовых форматов)
-- Режимы ширины: ручной, авто (1:1), степень 2, 16:9, 4:3, «байт в строке», ближайшее «круглое», делитель ≤ N
-- Регион: начало / конец / длина, выбор ЛКМ по холсту, режим «длина»
-- Экспорт в PNG, в том числе с учётом downsampling
-- Сравнение двух файлов через XOR с подсветкой различий
-- Зеркальное отражение по горизонтали и вертикали
-- Тёмная и светлая темы
-- Список недавних файлов, drag & drop, открытие из командной строки
-- Режим «Обучение»: встроенный demo-файл со скрытой структурой, которую нужно восстановить подбором настроек
-- Локализация интерфейса: русский, английский
+- Opening files of any size (from kilobytes to gigabytes): mmap for large files, `QByteArray` for small ones — switchable in settings
+- Bit formats: 1 / 2 / 3 / 4 / 8 bpp with configurable bit order (MSB/LSB) and row padding
+- Multi-byte formats: RGB, BGR, GBR, BRG, GRB, RBG, RGBA, ARGB, BGRA, ABGR, RGB565, BGR565, RGB555, ARGB1555, Integer 16/32/64, Float 32/64
+- Palettes: 60+ built-in (grayscale, heat, viridis, plasma, rainbow, HSV, Game Boy, CGA, EGA, C64, ZX Spectrum, terminal, and others)
+- Configurable palettes: threshold, entropy bands, bit plane, repeats, custom ranges, "from file"
+- Special palettes: byte frequency, repeat highlighting
+- Zoom (1–32×), panning, panoramic overview with a thumbnail
+- Tile rendering with LRU cache, prefetching of neighboring tiles, configurable tile size and cache limit
+- Information panel with byte details (hex/dec/bin/ASCII) and pixel details (for multi-byte formats)
+- Width modes: manual, auto (1:1), power of 2, 16:9, 4:3, "bytes per row", nearest "round", divisor ≤ N
+- Region: start / end / length, selection with LMB on the canvas, "length" mode
+- Export to PNG, including with downsampling
+- Comparing two files via XOR with difference highlighting
+- Mirroring horizontally and vertically
+- Dark and light themes
+- Recent files list, drag & drop, opening from the command line
+- "Learning" mode: a built-in demo file with a hidden structure that must be recovered by trying different settings
+- Interface localization: Russian, English
 
 ### Drag & Drop
 
-| Расширение | Действие |
+| Extension | Action |
 |---|---|
-| любой файл | открытие как источник данных |
-| `.b0s` | открытие парного файла данных с загрузкой настроек отображения |
+| any file | open as a data source |
+| `.b0s` | open the paired data file with display settings loaded |
 
-### Файлы настроек
+### Settings files
 
-**Глобальные настройки** — `byte0scope-settings.ini`:
+**Global settings** — `byte0scope-settings.ini`:
 
-- тема, язык, геометрия окна (в т.ч. maximized / fullscreen)
-- режим загрузки (mmap / в память)
-- производительность: размер тайла, лимит кэша, prefetch
-- последние файлы, последняя папка
-- значения по умолчанию для новых файлов (bpp, порядок битов, палитра, ширина, масштаб и т.д.)
+- theme, language, window geometry (including maximized / fullscreen)
+- load mode (mmap / into memory)
+- performance: tile size, cache limit, prefetch
+- recent files, last folder
+- default values for new files (bpp, bit order, palette, width, zoom, etc.)
 
-Файл хранится рядом с исполняемым файлом; если каталог недоступен для записи —
-в пользовательском каталоге конфигурации (`QStandardPaths::AppConfigLocation`).
-Приоритет: portable (рядом с exe) → appdata.
+The file is stored next to the executable; if the directory is not writable —
+in the user configuration directory (`QStandardPaths::AppConfigLocation`).
+Priority: portable (next to exe) → appdata.
 
-**Настройки отображения** — `<имя_файла>.b0s`:
+**Display settings** — `<file_name>.b0s`:
 
-- bpp и порядок битов / пикселей / паддинг
-- палитра и её параметры
-- режим ширины, ширина, шаг
-- масштаб, автомасштаб, вписать в окно
-- регион (offset / length / length_mode)
-- зеркала по горизонтали и вертикали
+- bpp and bit / pixel order / padding
+- palette and its parameters
+- width mode, width, step
+- zoom, auto-zoom, fit to window
+- region (offset / length / length_mode)
+- horizontal and vertical mirrors
 
-Формат — JSON (UTF-8), хранится рядом с исходным файлом и подхватывается
-автоматически при открытии. Пиксели в `.b0s` не дублируются — источник
-истины сам файл данных.
+Format — JSON (UTF-8), stored next to the source file and picked up
+automatically when opening. Pixels are not duplicated in `.b0s` — the
+data file itself is the source of truth.
 
-### Управление
+### Controls
 
-| Действие | Что делает |
+| Action | What it does |
 |---|---|
-| ЛКМ по пикселю | закрепить байт (повторный ЛКМ — снять) |
-| ПКМ + перемещение | панорамирование |
-| Колесо | масштаб |
-| Ctrl + колесо | ширина строки (в ручном режиме) |
-| Ctrl+O | открыть файл |
-| Ctrl+S | сохранить `.b0s` рядом с файлом |
-| Ctrl+L | загрузить `.b0s` |
-| Ctrl+R | сбросить настройки отображения |
-| Ctrl+E | экспорт в PNG |
-| Ctrl+X | сравнить два файла (XOR) |
-| Ctrl+W | закрыть текущий файл |
-| Drag & drop | открыть файл перетаскиванием |
+| LMB on a pixel | pin the byte (LMB again — unpin) |
+| RMB + drag | panning |
+| Wheel | zoom |
+| Ctrl + wheel | row width (in manual mode) |
+| Ctrl+O | open file |
+| Ctrl+S | save `.b0s` next to the file |
+| Ctrl+L | load `.b0s` |
+| Ctrl+R | reset display settings |
+| Ctrl+E | export to PNG |
+| Ctrl+X | compare two files (XOR) |
+| Ctrl+W | close the current file |
+| Drag & drop | open a file by dragging it |
 
-### Ассоциации файлов
+### File associations
 
-Меню «Настройки»:
+"Settings" menu:
 
-- `Ассоциировать .b0s с этой программой` — `.b0s` открывается в Byte-0-scope
-- `Удалить ассоциацию .b0s`.
+- `Associate .b0s with this program` — `.b0s` opens in Byte-0-scope
+- `Remove .b0s association`.
 
 <details>
-<summary><sub>Формат .b0s (JSON)</sub></summary>
+<summary><sub>.b0s format (JSON)</sub></summary>
 
-Пример:
+Example:
 
 ```json
 {
@@ -128,30 +130,30 @@ GitHub: https://github.com/pav1388/byte-0-scope
 }
 ```
 
-Неизвестные ключи игнорируются; отсутствующие — берутся из значений
-по умолчанию. При открытии `.b0s`-файла в качестве аргумента командной
-строки (или через ассоциацию) рядом ищется файл данных без суффикса
-`.b0s`; если его нет — выводится предупреждение.
+Unknown keys are ignored; missing ones are taken from the default
+values. When a `.b0s` file is opened as a command-line argument
+(or via file association), the data file without the `.b0s` suffix is
+looked up next to it; if it is not there — a warning is shown.
 
 </details>
 
-## Сборка
+## Building
 
-Используется **C++11 + Qt 5.6.3** (Core, Gui, Widgets), статическая сборка Qt,
+Uses **C++11 + Qt 5.6.3** (Core, Gui, Widgets), static Qt build,
 MinGW 4.9.2 32-bit, CMake ≥ 3.5.
 
-### Скрипты (Windows)
+### Scripts (Windows)
 
 ```
-scripts\build.bat         инкрементальная сборка -> byte-0-scope.exe
-scripts\clean-build.bat   удалить build\ и пересобрать
-scripts\release.bat       собрать releases\byte-0-scope-v<ver>\
+scripts\build.bat         incremental build -> byte-0-scope.exe
+scripts\clean-build.bat   delete build\ and rebuild
+scripts\release.bat       build releases\byte-0-scope-v<ver>\
 ```
 
-Все скрипты используют локальную папку `qt-5.6.3-static\` в корне
-репозитория (в git не входит).
+All scripts use the local `qt-5.6.3-static\` folder in the repository
+root (not included in git).
 
-### Вручную
+### Manually
 
 ```bat
 cmake -S . -B build -G "MinGW Makefiles" ^
@@ -161,20 +163,20 @@ cmake -S . -B build -G "MinGW Makefiles" ^
 cmake --build build -j4
 ```
 
-## Структура репозитория
+## Repository structure
 
 ```
-CMakeLists.txt          сборка
-version.txt             версия (используется в APP_VERSION и release.bat)
-src/                    исходники (C++/Qt)
-src/resources/          .qrc и .rc (иконки, переводы)
-scripts/                bat-скрипты сборки и релиза
-scripts/BUILD-QT.md     как собрать используемую статическую Qt
+CMakeLists.txt          build
+version.txt             version (used in APP_VERSION and release.bat)
+src/                    sources (C++/Qt)
+src/resources/          .qrc and .rc (icons, translations)
+scripts/                bat scripts for build and release
+scripts/BUILD-QT.md     how to build the static Qt used
 ```
 
-## Лицензия
+## License
 
-GPL-3.0-or-later. См. [LICENSE](LICENSE).
+GPL-3.0-or-later. See [LICENSE](LICENSE).
 
-Лицензия выбрана потому, что бинарник статически линкуется с Qt, собранной
-под GPL (`-opensource`).
+The license was chosen because the binary is statically linked with Qt built
+under GPL (`-opensource`).
