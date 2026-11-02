@@ -44,7 +44,7 @@ public:
     int     bytesPerRow() const;
 	
 	QString byteOrder() const;
-	
+	bool    regionIsValid() const;
     QVariantMap currentConfig() const;
     void setConfig(const QVariantMap &cfg);
 
@@ -74,7 +74,8 @@ private:
 	void updateDisplayControlsEnabled();
     void updateBitSettingsEnabled(int bpp);
     void applyHexModeToSpins(bool useHex);
-
+	void clampRegionBounds(int changedSpin);
+	
     MainWindow *m_main = nullptr;
 
     // Формат пикселей

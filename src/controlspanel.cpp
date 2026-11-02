@@ -301,8 +301,10 @@ void ControlsPanel::buildUi()
     connect(m_offsetSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
+                if (m_updatingConfig)
+                    return;
+                clampRegionBounds(0);
+                emit settingsChanged();
             });
     regLay->addWidget(m_offsetSpin, 0, 1);
 
@@ -333,8 +335,10 @@ void ControlsPanel::buildUi()
     connect(m_endSpin,
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
+                if (m_updatingConfig)
+                    return;
+                clampRegionBounds(1);
+                emit settingsChanged();
             });
     regLay->addWidget(m_endSpin, 1, 1);
 
@@ -645,18 +649,36 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
     if (address < 0 || address > 0x7FFFFFFF)
         return;
 
+    const int maxVal = 0x7FFFFFFF;
+
     if (target == 1) {
-        m_offsetSpin->setValue(int(address));
+        int newStart = int(address);
+        if (!m_lengthModeCheck->isChecked()) {
+            const int curEnd = m_endSpin->value();
+            if (curEnd != 0 && newStart >= curEnd)
+                newStart = qMax(0, curEnd - 1);
+        }
+        QSignalBlocker bo(m_offsetSpin);
+        m_offsetSpin->setValue(newStart);
     } else {
-        const bool wasLengthMode = m_lengthModeCheck->isChecked();
-        if (wasLengthMode) {
+        if (m_lengthModeCheck->isChecked()) {
             QSignalBlocker b(m_lengthModeCheck);
             m_lengthModeCheck->setChecked(false);
             if (m_endLabel)
                 m_endLabel->setText(tr(CP_LABEL_END));
         }
-        m_endSpin->setValue(int(address));
+
+        int newEnd = int(address);
+        const int curStart = m_offsetSpin->value();
+        if (newEnd <= curStart)
+            newEnd = qMin(curStart + 1, maxVal);
+
+        QSignalBlocker be(m_endSpin);
+        m_endSpin->setValue(newEnd);
     }
+
+    if (!m_updatingConfig)
+        emit settingsChanged();
 }
 
 // =========================================================================
@@ -804,6 +826,43 @@ void ControlsPanel::applyHexModeToSpins(bool useHex)
         spin->setPrefix(useHex ? QStringLiteral("0x") : QString());
         spin->setGroupSeparatorShown(false);
     }
+}
+
+void ControlsPanel::clampRegionBounds(int changedSpin)
+{
+    if (m_updatingConfig)
+        return;
+    if (m_lengthModeCheck->isChecked())
+        return;
+
+    const int maxVal   = m_offsetSpin->maximum();
+    const int curStart = m_offsetSpin->value();
+    const int curEnd   = m_endSpin->value();
+
+    QSignalBlocker bo(m_offsetSpin);
+    QSignalBlocker be(m_endSpin);
+
+    if (changedSpin == 0) {
+        if (curEnd != 0 && curStart >= curEnd) {
+            const int newStart = qMax(0, curEnd - 1);
+            m_offsetSpin->setValue(newStart);
+        }
+    } else {
+        if (curEnd != 0 && curEnd <= curStart) {
+            const int newEnd = qMin(curStart + 1, maxVal);
+            m_endSpin->setValue(newEnd);
+        }
+    }
+}
+
+bool ControlsPanel::regionIsValid() const
+{
+    if (m_lengthModeCheck->isChecked())
+        return m_endSpin->value() > 0 || m_offsetSpin->value() == 0;
+    const int end = m_endSpin->value();
+    if (end == 0)                       // «весь файл» — валидно
+        return true;
+    return end > m_offsetSpin->value();
 }
 
 // =========================================================================
@@ -1073,11 +1132,17 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
 
     const quint64 displayVal = lenMode ? lengthVal : (offsetVal + lengthVal);
 
-    applyHexModeToSpins(m_hexModeCheck->isChecked());
-    {
+    applyHexModeToSpins(m_hexModeCheck->isChecked()); {
         QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
         m_offsetSpin->setValue(int(qMin<quint64>(offsetVal,  0x7FFFFFFFULL)));
         m_endSpin->setValue   (int(qMin<quint64>(displayVal, 0x7FFFFFFFULL)));
+
+        if (!m_lengthModeCheck->isChecked()
+            && m_endSpin->value() != 0
+            && m_endSpin->value() <= m_offsetSpin->value()) {
+            const int maxVal = m_offsetSpin->maximum();
+            m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
+        }
     }
 
     m_updatingConfig = false;

@@ -239,7 +239,9 @@ Read %1 of %2 bytes.
         <source>Byte order within multi-byte pixel values (16/24/32/64 bpp).
 For RGB/RGBA palettes it also reverses the channel order
 (e.g. RGB + little = BGR).</source>
-        <translation type="unfinished"></translation>
+        <translation>Порядок байтов в многобайтовых значениях пикселей (16/24/32/64 бита на пиксель).
+Для палитр RGB/RGBA также меняется порядок каналов
+(например, RGB + little-endian = BGR).</translation>
     </message>
     <message>
         <location line="+12"/>
@@ -283,7 +285,7 @@ For RGB/RGBA palettes it also reverses the channel order
         <translation>Начало региона (по умолчанию 0)</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+16"/>
         <source>Pick region start: click, then left-click the desired byte.
 Click again or press Esc to cancel.</source>
         <translation>Выбрать начало региона: нажмите, затем ЛКМ по нужному байту.
@@ -295,7 +297,7 @@ Click again or press Esc to cancel.</source>
         <translation>Конец региона, или длина, если включён режим длины</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+16"/>
         <source>Pick region end: click, then left-click the desired byte.
 Click again or press Esc to cancel.</source>
         <translation>Выбрать конец региона: нажмите, затем щёлкните ЛКМ по нужному байту.
@@ -388,27 +390,27 @@ Click again or press Esc to cancel.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+336"/>
+        <location line="+361"/>
         <source>For &quot;Manual&quot; — width in pixels.
 For &quot;Divisor ≤ N&quot; — upper width limit.</source>
         <translation>Для «Ручной» — ширина в пикселях.
 Для «Делитель ≤ N» — верхний предел ширины.</translation>
     </message>
     <message>
-        <location line="-326"/>
+        <location line="-351"/>
         <source>Width step:</source>
         <translation>Шаг ширины:</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+331"/>
+        <location line="+356"/>
         <source>Width change step with Ctrl+mouse wheel.
 Used in manual mode.</source>
         <translation>Шаг изменения ширины колесом мыши с Ctrl.
 Используется в ручном режиме.</translation>
     </message>
     <message>
-        <location line="-370"/>
+        <location line="-395"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
@@ -463,28 +465,32 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
         <translation>Восстановить параметры отображения по умолчанию</translation>
     </message>
     <message>
-        <location line="+194"/>
+        <location line="+219"/>
         <source>Bit extraction order for bit-packed pixels.
 MSB-first: highest bit of byte first.
 LSB-first: lowest bit of byte first.</source>
-        <translation type="unfinished"></translation>
+        <translation>Порядок извлечения битов для упакованных пикселей.
+MSB-first: сначала старший бит байта.
+LSB-first: сначала младший бит байта.</translation>
     </message>
     <message>
         <location line="+3"/>
         <source>Bit order within each byte.
 MSB-first: normal byte.
 LSB-first: reverse bits in byte.</source>
-        <translation type="unfinished"></translation>
+        <translation>Порядок битов внутри каждого байта.
+MSB-first: обычный байт.
+LSB-first: биты в байте расположены в обратном порядке.</translation>
     </message>
     <message>
         <location line="+57"/>
         <source>Controlled by the current width mode.</source>
-        <translation type="unfinished"></translation>
+        <translation>Управляется текущим режимом ширины.</translation>
     </message>
     <message>
         <location line="+11"/>
         <source>Available only in &quot;Manual&quot; mode.</source>
-        <translation type="unfinished"></translation>
+        <translation>Доступно только в «ручном» режиме.</translation>
     </message>
     <message>
         <location line="+15"/>
@@ -1343,32 +1349,32 @@ Restart the application to apply the change.</source>
     <message>
         <location line="+1"/>
         <source>Integer 16 (unsigned)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 16 (unsigned)</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Integer 16 (signed)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 16 (signed)</translation>
     </message>
     <message>
         <location line="+11"/>
         <source>Integer 32 (unsigned)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 32 (unsigned)</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Integer 32 (signed)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 32 (signed)</translation>
     </message>
     <message>
         <location line="+2"/>
         <source>Integer 64 (unsigned)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 64 (unsigned)</translation>
     </message>
     <message>
         <location line="+1"/>
         <source>Integer 64 (signed)</source>
-        <translation type="unfinished"></translation>
+        <translation>Integer 64 (signed)</translation>
     </message>
     <message>
         <location line="-14"/>
@@ -1479,19 +1485,22 @@ are highlighted in red.</source>
         <location line="-90"/>
         <source>High values - fewer bands,
 low values - more.</source>
-        <translation type="unfinished"></translation>
+        <translation>Высокие значения — меньше полос,
+низкие значения — больше.</translation>
     </message>
     <message>
         <location line="+12"/>
         <source>Select bit plane.</source>
-        <translation type="unfinished"></translation>
+        <translation>Выберите битовую плоскость.</translation>
     </message>
     <message>
         <location line="+26"/>
         <source>Byte values that occur at least N times in the file
 are highlighted in red. The rest — grayscale.
 Counted over the whole file, not the visible region.</source>
-        <translation type="unfinished"></translation>
+        <translation>Значения байтов, встречающиеся в файле не менее N раз,
+выделены красным цветом. Остальные — оттенками серого.
+Подсчет ведется по всему файлу, а не только по видимой области.</translation>
     </message>
     <message>
         <location line="+14"/>
