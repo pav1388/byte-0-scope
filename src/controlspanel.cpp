@@ -1130,20 +1130,31 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     if (m_endLabel)
         m_endLabel->setText(lenMode ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
 
-    const quint64 displayVal = lenMode ? lengthVal : (offsetVal + lengthVal);
+	const quint64 maxSpinValue = quint64(m_endSpin->maximum());
+	const quint64 safeOffsetVal = qMin(offsetVal, maxSpinValue);
 
-    applyHexModeToSpins(m_hexModeCheck->isChecked()); {
-        QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
-        m_offsetSpin->setValue(int(qMin<quint64>(offsetVal,  0x7FFFFFFFULL)));
-        m_endSpin->setValue   (int(qMin<quint64>(displayVal, 0x7FFFFFFFULL)));
+	quint64 displayVal = 0;
 
-        if (!m_lengthModeCheck->isChecked()
-            && m_endSpin->value() != 0
-            && m_endSpin->value() <= m_offsetSpin->value()) {
-            const int maxVal = m_offsetSpin->maximum();
-            m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
-        }
-    }
+	if (lenMode) {
+		displayVal = qMin(lengthVal, maxSpinValue);
+	} else if (lengthVal > 0) {
+		const quint64 safeLengthVal = qMin(lengthVal, maxSpinValue);
+		displayVal = qMin(safeOffsetVal + safeLengthVal, maxSpinValue);
+	}
+
+	applyHexModeToSpins(m_hexModeCheck->isChecked()); {
+		QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
+
+		m_offsetSpin->setValue(int(safeOffsetVal));
+		m_endSpin->setValue(int(displayVal));
+
+		if (!m_lengthModeCheck->isChecked()
+			&& m_endSpin->value() != 0
+			&& m_endSpin->value() <= m_offsetSpin->value()) {
+			const int maxVal = m_offsetSpin->maximum();
+			m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
+		}
+	}
 
     m_updatingConfig = false;
     emit settingsChanged();

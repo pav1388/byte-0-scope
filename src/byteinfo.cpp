@@ -14,6 +14,8 @@
 #include <QVBoxLayout>
 #include <algorithm>
 
+#define BI_FONT_SIZE 9
+
 namespace {
 
 QString hexU(qint64 v, int width)
@@ -77,7 +79,7 @@ ByteInfoWidget::ByteInfoWidget(MainWindow *parent)
 {
     QFont mono(QStringLiteral("Monospace"));
     mono.setStyleHint(QFont::TypeWriter, QFont::PreferQuality);
-    mono.setPointSize(10);
+    mono.setPointSize(BI_FONT_SIZE);
     mono.setFixedPitch(true);
 
     auto *lay = new QVBoxLayout(this);
@@ -232,9 +234,6 @@ QString ByteInfoWidget::formatMultibyte(qint64 addr,
 	lines << QString("&nbsp;&nbsp;Dec:&nbsp;<b>%1</b>").arg(value);
 
     // Декодированные каналы/поля.
-    // Передаём исходные байты (file order): decodeImpl сам применяет
-    // byteOrder и bitOrder. pixelBytes тут не подходит — иначе
-    // порядок применится дважды.
     const QString desc = PixelDecoder::describe(dataBytes, paletteId,
                                                 bOrd, byteOrd, params);
     if (!desc.isEmpty())

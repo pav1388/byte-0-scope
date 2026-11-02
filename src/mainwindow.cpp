@@ -1554,8 +1554,6 @@ void MainWindow::refreshTitle()
             .arg(qint64(m_fileSize), 0, 16)
             .arg(sizeComma)
             .arg(m_imageWidth).arg(m_imageHeight);
-        if (isBitpacked())
-            t += QString(" %1bpp").arg(m_bppMode);
         setWindowTitle(t);
     }
 

@@ -223,9 +223,9 @@ private:
     QString     m_xorLabel;
 
     // --- Производительность ---
-    int  m_tileSize           = 448;
+    int  m_tileSize           = 256;
     int  m_tilePrefetchMargin = 3;
-    int  m_perfSliderValue    = 8;
+    int  m_perfSliderValue    = 10;
     int  m_pendingPerfValue   = -1;
     int  m_activeTileTasks    = 0;
     bool m_busyPngExport      = false;
