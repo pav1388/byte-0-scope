@@ -87,6 +87,14 @@ void CanvasWidget::clearLock()
 
 void CanvasWidget::rebuild()
 {
+    if (isVisible() && width() > 0 && height() > 0) {
+        m_frozenSnapshot = grab().toImage();
+        m_snapshotActive = !m_frozenSnapshot.isNull();
+    } else {
+        m_frozenSnapshot = QImage();
+        m_snapshotActive = false;
+    }
+
     m_tiles->clearCache();
     if (m_prefetchTimer)
         m_prefetchTimer->stop();
@@ -115,6 +123,18 @@ QSize CanvasWidget::scaledSize() const
                  qMax(1, (m_imageHeight * s) / ds));
 }
 
+bool CanvasWidget::allVisibleTilesReady() const
+{
+    if (!m_main)
+        return true;
+    const QSet<TileKey> vis = visibleTiles();
+    for (const TileKey &k : vis) {
+        if (m_tiles->getTile(k.tx, k.ty).isNull())
+            return false;
+    }
+    return true;
+}
+
 void CanvasWidget::paintEvent(QPaintEvent *event)
 {
     QPainter p(this);
@@ -132,6 +152,11 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
     if (m_forceRedraw) {
         m_tiles->clearCache();
         m_forceRedraw = false;
+    }
+
+    if (m_snapshotActive && !m_frozenSnapshot.isNull()) {
+        p.setRenderHint(QPainter::SmoothPixmapTransform, false);
+        p.drawImage(rect(), m_frozenSnapshot);
     }
 
     const QSet<TileKey> vis = visibleTiles();
@@ -187,7 +212,12 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
         x = m_imageWidth - 1 - x;
     if (m_main->mirrorVertical())
         y = m_imageHeight - 1 - y;
-
+	
+	if (m_snapshotActive && allVisibleTilesReady()) {
+        m_snapshotActive = false;
+        m_frozenSnapshot = QImage();
+    }
+	
     const int xp = (x * s) / ds;
     const int yp = (y * s) / ds;
     const int cw = qMax(1, s / ds);
@@ -496,6 +526,9 @@ QImage CanvasWidget::renderToImage(const QSize &targetSize)
     const QString paletteId = m_main->currentPaletteId();
     const QVariantMap palParams = m_main->paletteParams().value(paletteId).toMap();
     const QVector<QColor> pal = m_main->currentPalette();
+    const QString bitOrder  = m_main->bitOrder();
+    const QString byteOrder = m_main->byteOrder();
+    const bool rev = (bp == 1 && bitOrder == QLatin1String("lsb"));
 
     for (int ty = 0; ty < targetSize.height(); ++ty) {
         const int gy = (ty * ds) / s;
@@ -517,7 +550,9 @@ QImage CanvasWidget::renderToImage(const QSize &targetSize)
 
             QByteArray px = m_main->readRange(off, bp);
             if (bp == 1) {
-                const quint8 v = quint8(px.at(0));
+                quint8 v = quint8(px.at(0));
+                if (rev)
+                    v = PixelDecoder::reverseBits8(v);
                 if (v < pal.size()) {
                     const QColor &c = pal[v];
                     line[tx] = qRgb(c.red(), c.green(), c.blue());
@@ -525,7 +560,9 @@ QImage CanvasWidget::renderToImage(const QSize &targetSize)
                     line[tx] = qRgb(v, v, v);
                 }
             } else {
-                line[tx] = PixelDecoder::decodeArgb(px, paletteId, palParams);
+                line[tx] = PixelDecoder::decodeArgb(px, paletteId,
+                                                    bitOrder, byteOrder,
+                                                    palParams);
             }
         }
     }

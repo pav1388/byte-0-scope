@@ -57,6 +57,7 @@ public:
     bool    lengthMode() const      { return m_lengthMode; }
     quint64 fileSize() const        { return quint64(m_fileSize); }
     QString bitOrder() const        { return m_bitOrder; }
+	QString byteOrder() const       { return m_byteOrder; }
     QString pixelOrder() const      { return m_pixelOrder; }
     int     rowPaddingBits() const  { return m_rowPaddingBits; }
     bool    mirrorHorizontal() const{ return m_mirrorH; }
@@ -149,6 +150,7 @@ private:
     void loadSettings();
     void saveSettings();
     int  calculateWidth() const;
+	void  applySquareWidthHint();
     void calculateDimensions();
     void applyFitToWindow();
     void autoFitScale();
@@ -178,6 +180,7 @@ private:
     int         m_bppMode        = 8;
     QString     m_bitOrder       = "msb";
     QString     m_pixelOrder     = "msb";
+	QString 	m_byteOrder  	 = "big";
     int         m_rowPaddingBits = 0;
     quint64     m_offset         = 0;
     quint64     m_length         = 0;

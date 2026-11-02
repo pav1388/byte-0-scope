@@ -12,26 +12,31 @@
 
 namespace PixelDecoder {
 
+// Реверс битов в байте. Используется при bit_order = "lsb" для bpp >= 8.
+inline quint8 reverseBits8(quint8 b) noexcept
+{
+    b = quint8((b & 0xF0u) >> 4) | quint8((b & 0x0Fu) << 4);
+    b = quint8((b & 0xCCu) >> 2) | quint8((b & 0x33u) << 2);
+    b = quint8((b & 0xAAu) >> 1) | quint8((b & 0x55u) << 1);
+    return b;
+}
+
 QRgb decodeArgb(const QByteArray &pixelData, const QString &paletteId,
+                const QString &bitOrder, const QString &byteOrder,
                 const QVariantMap &params = QVariantMap());
 
 QRgb decodeArgbRaw(const uchar *pixelData, int size,
                    const QString &paletteId,
+                   const QString &bitOrder, const QString &byteOrder,
                    const QVariantMap &params = QVariantMap());
 
-void decode(const QByteArray &pixelData, const QString &paletteId,
-            const QVariantMap &params,
-            int *outR, int *outG, int *outB, int *outA);
-
 QString describe(const QByteArray &pixelData, const QString &paletteId,
+                 const QString &bitOrder, const QString &byteOrder,
                  const QVariantMap &params = QVariantMap());
 
 QColor interpretPaletteRecord(const QByteArray &record, const QString &format,
                               int recordSize, const QString &endianness);
 
 bool isMultibytePalette(const QString &paletteId);
-
-inline quint16 rd16be(const uchar *p) { return quint16((p[0] << 8) | p[1]); }
-inline quint16 rd16le(const uchar *p) { return quint16((p[1] << 8) | p[0]); }
 
 } // namespace PixelDecoder

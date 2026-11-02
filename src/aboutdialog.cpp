@@ -82,7 +82,7 @@ static const char *kAboutPerformance = QT_TRANSLATE_NOOP("AboutDialog",
     "  * Tile rendering of the visible region only\n"
     "  * LRU tile cache with automatic eviction\n"
     "  * Prefetching of neighboring tiles\n"
-    "  * Tile size 128–1024 px, cache limit 180–2000 MB");
+    "  * Tile size ***-**** px, cache limit ***-**** MB");
 
 static const char *kAboutAi = QT_TRANSLATE_NOOP("AboutDialog",
     "Note: part of the code was generated or refined\n"

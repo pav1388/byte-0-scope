@@ -97,13 +97,13 @@ License: GPL-3.0-or-later</source>
   * Tile rendering of the visible region only
   * LRU tile cache with automatic eviction
   * Prefetching of neighboring tiles
-  * Tile size 128–1024 px, cache limit 180–2000 MB</source>
+  * Tile size ***-**** px, cache limit ***-**** MB</source>
         <translation>Производительность:
-  * Memory-mapping (mmap) для больших файлов
-  * Тайловый рендеринг только видимой области
-  * LRU-кэш тайлов с автоматической очисткой
-  * Prefetching соседних тайлов
-  * Размер тайла 128–1024 px, лимит кэша 180–2000 МБ</translation>
+  * Отображение файлов в память (mmap) для работы с крупными файлами
+  * Потайловый рендеринг (отрисовка только видимой области)
+  * LRU кэш тайлов
+  * Предварительная загрузка соседних тайлов
+  * Размер тайла: ***–**** пикселей, лимит кэша: ***–**** МБ</translation>
     </message>
     <message>
         <location line="+8"/>
@@ -215,7 +215,7 @@ Read %1 of %2 bytes.
         <translation>Длина:</translation>
     </message>
     <message>
-        <location line="+103"/>
+        <location line="+106"/>
         <source>Pixel format</source>
         <translation>Формат пикселей</translation>
     </message>
@@ -230,12 +230,24 @@ Read %1 of %2 bytes.
         <translation>Порядок битов:</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+16"/>
+        <source>Byte order:</source>
+        <translation>Порядок байтов:</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Byte order within multi-byte pixel values (16/24/32/64 bpp).
+For RGB/RGBA palettes it also reverses the channel order
+(e.g. RGB + little = BGR).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+12"/>
         <source>Padding (bits):</source>
         <translation>Паддинг (бит):</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Row alignment. 0 — no padding.
 8 — rows are multiples of 1 byte.
 16 — multiples of 2 bytes.
@@ -251,7 +263,7 @@ Read %1 of %2 bytes.
         <translation>Порядок пикселей:</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+19"/>
         <source>Palettes</source>
         <translation>Палитры</translation>
     </message>
@@ -370,31 +382,33 @@ Click again or press Esc to cancel.</source>
         <translation>Делитель ≤ N</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+26"/>
         <source>Width / N:</source>
         <translation>Ширина / N:</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
+        <location line="+336"/>
         <source>For &quot;Manual&quot; — width in pixels.
 For &quot;Divisor ≤ N&quot; — upper width limit.</source>
         <translation>Для «Ручной» — ширина в пикселях.
 Для «Делитель ≤ N» — верхний предел ширины.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="-326"/>
         <source>Width step:</source>
         <translation>Шаг ширины:</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
+        <location line="+331"/>
         <source>Width change step with Ctrl+mouse wheel.
 Used in manual mode.</source>
         <translation>Шаг изменения ширины колесом мыши с Ctrl.
 Используется в ручном режиме.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="-370"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
@@ -406,7 +420,7 @@ Pixels per row = bytes / bytesPerPixel.</source>
 Пикселей в строке = байт / bytesPerPixel.</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+44"/>
         <source>Zoom:</source>
         <translation>Масштаб:</translation>
     </message>
@@ -449,7 +463,31 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
         <translation>Восстановить параметры отображения по умолчанию</translation>
     </message>
     <message>
-        <location line="+200"/>
+        <location line="+194"/>
+        <source>Bit extraction order for bit-packed pixels.
+MSB-first: highest bit of byte first.
+LSB-first: lowest bit of byte first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Bit order within each byte.
+MSB-first: normal byte.
+LSB-first: reverse bits in byte.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+57"/>
+        <source>Controlled by the current width mode.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Available only in &quot;Manual&quot; mode.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+15"/>
         <source>Controlled by &quot;Auto zoom&quot; or &quot;Fit to window&quot;.</source>
         <translation>Управляется «Автомасштабом» или «Вписать в окно».</translation>
     </message>
@@ -463,8 +501,8 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
     <name>DemoBuilder</name>
     <message>
         <location filename="../demobuilder.cpp" line="+324"/>
-        <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;, width &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;View -&gt; Mirror horizontally&lt;/b&gt;&lt;br&gt;&lt;br&gt;</source>
-        <translation>&lt;b&gt;Обучение: восстановите изображение&lt;/b&gt;&lt;br&gt;&lt;br&gt;Файл загружен, но текущие настройки отображения неверны — вы видите шум. Приведите параметры к правильным, и появятся заголовок «BYTE», текст и графика.&lt;br&gt;&lt;br&gt;&lt;b&gt;Правильные параметры:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Бит на пиксель&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Порядок битов&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Порядок пикселей&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Паддинг (бит)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Палитра&lt;/b&gt; -&gt; &lt;code&gt;Любая&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Режим ширины&lt;/b&gt; -&gt; &lt;code&gt;Ручной&lt;/code&gt;, ширина &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Вид -&gt; Отразить по горизонтали&lt;/b&gt;&lt;br&gt;&lt;br&gt;</translation>
+        <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;View&lt;/b&gt; -&gt; &lt;code&gt;Flip horizontally&lt;/code&gt;&lt;br&gt;</source>
+        <translation>&lt;b&gt;Обучение: восстановите изображение&lt;/b&gt;&lt;br&gt;&lt;br&gt;Файл загружен, но текущие настройки отображения неверны — вы видите шум. Приведите параметры к правильным значениям, и появятся заголовок «BYTE», текст и графика.&lt;br&gt;&lt;br&gt;&lt;b&gt;Правильные параметры:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Бит на пиксель&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Порядок битов&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Порядок пикселей&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Палитра&lt;/b&gt; -&gt; &lt;code&gt;Любая&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Режим ширины&lt;/b&gt; -&gt; &lt;code&gt;Ручной&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Ширина&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Паддинг (бит)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;Вид&lt;/b&gt; -&gt; &lt;code&gt;Отразить по горизонтали&lt;/code&gt;&lt;br&gt;</translation>
     </message>
 </context>
 <context>
@@ -626,36 +664,36 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+862"/>
+        <location line="+906"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-862"/>
-        <location line="+862"/>
+        <location line="-906"/>
+        <location line="+906"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-858"/>
-        <location line="+890"/>
+        <location line="-902"/>
+        <location line="+934"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-885"/>
-        <location line="+881"/>
+        <location line="-929"/>
+        <location line="+925"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-876"/>
-        <location line="+876"/>
+        <location line="-920"/>
+        <location line="+920"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-862"/>
+        <location line="-906"/>
         <source>Byte tooltip</source>
         <translation>Подсказка по байту</translation>
     </message>
@@ -732,12 +770,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+363"/>
+        <location line="+369"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-355"/>
+        <location line="-361"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -765,11 +803,16 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+2"/>
-        <source>128 px per tile · cache limit 180 MB</source>
-        <translation>128 px на тайл · лимит кэша 180 МБ</translation>
+        <source>256 px per tile · cache limit 180 MB</source>
+        <translation>128 px на тайл · лимит кэша 180 МБ {256 ?} {180 ?}</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+21"/>
+        <source>1024 px per tile · cache limit 1 GB</source>
+        <translation>1024 px на тайл · лимит кэша 1 ГБ</translation>
+    </message>
+    <message>
+        <location line="-15"/>
         <source>Small tiles — more frequent updates, smaller pause per tile,
 but more overhead and more objects in the cache.
 
@@ -801,12 +844,7 @@ from eviction, so momentarily the cache may exceed the limit.</source>
         <translation>+</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>1024 px per tile · cache limit 2 GB</source>
-        <translation>1024 px на тайл · лимит кэша 2 ГБ</translation>
-    </message>
-    <message>
-        <location line="+6"/>
+        <location line="+11"/>
         <source>Debug</source>
         <translation>Отладка</translation>
     </message>
@@ -857,7 +895,7 @@ Expected: %2</source>
         <translation>Причина неизвестна.</translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+54"/>
         <source>File 1</source>
         <translation>Файл 1</translation>
     </message>
@@ -868,12 +906,12 @@ Expected: %2</source>
     </message>
     <message>
         <location line="+15"/>
-        <location line="+543"/>
+        <location line="+582"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location line="-542"/>
+        <location line="-581"/>
         <source>Failed to open one of the files for comparison.</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
@@ -910,7 +948,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Не удалось прочитать файлы полностью.</translation>
     </message>
     <message>
-        <location line="+443"/>
+        <location line="+482"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -944,7 +982,7 @@ Restart the application to apply the change.</source>
         <translation>%1: [%2] [0x%3 / %4 байт] [%5×%6]</translation>
     </message>
     <message>
-        <location line="+309"/>
+        <location line="+311"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -969,12 +1007,12 @@ Restart the application to apply the change.</source>
         <translation>· Кэш тайлов: %1 МБ / %2 МБ</translation>
     </message>
     <message>
-        <location line="+87"/>
+        <location line="+88"/>
         <source>The .b0s settings file is empty.</source>
         <translation>Файл настроек .b0s пуст.</translation>
     </message>
     <message>
-        <location line="+169"/>
+        <location line="+170"/>
         <source>GB</source>
         <translation>ГБ</translation>
     </message>
@@ -994,7 +1032,7 @@ Restart the application to apply the change.</source>
         <translation>Б</translation>
     </message>
     <message>
-        <location line="+223"/>
+        <location line="+225"/>
         <source>Tutorial: adjust the display settings to reveal the image.</source>
         <translation>Обучение: настройте параметры отображения, чтобы увидеть изображение.</translation>
     </message>
@@ -1002,7 +1040,7 @@ Restart the application to apply the change.</source>
 <context>
     <name>PaletteManager</name>
     <message>
-        <location filename="../palettemanager.cpp" line="+896"/>
+        <location filename="../palettemanager.cpp" line="+916"/>
         <source>Grayscale</source>
         <translation>Оттенки серого</translation>
     </message>
@@ -1013,52 +1051,52 @@ Restart the application to apply the change.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+183"/>
+        <location line="+193"/>
         <source>Heat</source>
         <translation>Тепловая</translation>
     </message>
     <message>
-        <location line="-182"/>
+        <location line="-192"/>
         <source>Thermal</source>
         <translation>Термальная</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+182"/>
+        <location line="+192"/>
         <source>Viridis</source>
         <translation>Вирдис</translation>
     </message>
     <message>
-        <location line="-181"/>
-        <location line="+182"/>
+        <location line="-191"/>
+        <location line="+192"/>
         <source>Plasma</source>
         <translation>Плазма</translation>
     </message>
     <message>
-        <location line="-181"/>
-        <location line="+182"/>
+        <location line="-191"/>
+        <location line="+192"/>
         <source>Rainbow</source>
         <translation>Радуга</translation>
     </message>
     <message>
-        <location line="-181"/>
+        <location line="-191"/>
         <source>HSV</source>
         <translation>HSV</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+181"/>
+        <location line="+191"/>
         <source>Solarize</source>
         <translation>Соляризация</translation>
     </message>
     <message>
-        <location line="-180"/>
-        <location line="+181"/>
+        <location line="-190"/>
+        <location line="+191"/>
         <source>Hash color</source>
         <translation>Хеш-цвет</translation>
     </message>
     <message>
-        <location line="-180"/>
+        <location line="-190"/>
         <source>Bit scale</source>
         <translation>Битовая шкала</translation>
     </message>
@@ -1304,11 +1342,36 @@ Restart the application to apply the change.</source>
     </message>
     <message>
         <location line="+1"/>
-        <source>Integer 16</source>
-        <translation>Integer 16</translation>
+        <source>Integer 16 (unsigned)</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+1"/>
+        <source>Integer 16 (signed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>Integer 32 (unsigned)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Integer 32 (signed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Integer 64 (unsigned)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Integer 64 (signed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="-14"/>
         <source>RGB</source>
         <translation>RGB</translation>
     </message>
@@ -1358,22 +1421,12 @@ Restart the application to apply the change.</source>
         <translation>ABGR</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Integer 32</source>
-        <translation>Integer 32</translation>
-    </message>
-    <message>
-        <location line="+1"/>
+        <location line="+3"/>
         <source>Float 32</source>
         <translation>Float 32</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>Integer 64</source>
-        <translation>Integer 64</translation>
-    </message>
-    <message>
-        <location line="+1"/>
+        <location line="+3"/>
         <source>Float 64</source>
         <translation>Float 64</translation>
     </message>
@@ -1381,7 +1434,7 @@ Restart the application to apply the change.</source>
 <context>
     <name>PaletteSettingsPanel</name>
     <message>
-        <location filename="../palettesettings.cpp" line="+105"/>
+        <location filename="../palettesettings.cpp" line="+96"/>
         <source>Reset palette settings</source>
         <translation>Сбросить настройки палитры</translation>
     </message>
@@ -1391,31 +1444,17 @@ Restart the application to apply the change.</source>
         <translation>Автоприменение настроек</translation>
     </message>
     <message>
-        <location line="+156"/>
+        <location line="+129"/>
         <source>Step (bands):</source>
         <translation>Шаг (полосы):</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>High values — fewer bands,
-low values — more.</source>
-        <translation>Высокие значения — меньше полос,
-низкие — больше.</translation>
-    </message>
-    <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Bit plane (0–7):</source>
         <translation>Битовая плоскость (0–7):</translation>
     </message>
     <message>
-        <location line="+1"/>
-        <source>0 = least significant bit,
-7 = most significant bit.</source>
-        <translation>0 = младший бит,
-7 = старший бит.</translation>
-    </message>
-    <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Threshold (0–255):</source>
         <translation>Порог (0–255):</translation>
     </message>
@@ -1432,50 +1471,30 @@ are highlighted in red.</source>
         <translation>Мин. число повторов:</translation>
     </message>
     <message>
-        <location line="+13"/>
-        <location line="+29"/>
-        <location line="+29"/>
-        <location line="+55"/>
+        <location line="+53"/>
         <source>Byte order:</source>
         <translation>Порядок байтов:</translation>
     </message>
     <message>
-        <location line="-109"/>
-        <source>16-bit: R=5, G=6, B=5
-Typical for TFT screens,
-BMP-16, GBA, old video cards.</source>
-        <translation>16-бит: R=5, G=6, B=5
-Формат типичен для TFT-экранов,
-BMP-16, GBA, старых видеокарт.</translation>
+        <location line="-90"/>
+        <source>High values - fewer bands,
+low values - more.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+4"/>
-        <source>Same as RGB565, but
-the byte order is swapped.</source>
-        <translation>То же, что RGB565, но
-порядок байтов обратный.</translation>
+        <location line="+12"/>
+        <source>Select bit plane.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
-        <source>16-bit: R=5, G=5, B=5
-The most significant bit is usually unused.</source>
-        <translation>16-бит: R=5, G=5, B=5
-Старший бит обычно не используется.</translation>
+        <location line="+26"/>
+        <source>Byte values that occur at least N times in the file
+are highlighted in red. The rest — grayscale.
+Counted over the whole file, not the visible region.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+3"/>
-        <source>16-bit: A=1, R=5, G=5, B=5
-Transparency is ignored.</source>
-        <translation>16-бит: A=1, R=5, G=5, B=5
-Прозрачность игнорируется.</translation>
-    </message>
-    <message>
-        <location line="+18"/>
-        <source>Signed</source>
-        <translation>Знаковый</translation>
-    </message>
-    <message>
-        <location line="+44"/>
+        <location line="+14"/>
         <source>Start address:</source>
         <translation>Начальный адрес:</translation>
     </message>

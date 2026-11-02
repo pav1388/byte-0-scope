@@ -571,7 +571,7 @@ void MainWindow::buildUi()
 
     auto *lblMinus = new QLabel(tr("-"), this);
     lblMinus->setAlignment(Qt::AlignRight);
-    lblMinus->setToolTip(tr("128 px per tile · cache limit 180 MB"));
+    lblMinus->setToolTip(tr("256 px per tile · cache limit 180 MB"));
     sldRow->addWidget(lblMinus);
 
     m_perfSlider = new QSlider(Qt::Horizontal, this);
@@ -592,10 +592,14 @@ void MainWindow::buildUi()
     sldRow->addWidget(m_perfSlider);
 
     auto *lblPlus = new QLabel(tr("+"), this);
-    lblPlus->setToolTip(tr("1024 px per tile · cache limit 2 GB"));
+    lblPlus->setToolTip(tr("1024 px per tile · cache limit 1 GB"));
     sldRow->addWidget(lblPlus);
-
     perfLay->addLayout(sldRow);
+
+    m_busyLabel = new QLabel(this);
+    m_busyLabel->setStyleSheet("font-weight: bold;");
+    m_busyLabel->setAlignment(Qt::AlignCenter | Qt::AlignVCenter);
+    perfLay->addWidget(m_busyLabel);
     rightLay->addWidget(perfGroup);
 
     m_debugGroup = new QGroupBox(tr("Debug"), this);
@@ -705,7 +709,8 @@ void MainWindow::loadFile(const QString &path)
     }
     if (!cfgLoaded)
         applyDefaultConfig();
-
+	
+	applySquareWidthHint();
     recomputeGeometry();
     refreshTitle();
     if (m_canvas)
@@ -839,7 +844,8 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     }
     if (!cfgLoaded)
         applyDefaultConfig();
-
+	
+	applySquareWidthHint();
     recomputeGeometry();
     refreshTitle();
     if (m_canvas)
@@ -905,6 +911,12 @@ void MainWindow::onPaletteChanged(const QString &value)
 
     if (!m_paletteParams.contains(id))
         m_paletteParams[id] = m_paletteManager->defaultParams(id);
+	
+	if (id == QStringLiteral("from_file")) {
+		QVariantMap p = m_paletteParams.value(id).toMap();
+		p["bpp"] = m_bppMode;
+		m_paletteParams[id] = p;
+	}
 
     const QVariantMap params = m_paletteParams.value(id).toMap();
 
@@ -1032,6 +1044,30 @@ int MainWindow::calculateWidth() const
     return qMax(1, m_fixedWidth);
 }
 
+void MainWindow::applySquareWidthHint()
+{
+    if (m_fileSize <= 0)
+        return;
+
+    const quint64 length = m_length ? m_length : quint64(m_fileSize);
+    const quint64 end = qMin<quint64>(m_offset + length, quint64(m_fileSize));
+    if (end <= m_offset)
+        return;
+    const quint64 actualLen = end - m_offset;
+
+    const int bp = qMax(1, bytesPerPixel());
+    const int pixels = isBitpacked()
+        ? int((actualLen * 8) / qMax(1, m_bppMode))
+        : int(actualLen / bp);
+    if (pixels <= 0)
+        return;
+
+    const int squareW = qMax(1, int(qSqrt(double(pixels))));
+    m_fixedWidth = squareW;
+    if (m_controls)
+        m_controls->setWidthSilent(squareW);
+}
+
 void MainWindow::calculateDimensions()
 {
     m_imageWidth = m_imageHeight = 0;
@@ -1095,20 +1131,28 @@ void MainWindow::onSettingsChanged()
     if (!m_controls)
         return;
     const int oldBpp = m_bppMode;
-    m_bppMode        = m_controls->bppMode();
-    m_bitOrder       = m_controls->bitOrder();
-    m_pixelOrder     = m_controls->pixelOrder();
+    m_bppMode = m_controls->bppMode();
+	
+	if (m_paletteParams.contains(QStringLiteral("from_file"))) {
+		QVariantMap p = m_paletteParams.value(QStringLiteral("from_file")).toMap();
+		p["bpp"] = m_bppMode;
+		m_paletteParams[QStringLiteral("from_file")] = p;
+	}
+	
+    m_bitOrder = m_controls->bitOrder();
+    m_byteOrder = m_controls->byteOrder();
+	m_pixelOrder = m_controls->pixelOrder();
     m_rowPaddingBits = m_controls->rowPaddingBits();
-    m_widthMode      = m_controls->widthMode();
-    m_fixedWidth     = m_controls->fixedWidth();
-    m_widthStep      = m_controls->widthStep();
-    m_scale          = m_controls->scaleValue();
-    m_autoScale      = m_controls->autoScale();
-    m_fitToWindow    = m_controls->fitToWindow();
-    m_offset         = m_controls->offset();
-    m_length         = m_controls->length();
-    m_lengthMode     = m_controls->lengthMode();
-    m_bytesPerRow    = m_controls->bytesPerRow();
+    m_widthMode = m_controls->widthMode();
+    m_fixedWidth = m_controls->fixedWidth();
+    m_widthStep = m_controls->widthStep();
+    m_scale = m_controls->scaleValue();
+    m_autoScale = m_controls->autoScale();
+    m_fitToWindow = m_controls->fitToWindow();
+    m_offset = m_controls->offset();
+    m_length = m_controls->length();
+    m_lengthMode = m_controls->lengthMode();
+    m_bytesPerRow = m_controls->bytesPerRow();
 
     if (oldBpp != m_bppMode)
         onPaletteChanged(m_controls->currentPaletteId());
@@ -1414,7 +1458,7 @@ void MainWindow::loadSettings()
     }
 
     m_lastDir               = s.value("last_directory").toString();
-    m_perfSliderValue       = s.value("perf_slider_value", 8).toInt();
+    m_perfSliderValue       = s.value("perf_slider_value", 10).toInt();
     m_loadIntoMemory        = s.value("load_into_memory", false).toBool();
     m_showDebugInfo         = s.value("show_debug_info", false).toBool();
     m_startupGeometryB64    = s.value("window_geometry").toString();
@@ -1430,6 +1474,7 @@ void MainWindow::loadSettings()
 
     m_loadedStartupConfig["bpp_mode"]         = s.value("bpp_mode", 8).toInt();
     m_loadedStartupConfig["bit_order"]        = s.value("bit_order", "msb").toString();
+	m_loadedStartupConfig["byte_order"]       = s.value("byte_order", "big").toString();
     m_loadedStartupConfig["pixel_order"]      = s.value("pixel_order", "msb").toString();
     m_loadedStartupConfig["row_padding_bits"] = s.value("row_padding_bits", 0).toInt();
     m_loadedStartupConfig["scale"]            = s.value("scale", 1).toInt();
@@ -1456,6 +1501,7 @@ void MainWindow::saveSettings()
                                  : QStringLiteral("light");
     s["bpp_mode"]          = m_bppMode;
     s["bit_order"]         = m_bitOrder;
+	s["byte_order"]        = m_byteOrder;
     s["pixel_order"]       = m_pixelOrder;
     s["row_padding_bits"]  = m_rowPaddingBits;
     s["scale"]             = m_scale;
@@ -1605,14 +1651,14 @@ void MainWindow::applyPerfFromSlider(int value)
     m_perfSliderValue = value;
 
     const double norm  = (value - 1) / 19.0;
-    const double logTs = std::log(128.0) + norm * (std::log(1024.0) - std::log(128.0));
-    m_tileSize = qBound(128, int(std::exp(logTs) + 0.5), 1024);
+    const double logTs = std::log(256.0) + norm * (std::log(1024.0) - std::log(256.0));
+    m_tileSize = qBound(256, int(std::exp(logTs) + 0.5), 1024);
 
     const double logM = norm * std::log(6.0);
     m_tilePrefetchMargin = qBound(2, int(std::exp(logM) + 0.5), 7);
 
-    const double logC = std::log(180.0) + norm * (std::log(2000.0) - std::log(180.0));
-    const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), 2000);
+    const double logC = std::log(180.0) + norm * (std::log(1000.0) - std::log(180.0));
+    const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), 1000);
     if (m_canvas && m_canvas->tileManager()) {
         m_canvas->tileManager()->setCacheLimitMb(cacheMb);
         m_canvas->tileManager()->clearCache();
@@ -1739,6 +1785,7 @@ QJsonObject MainWindow::configToJson() const
     c["bpp_mode"]           = m_bppMode;
     c["bit_order"]          = m_bitOrder;
     c["pixel_order"]        = m_pixelOrder;
+	c["byte_order"]         = m_byteOrder;
     c["row_padding_bits"]   = m_rowPaddingBits;
     c["scale"]              = m_scale;
     c["width_mode"]         = widthModeKey(m_widthMode);
@@ -1877,6 +1924,7 @@ void MainWindow::applyDefaultConfig()
     cfg["bpp_mode"]         = 8;
     cfg["bit_order"]        = "msb";
     cfg["pixel_order"]      = "msb";
+	cfg["byte_order"]       = "big";
     cfg["row_padding_bits"] = 0;
 
     m_mirrorH = false;
@@ -1992,6 +2040,7 @@ void MainWindow::updateDebugInfo()
     L << "is_bitpacked = " + QString(isBitpacked() ? "true" : "false");
     L << "bytes_per_pixel = " + QString::number(bytesPerPixel());
     L << "bit_order = " + m_bitOrder;
+	L << "byte_order = " + m_byteOrder;
     L << "pixel_order = " + m_pixelOrder;
     L << "row_padding_bits = " + QString::number(m_rowPaddingBits);
 
@@ -2044,6 +2093,7 @@ void MainWindow::updateDebugInfo()
     // ────── Прочее ──────
     L << QString();
     L << QString("OTHER:");
+    L << "language = " + QString(m_language);
     L << "theme = " + QString(m_theme && m_theme->isDark() ? "dark" : "light");
     L << "busy_png_export = " + QString(m_busyPngExport ? "true" : "false");
     L << "byte_tooltip = " + QString(

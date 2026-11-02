@@ -87,6 +87,9 @@ protected:
     bool eventFilter(QObject *obj, QEvent *ev) override
     {
         if (obj == m_spin && ev->type() == QEvent::Wheel) {
+            if (!m_spin || !m_spin->isEnabled())
+                return false;
+
             QWheelEvent *we = static_cast<QWheelEvent *>(ev);
             const int delta = (we->angleDelta().y() > 0) ? +1 : -1;
             const int step = qMax(1, m_step ? m_step->value() : 8);
@@ -197,7 +200,8 @@ void ControlsPanel::buildUi()
             this, [this](int) { onBppChanged(); });
     fmtLay->addWidget(m_bppCombo, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Bit order:")), row, 0);
+	m_bitOrderLabel = new QLabel(tr("Bit order:"), this);
+    fmtLay->addWidget(m_bitOrderLabel, row, 0);
     m_bitOrderCombo = new QComboBox(this);
     m_bitOrderCombo->setObjectName("bitOrderCombo");
     m_bitOrderCombo->addItems({
@@ -211,8 +215,29 @@ void ControlsPanel::buildUi()
                     emit settingsChanged();
             });
     fmtLay->addWidget(m_bitOrderCombo, row++, 1);
+	
+	m_byteOrderLabel = new QLabel(tr("Byte order:"), this);
+    fmtLay->addWidget(m_byteOrderLabel, row, 0);
+    m_byteOrderCombo = new QComboBox(this);
+    m_byteOrderCombo->setObjectName("byteOrderCombo");
+    m_byteOrderCombo->addItems({
+        QStringLiteral("Big-endian (BE)"),
+        QStringLiteral("Little-endian (LE)"),
+    });
+    m_byteOrderCombo->setToolTip(tr(
+        "Byte order within multi-byte pixel values (16/24/32/64 bpp).\n"
+        "For RGB/RGBA palettes it also reverses the channel order\n"
+        "(e.g. RGB + little = BGR)."));
+    connect(m_byteOrderCombo,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, [this](int) {
+                if (!m_updatingConfig)
+                    emit settingsChanged();
+            });
+    fmtLay->addWidget(m_byteOrderCombo, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Padding (bits):")), row, 0);
+	m_rowPadLabel = new QLabel(tr("Padding (bits):"), this);
+    fmtLay->addWidget(m_rowPadLabel, row, 0);
     m_rowPadSpin = new QSpinBox(this);
     m_rowPadSpin->setObjectName("rowPadSpin");
     m_rowPadSpin->setRange(0, 1024);
@@ -229,7 +254,8 @@ void ControlsPanel::buildUi()
             });
     fmtLay->addWidget(m_rowPadSpin, row++, 1);
 
-    fmtLay->addWidget(new QLabel(tr("Pixel order:")), row, 0);
+	m_pixelOrderLabel = new QLabel(tr("Pixel order:"), this);
+    fmtLay->addWidget(m_pixelOrderLabel, row, 0);
     m_pixelOrderCombo = new QComboBox(this);
     m_pixelOrderCombo->setObjectName("pixelOrderCombo");
     m_pixelOrderCombo->addItems({
@@ -375,37 +401,8 @@ void ControlsPanel::buildUi()
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ControlsPanel::onWidthModeChanged);
     dispLay->addWidget(m_widthModeCombo, dr++, 1);
-
-    dispLay->addWidget(new QLabel(tr("Width / N:")), dr, 0);
-    m_widthSpin = new QSpinBox(this);
-    m_widthSpin->setRange(1, 65536);
-    m_widthSpin->setValue(256);
-    m_widthSpin->setToolTip(tr("For \"Manual\" — width in pixels.\n"
-                               "For \"Divisor ≤ N\" — upper width limit."));
-    connect(m_widthSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
-    dispLay->addWidget(m_widthSpin, dr++, 1);
-
-    dispLay->addWidget(new QLabel(tr("Width step:")), dr, 0);
-    m_widthStepSpin = new QSpinBox(this);
-    m_widthStepSpin->setObjectName("widthStepSpin");
-    m_widthStepSpin->setRange(1, 4096);
-    m_widthStepSpin->setValue(8);
-    m_widthStepSpin->setToolTip(tr("Width change step with Ctrl+mouse wheel.\n"
-                                   "Used in manual mode."));
-    connect(m_widthStepSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
-    dispLay->addWidget(m_widthStepSpin, dr++, 1);
-
-    m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
+	
+	m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
     dispLay->addWidget(m_bytesPerRowLabel, dr, 0);
     m_bytesPerRowSpin = new QSpinBox(this);
     m_bytesPerRowSpin->setRange(1, 65536);
@@ -422,6 +419,37 @@ void ControlsPanel::buildUi()
 
     m_bytesPerRowLabel->setVisible(false);
     m_bytesPerRowSpin->setVisible(false);
+
+	m_widthLabel = new QLabel(tr("Width / N:"), this);
+    dispLay->addWidget(m_widthLabel, dr, 0);
+    m_widthSpin = new QSpinBox(this);
+    m_widthSpin->setRange(1, 65536);
+    m_widthSpin->setValue(256);
+    m_widthSpin->setToolTip(tr("For \"Manual\" — width in pixels.\n"
+                               "For \"Divisor ≤ N\" — upper width limit."));
+    connect(m_widthSpin,
+            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, [this](int) {
+                if (!m_updatingConfig)
+                    emit settingsChanged();
+            });
+	dispLay->addWidget(m_widthSpin, dr++, 1);
+
+	m_widthStepLabel = new QLabel(tr("Width step:"), this);
+    dispLay->addWidget(m_widthStepLabel, dr, 0);
+    m_widthStepSpin = new QSpinBox(this);
+    m_widthStepSpin->setObjectName("widthStepSpin");
+    m_widthStepSpin->setRange(1, 65536);
+    m_widthStepSpin->setValue(8);
+    m_widthStepSpin->setToolTip(tr("Width change step with Ctrl+mouse wheel.\n"
+                                   "Used in manual mode."));
+    connect(m_widthStepSpin,
+            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, [this](int) {
+                if (!m_updatingConfig)
+                    emit settingsChanged();
+            });
+    dispLay->addWidget(m_widthStepSpin, dr++, 1);
 
     dispLay->addWidget(new QLabel(tr("Zoom:")), dr, 0);
     m_scaleSpin = new QSpinBox(this);
@@ -452,7 +480,7 @@ void ControlsPanel::buildUi()
             QSignalBlocker b(m_fitCheck);
             m_fitCheck->setChecked(false);
         }
-        updateScaleSpinEnabled();
+        updateDisplayControlsEnabled();
         emit settingsChanged();
     });
     checkboxRow->addWidget(m_autoScaleCheck);
@@ -469,7 +497,7 @@ void ControlsPanel::buildUi()
             QSignalBlocker b(m_autoScaleCheck);
             m_autoScaleCheck->setChecked(false);
         }
-        updateScaleSpinEnabled();
+        updateDisplayControlsEnabled();
         emit settingsChanged();
     });
     checkboxRow->addWidget(m_fitCheck);
@@ -489,8 +517,7 @@ void ControlsPanel::buildUi()
 
     m_widthSpin->installEventFilter(new WidthWheelFilter(m_widthSpin, m_widthStepSpin, this));
 
-    updateScaleSpinEnabled();
-    onWidthModeChanged(m_widthModeCombo->currentIndex());
+    updateDisplayControlsEnabled();
     onBppChanged();
 }
 
@@ -665,24 +692,106 @@ void ControlsPanel::refillPaletteList(int bpp)
 
 void ControlsPanel::updateBitSettingsEnabled(int bpp)
 {
-    const bool bit = (bpp >= 1 && bpp <= 4);
-    m_bitOrderCombo->setEnabled(bit);
-    m_pixelOrderCombo->setEnabled(bit);
-    m_rowPadSpin->setEnabled(bit);
+    const bool bitpacked = (bpp >= 1 && bpp <= 4);
+    const bool multibyte = (bpp >= 16);
+
+    // Bit order виден всегда. Для 1–4 bpp — порядок извлечения битов,
+    // для 8+ — bit-reversal в байте.
+    if (m_bitOrderLabel)
+        m_bitOrderLabel->setVisible(true);
+    if (m_bitOrderCombo) {
+        m_bitOrderCombo->setVisible(true);
+        m_bitOrderCombo->setEnabled(true);
+        m_bitOrderCombo->setToolTip(bitpacked
+            ? tr("Bit extraction order for bit-packed pixels.\n"
+                 "MSB-first: highest bit of byte first.\n"
+                 "LSB-first: lowest bit of byte first.")
+            : tr("Bit order within each byte.\n"
+                 "MSB-first: normal byte.\n"
+                 "LSB-first: reverse bits in byte."));
+    }
+
+    // Byte order — только для 16–64 bpp.
+    if (m_byteOrderLabel)
+        m_byteOrderLabel->setVisible(multibyte);
+    if (m_byteOrderCombo) {
+        m_byteOrderCombo->setVisible(multibyte);
+        m_byteOrderCombo->setEnabled(multibyte);
+    }
+
+    // Pixel order и Padding — только для 1–4 bpp.
+    if (m_pixelOrderLabel)
+        m_pixelOrderLabel->setVisible(bitpacked);
+    if (m_pixelOrderCombo) {
+        m_pixelOrderCombo->setVisible(bitpacked);
+        m_pixelOrderCombo->setEnabled(bitpacked);
+    }
+    if (m_rowPadLabel)
+        m_rowPadLabel->setVisible(bitpacked);
+    if (m_rowPadSpin) {
+        m_rowPadSpin->setVisible(bitpacked);
+        m_rowPadSpin->setEnabled(bitpacked);
+    }
 }
 
-void ControlsPanel::updateScaleSpinEnabled()
+QString ControlsPanel::byteOrder() const
 {
-    if (!m_scaleSpin)
+    if (!m_byteOrderCombo)
+        return QStringLiteral("big");
+    return m_byteOrderCombo->currentText().startsWith(QStringLiteral("Little"))
+        ? QStringLiteral("little")
+        : QStringLiteral("big");
+}
+
+void ControlsPanel::updateDisplayControlsEnabled()
+{
+    if (!m_widthModeCombo)
         return;
 
-    const bool locked = (m_autoScaleCheck && m_autoScaleCheck->isChecked())
-                     || (m_fitCheck && m_fitCheck->isChecked());
+    const int idx = m_widthModeCombo->currentIndex();
 
-    m_scaleSpin->setEnabled(!locked);
-    m_scaleSpin->setToolTip(locked
-        ? tr("Controlled by \"Auto zoom\" or \"Fit to window\".")
-        : tr("Display zoom."));
+    const bool widthVisible = (idx == CP_WM_INDEX_FIXED ||
+                               idx == CP_WM_INDEX_DIVISOR);
+    const bool stepVisible  = (idx == CP_WM_INDEX_FIXED);
+    const bool bprVisible   = (idx == CP_WM_INDEX_BYTES);
+
+    if (m_widthLabel)
+        m_widthLabel->setVisible(widthVisible);
+    if (m_widthSpin) {
+        m_widthSpin->setVisible(widthVisible);
+        m_widthSpin->setEnabled(widthVisible);
+        m_widthSpin->setToolTip(widthVisible
+            ? tr("For \"Manual\" — width in pixels.\n"
+                 "For \"Divisor ≤ N\" — upper width limit.")
+            : tr("Controlled by the current width mode."));
+    }
+
+    if (m_widthStepLabel)
+        m_widthStepLabel->setVisible(stepVisible);
+    if (m_widthStepSpin) {
+        m_widthStepSpin->setVisible(stepVisible);
+        m_widthStepSpin->setEnabled(stepVisible);
+        m_widthStepSpin->setToolTip(stepVisible
+            ? tr("Width change step with Ctrl+mouse wheel.\n"
+                 "Used in manual mode.")
+            : tr("Available only in \"Manual\" mode."));
+    }
+
+    if (m_bytesPerRowLabel)
+        m_bytesPerRowLabel->setVisible(bprVisible);
+    if (m_bytesPerRowSpin) {
+        m_bytesPerRowSpin->setVisible(bprVisible);
+        m_bytesPerRowSpin->setEnabled(bprVisible);
+    }
+
+    if (m_scaleSpin) {
+        const bool locked = (m_autoScaleCheck && m_autoScaleCheck->isChecked())
+                         || (m_fitCheck && m_fitCheck->isChecked());
+        m_scaleSpin->setEnabled(!locked);
+        m_scaleSpin->setToolTip(locked
+            ? tr("Controlled by \"Auto zoom\" or \"Fit to window\".")
+            : tr("Display zoom."));
+    }
 }
 
 void ControlsPanel::applyHexModeToSpins(bool useHex)
@@ -788,6 +897,7 @@ QVariantMap ControlsPanel::currentConfig() const
     cfg[QStringLiteral(CP_KEY_BPP_MODE)]         = bppMode();
     cfg[QStringLiteral(CP_KEY_PALETTE)]          = currentPaletteId();
     cfg[QStringLiteral(CP_KEY_BIT_ORDER)]        = bitOrder();
+	cfg[QStringLiteral(CP_KEY_BYTE_ORDER)]       = byteOrder();
     cfg[QStringLiteral(CP_KEY_PIXEL_ORDER)]      = pixelOrder();
     cfg[QStringLiteral(CP_KEY_ROW_PADDING_BITS)] = rowPaddingBits();
     cfg[QStringLiteral(CP_KEY_WIDTH_MODE)]       = widthModeToKey(widthMode());
@@ -837,13 +947,7 @@ void ControlsPanel::setWidthModeSilent(int idx)
     QSignalBlocker b(m_widthModeCombo);
     const int clamped = qBound(0, idx, CP_WM_COUNT - 1);
     m_widthModeCombo->setCurrentIndex(clamped);
-    if (m_widthSpin)
-        m_widthSpin->setEnabled(clamped == CP_WM_INDEX_FIXED ||
-                                clamped == CP_WM_INDEX_DIVISOR);
-    if (m_bytesPerRowSpin)
-        m_bytesPerRowSpin->setVisible(clamped == CP_WM_INDEX_BYTES);
-    if (m_bytesPerRowLabel)
-        m_bytesPerRowLabel->setVisible(clamped == CP_WM_INDEX_BYTES);
+    updateDisplayControlsEnabled();
 }
 
 void ControlsPanel::setWidthSilent(int w)
@@ -866,7 +970,8 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
                    b4(m_pixelOrderCombo), b5(m_widthModeCombo), b6(m_rowPadSpin),
                    b7(m_widthSpin), b8(m_widthStepSpin), b9(m_scaleSpin),
                    b10(m_offsetSpin), b11(m_endSpin), b12(m_autoScaleCheck),
-                   b13(m_fitCheck), b14(m_lengthModeCheck), b15(m_hexModeCheck);
+                   b13(m_fitCheck), b14(m_lengthModeCheck), b15(m_hexModeCheck),
+                   b16(m_byteOrderCombo);
 
     const int bpp = cfg.value(QStringLiteral(CP_KEY_BPP_MODE), 8).toInt();
     m_bppCombo->setCurrentText(bppToText(bpp));
@@ -909,7 +1014,13 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
             .toString() == QLatin1String("msb")
             ? QStringLiteral("MSB-first (BE)")
             : QStringLiteral("LSB-first (LE)"));
-
+	
+	m_byteOrderCombo->setCurrentText(
+        cfg.value(QStringLiteral(CP_KEY_BYTE_ORDER), QStringLiteral("big"))
+            .toString() == QLatin1String("little")
+            ? QStringLiteral("Little-endian (LE)")
+            : QStringLiteral("Big-endian (BE)"));
+			
     m_pixelOrderCombo->setCurrentText(
         cfg.value(QStringLiteral(CP_KEY_PIXEL_ORDER), QStringLiteral("msb"))
             .toString() == QLatin1String("msb")
@@ -930,7 +1041,6 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
         QSignalBlocker b(m_autoScaleCheck);
         m_autoScaleCheck->setChecked(false);
     }
-    updateScaleSpinEnabled();
 
     const QString wmKey = cfg.value(QStringLiteral(CP_KEY_WIDTH_MODE),
                                     QStringLiteral(CP_WM_KEY_FIXED)).toString();
@@ -947,14 +1057,8 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
         m_bytesPerRowSpin->setValue(
             qMax(1, cfg.value(QStringLiteral(CP_KEY_BYTES_PER_ROW), 16).toInt()));
     }
-
-    if (m_widthSpin)
-        m_widthSpin->setEnabled(wmIdx == CP_WM_INDEX_FIXED ||
-                                wmIdx == CP_WM_INDEX_DIVISOR);
-    if (m_bytesPerRowSpin)
-        m_bytesPerRowSpin->setVisible(wmIdx == CP_WM_INDEX_BYTES);
-    if (m_bytesPerRowLabel)
-        m_bytesPerRowLabel->setVisible(wmIdx == CP_WM_INDEX_BYTES);
+	
+	updateDisplayControlsEnabled();
 
     const quint64 offsetVal =
         cfg.value(QStringLiteral(CP_KEY_OFFSET)).toULongLong();
@@ -980,15 +1084,9 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     emit settingsChanged();
 }
 
-void ControlsPanel::onWidthModeChanged(int index)
+void ControlsPanel::onWidthModeChanged()
 {
-    if (m_widthSpin)
-        m_widthSpin->setEnabled(index == CP_WM_INDEX_FIXED ||
-                                index == CP_WM_INDEX_DIVISOR);
-    if (m_bytesPerRowSpin)
-        m_bytesPerRowSpin->setVisible(index == CP_WM_INDEX_BYTES);
-    if (m_bytesPerRowLabel)
-        m_bytesPerRowLabel->setVisible(index == CP_WM_INDEX_BYTES);
+    updateDisplayControlsEnabled();
     if (!m_updatingConfig)
         emit settingsChanged();
 }

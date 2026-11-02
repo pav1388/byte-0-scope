@@ -94,4 +94,8 @@ private:
     QSet<TileKey> m_lastPrefetchTiles;
 
     TileManager *m_tiles = nullptr;
+	
+	QImage  m_frozenSnapshot;
+    bool    m_snapshotActive = false;
+    bool    allVisibleTilesReady() const;
 };

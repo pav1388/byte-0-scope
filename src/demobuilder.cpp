@@ -330,11 +330,11 @@ QString trainingHintHtml()
         "&nbsp;&nbsp;1. <b>Bits per pixel</b> -> <code>4 bpp</code><br>"
         "&nbsp;&nbsp;2. <b>Bit order</b> -> <code>LSB-first (LE)</code><br>"
         "&nbsp;&nbsp;3. <b>Pixel order</b> -> <code>LSB-first</code><br>"
-        "&nbsp;&nbsp;4. <b>Padding (bits)</b> -> <code>16</code><br>"
-        "&nbsp;&nbsp;5. <b>Palette</b> -> <code>Any</code><br>"
-        "&nbsp;&nbsp;6. <b>Width mode</b> -> <code>Manual</code>, "
-        "width <code>96</code><br>"
-        "&nbsp;&nbsp;7. <b>View -> Mirror horizontally</b><br><br>");
+        "&nbsp;&nbsp;4. <b>Palette</b> -> <code>Any</code><br>"
+        "&nbsp;&nbsp;5. <b>Width mode</b> -> <code>Manual</code><br>"
+        "&nbsp;&nbsp;6. <b>Width</b> -> <code>96</code><br>"
+        "&nbsp;&nbsp;7. <b>Padding (bits)</b> -> <code>16</code><br>"
+        "&nbsp;&nbsp;8. <b>View</b> -> <code>Flip horizontally</code><br>");
 }
 
 } // namespace DemoBuilder

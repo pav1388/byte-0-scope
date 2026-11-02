@@ -31,7 +31,6 @@
 #define PS_CONTENT_MARGIN           6
 #define PS_CONTENT_SPACING          4
 
-// Диапазоны значений
 #define PS_BYTE_MAX                 255
 #define PS_PLANE_MAX                7
 #define PS_ADDR_MAX                 0x7FFFFFFF
@@ -41,10 +40,6 @@
 #define PS_MIN_COUNT_MAX            1000
 #define PS_STEP_MIN                 1
 #define PS_STEP_MAX                 256
-
-// =========================================================================
-//  Хелперы
-// =========================================================================
 
 namespace {
 
@@ -78,10 +73,6 @@ void clearLayoutDeep(QLayout *layout)
 }
 
 } // namespace
-
-// =========================================================================
-//  Конструктор
-// =========================================================================
 
 PaletteSettingsPanel::PaletteSettingsPanel(MainWindow *parent)
     : QWidget(parent), m_main(parent)
@@ -123,10 +114,6 @@ bool PaletteSettingsPanel::autoApplyChecked() const
     return m_autoApplyCheck && m_autoApplyCheck->isChecked();
 }
 
-// =========================================================================
-//  Очистка / построение
-// =========================================================================
-
 void PaletteSettingsPanel::clearContent()
 {
     m_clearing = true;
@@ -145,15 +132,6 @@ void PaletteSettingsPanel::clearContent()
     m_recordSizeSpin       = nullptr;
     m_endianCombo          = nullptr;
     m_countSpin            = nullptr;
-    m_rgb565EndianCombo    = nullptr;
-    m_int16Endian          = nullptr;
-    m_int16Signed          = nullptr;
-    m_int32Endian          = nullptr;
-    m_int32Signed          = nullptr;
-    m_int64Endian          = nullptr;
-    m_int64Signed          = nullptr;
-    m_float32Endian        = nullptr;
-    m_float64Endian        = nullptr;
 
     clearLayoutDeep(m_contentLayout);
 
@@ -198,29 +176,15 @@ void PaletteSettingsPanel::buildFor(const QString &paletteId)
         buildRepeatsUi(params);
     } else if (idCopy == "from_file") {
         buildFromFileUi(params);
-    } else if (idCopy == "rgb565" || idCopy == "bgr565"
-            || idCopy == "rgb555" || idCopy == "argb1555") {
-        buildRgb565Ui(idCopy, params);
-    } else if (idCopy == "integer_16"
-            || idCopy == "integer_32"
-            || idCopy == "integer_64") {
-        buildIntegerUi(idCopy, params);
-    } else if (idCopy == "float_32" || idCopy == "float_64") {
-        buildFloatUi(idCopy, params);
     } else {
+        // Не конфигурируемая палитра — панель не показываем.
         setVisible(false);
         return;
     }
 
     setVisible(configurable);
-
-    // Прижимаем содержимое к верху.
     m_contentLayout->addStretch();
 }
-
-// =========================================================================
-//  Утилиты добавления
-// =========================================================================
 
 void PaletteSettingsPanel::addRow(const QString &label, QWidget *w)
 {
@@ -263,7 +227,7 @@ void PaletteSettingsPanel::buildEntropyUi(const QVariantMap &params)
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
     addRow(tr("Step (bands):"), m_stepSpin);
-    addInfoLabel(tr("High values — fewer bands,\nlow values — more."));
+    addInfoLabel(tr("High values - fewer bands,\nlow values - more."));
 }
 
 void PaletteSettingsPanel::buildPlaneUi(const QVariantMap &params)
@@ -275,7 +239,7 @@ void PaletteSettingsPanel::buildPlaneUi(const QVariantMap &params)
             static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, [this](int) { notifyChanged(); });
     addRow(tr("Bit plane (0–7):"), m_planeSpin);
-    addInfoLabel(tr("0 = least significant bit,\n7 = most significant bit."));
+    addInfoLabel(tr("Select bit plane."));
 }
 
 void PaletteSettingsPanel::buildThresholdUi(const QVariantMap &params)
@@ -301,82 +265,9 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
             this, [this](int) { notifyChanged(); });
 
     addRow(tr("Min. repeat count:"), m_minCountSpin);
-}
-
-void PaletteSettingsPanel::buildRgb565Ui(const QString &name,
-                                         const QVariantMap &params)
-{
-    m_rgb565EndianCombo = new QComboBox();
-    m_rgb565EndianCombo->addItems({"big", "little"});
-    m_rgb565EndianCombo->setCurrentText(
-        params.value("endianness", "big").toString());
-    connect(m_rgb565EndianCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { notifyChanged(); });
-    addRow(tr("Byte order:"), m_rgb565EndianCombo);
-
-    QString info;
-    if (name == "rgb565") {
-        info = tr("16-bit: R=5, G=6, B=5\n"
-                  "Typical for TFT screens,\n"
-                  "BMP-16, GBA, old video cards.");
-    } else if (name == "bgr565") {
-        info = tr("Same as RGB565, but\nthe byte order is swapped.");
-    } else if (name == "rgb555") {
-        info = tr("16-bit: R=5, G=5, B=5\n"
-                  "The most significant bit is usually unused.");
-    } else if (name == "argb1555") {
-        info = tr("16-bit: A=1, R=5, G=5, B=5\n"
-                  "Transparency is ignored.");
-    }
-    if (!info.isEmpty())
-        addInfoLabel(info);
-}
-
-void PaletteSettingsPanel::buildIntegerUi(const QString &name,
-                                          const QVariantMap &params)
-{
-    auto *endian = new QComboBox();
-    endian->addItems({"big", "little"});
-    endian->setCurrentText(params.value("endianness", "big").toString());
-    connect(endian,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { notifyChanged(); });
-    addRow(tr("Byte order:"), endian);
-
-    auto *signedChk = new QCheckBox(tr("Signed"));
-    signedChk->setChecked(params.value("signed", false).toBool());
-    connect(signedChk, &QCheckBox::toggled,
-            this, [this](bool) { notifyChanged(); });
-    m_contentLayout->addWidget(signedChk);
-
-    if (name == "integer_16") {
-        m_int16Endian = endian;
-        m_int16Signed = signedChk;
-    } else if (name == "integer_32") {
-        m_int32Endian = endian;
-        m_int32Signed = signedChk;
-    } else {
-        m_int64Endian = endian;
-        m_int64Signed = signedChk;
-    }
-}
-
-void PaletteSettingsPanel::buildFloatUi(const QString &name,
-                                        const QVariantMap &params)
-{
-    auto *endian = new QComboBox();
-    endian->addItems({"big", "little"});
-    endian->setCurrentText(params.value("endianness", "big").toString());
-    connect(endian,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { notifyChanged(); });
-    addRow(tr("Byte order:"), endian);
-
-    if (name == "float_32")
-        m_float32Endian = endian;
-    else
-        m_float64Endian = endian;
+	addInfoLabel(tr("Byte values that occur at least N times in the file\n"
+					"are highlighted in red. The rest — grayscale.\n"
+					"Counted over the whole file, not the visible region."));
 }
 
 void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
@@ -746,26 +637,6 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
         p["endianness"]  = m_endianCombo->currentText();
         p["count"]       = m_countSpin->value();
         p["bpp"]         = m_main ? m_main->bppMode() : 8;
-    } else if ((m_currentPaletteId == "rgb565" || m_currentPaletteId == "bgr565"
-             || m_currentPaletteId == "rgb555" || m_currentPaletteId == "argb1555")
-             && m_rgb565EndianCombo) {
-        p["endianness"] = m_rgb565EndianCombo->currentText();
-    } else if (m_currentPaletteId == "integer_16"
-            && m_int16Endian && m_int16Signed) {
-        p["endianness"] = m_int16Endian->currentText();
-        p["signed"]     = m_int16Signed->isChecked();
-    } else if (m_currentPaletteId == "integer_32"
-            && m_int32Endian && m_int32Signed) {
-        p["endianness"] = m_int32Endian->currentText();
-        p["signed"]     = m_int32Signed->isChecked();
-    } else if (m_currentPaletteId == "integer_64"
-            && m_int64Endian && m_int64Signed) {
-        p["endianness"] = m_int64Endian->currentText();
-        p["signed"]     = m_int64Signed->isChecked();
-    } else if (m_currentPaletteId == "float_32" && m_float32Endian) {
-        p["endianness"] = m_float32Endian->currentText();
-    } else if (m_currentPaletteId == "float_64" && m_float64Endian) {
-        p["endianness"] = m_float64Endian->currentText();
     }
 
     return p;

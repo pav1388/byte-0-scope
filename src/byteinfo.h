@@ -7,7 +7,6 @@
 
 #include <QWidget>
 #include <QLabel>
-#include <QTimer>
 
 class MainWindow;
 
@@ -29,10 +28,11 @@ public slots:
     void updateInfo(qint64 addr);
 
 private:
-    QString formatByteInfo(qint64 addr, quint8 byteVal);
-    QString formatMultibyteInfo(qint64 addr, const QByteArray &dataBytes,
-                                const QString &paletteId,
-                                const QVariantMap &params);
+    QString formatSingleByte(qint64 addr, quint8 rawByte);
+    QString formatBitpacked(qint64 addr, quint8 rawByte);
+    QString formatMultibyte(qint64 addr, const QByteArray &dataBytes,
+                            const QString &paletteId,
+                            const QVariantMap &params);
 
     MainWindow *m_main = nullptr;
     QLabel     *m_label = nullptr;

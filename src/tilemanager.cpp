@@ -82,6 +82,18 @@ void fillSingleByte(QImage &img, const RenderContext &ctx,
                                                   : QColor(i, i, i);
         paletteArg[i] = qRgba(c.red(), c.green(), c.blue(), 255);
     }
+
+    // Для bit_order = "lsb" в 8bpp каждый байт диск-формата
+    // интерпретируется как bit-reversed. Предвычисляем палитру,
+    // чтобы не делать reverseBits8 на каждый пиксель.
+    const bool rev = (ctx.bitOrder == QLatin1String("lsb"));
+    QRgb paletteRev[256];
+    if (rev) {
+        for (int i = 0; i < 256; ++i)
+            paletteRev[i] = paletteArg[PixelDecoder::reverseBits8(quint8(i))];
+    }
+    const QRgb *pal = rev ? paletteRev : paletteArg;
+
     const uchar *raw = ctx.bytes();
     const qint64 dataSize = ctx.byteSize();
 
@@ -108,7 +120,7 @@ void fillSingleByte(QImage &img, const RenderContext &ctx,
                 continue;
             if (byteOff < 0 || byteOff >= dataSize)
                 continue;
-            line[x] = paletteArg[raw[byteOff]];
+            line[x] = pal[raw[byteOff]];
         }
     }
 }
@@ -116,6 +128,16 @@ void fillSingleByte(QImage &img, const RenderContext &ctx,
 void fillGrayscale(QImage &img, const RenderContext &ctx,
                    int tilePx, int tilePy, int tw, int th)
 {
+    const bool rev = (ctx.bitOrder == QLatin1String("lsb"));
+
+    // 256-байтная LUT для bit-reversal — дешевле, чем reverseBits8
+    // в горячем цикле.
+    quint8 revLut[256];
+    if (rev) {
+        for (int i = 0; i < 256; ++i)
+            revLut[i] = PixelDecoder::reverseBits8(quint8(i));
+    }
+
     const uchar *raw = ctx.bytes();
     const qint64 dataSize = ctx.byteSize();
 
@@ -142,7 +164,9 @@ void fillGrayscale(QImage &img, const RenderContext &ctx,
                 continue;
             if (byteOff < 0 || byteOff >= dataSize)
                 continue;
-            const int v = raw[byteOff];
+            int v = raw[byteOff];
+            if (rev)
+                v = revLut[v];
             line[x] = qRgba(v, v, v, 255);
         }
     }
@@ -182,7 +206,10 @@ void fillMultibyte(QImage &img, const RenderContext &ctx,
             if (off < 0 || off + bpp > dataSize)
                 continue;
 
-            line[x] = PixelDecoder::decodeArgbRaw(raw + off, bpp, pal, palParams);
+            line[x] = PixelDecoder::decodeArgbRaw(raw + off, bpp, pal,
+                                                  ctx.bitOrder,
+                                                  ctx.byteOrder,
+                                                  palParams);
         }
     }
 }
@@ -302,7 +329,8 @@ RenderContextPtr TileManager::buildContext() const
     ctx->rowPaddingBits = mw->rowPaddingBits();
     ctx->bitOrder       = mw->bitOrder();
     ctx->pixelOrder     = mw->pixelOrder();
-
+	ctx->byteOrder      = mw->byteOrder();
+	
     ctx->mirrorH = mw->mirrorHorizontal();
     ctx->mirrorV = mw->mirrorVertical();
 

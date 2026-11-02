@@ -67,7 +67,8 @@ struct RenderContext {
     int        rowPaddingBits = 0;
     QString    bitOrder;
     QString    pixelOrder;
-
+	QString    byteOrder;
+	
     bool       mirrorH = false;
     bool       mirrorV = false;
 

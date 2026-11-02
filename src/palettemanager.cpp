@@ -14,33 +14,24 @@
 
 // --- Настройки модуля PaletteManager (префикс PM_) ---
 
-// Базовый размер 8-битных и мультибайтовых палитр
 #define PM_DEFAULT_PALETTE_SIZE     256
-
-// Палитра-фолбэк, если запрошенный id не найден
 #define PM_GRAY_FALLBACK_ID         "gray"
 
-// Дефолтные параметры конфигурируемых палитр
 #define PM_THRESHOLD_DEFAULT        64
 #define PM_ENTROPY_STEP_DEFAULT     16
 #define PM_BITPLANE_DEFAULT         0
 #define PM_MIN_COUNT_DEFAULT        50
 #define PM_FROM_FILE_LENGTH_DEFAULT 256
 
-// bpp, для которых генерируются сэмплированные варианты базовых палитр
 #define PM_SAMPLED_BPPS             { 2, 3, 4 }
 
 
-// =========================================================================
-//  8-битные базовые палитры
-// =========================================================================
 namespace {
 	
 inline QString tr(const char *s)
 {
     return QCoreApplication::translate("PaletteManager", s);
 }
-
 
 QVector<QColor> grayPalette(int n)
 {
@@ -249,7 +240,7 @@ QVector<QColor> createLowNibble(const QVariantMap &)
     return o;
 }
 
-QVector<QColor> createSolarized(const QVariantMap &params) // «Порог»
+QVector<QColor> createSolarized(const QVariantMap &params)
 {
     const int threshold = params.value("threshold", PM_THRESHOLD_DEFAULT).toInt();
     QVector<QColor> o;
@@ -259,7 +250,7 @@ QVector<QColor> createSolarized(const QVariantMap &params) // «Порог»
     return o;
 }
 
-QVector<QColor> createEntropy(const QVariantMap &params) // «Полосы энтропии»
+QVector<QColor> createEntropy(const QVariantMap &params)
 {
     const int step = qMax(1, params.value("step", PM_ENTROPY_STEP_DEFAULT).toInt());
     QVector<QColor> o;
@@ -318,7 +309,7 @@ QVector<QColor> createBitRotation(const QVariantMap &)
     return o;
 }
 
-QVector<QColor> createSolarize(const QVariantMap &) // «Соляризация»
+QVector<QColor> createSolarize(const QVariantMap &)
 {
     QVector<QColor> o;
     o.reserve(PM_DEFAULT_PALETTE_SIZE);
@@ -725,6 +716,33 @@ QVariantMap prepareFromFile(const QVariantMap &params, const QByteArray &fileDat
     return out;
 }
 
+// --- Мультибайтовые integer (с зашитым signed/unsigned) ---
+
+QVector<QColor> createInteger16Unsigned(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+QVector<QColor> createInteger16Signed(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+QVector<QColor> createInteger32Unsigned(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+QVector<QColor> createInteger32Signed(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+QVector<QColor> createInteger64Unsigned(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+QVector<QColor> createInteger64Signed(const QVariantMap &)
+{
+    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
+}
+
 } // namespace
 
 // =========================================================================
@@ -859,31 +877,34 @@ void PaletteManager::registerBaseGenerators()
     auto mb = [](const QVariantMap &) { return grayPalette(PM_DEFAULT_PALETTE_SIZE); };
 
     // 16 bpp
-    add("rgb565",           mb);
-    add("bgr565",           mb);
-    add("rgb555",           mb);
-    add("argb1555",         mb);
-    add("integer_16",       mb);
+    add("rgb565",              mb);
+    add("bgr565",              mb);
+    add("rgb555",              mb);
+    add("argb1555",            mb);
+    add("integer_16",          mb);
+    add("integer_16_signed",   mb);
 
     // 24 bpp
-    add("rgb",              mb);
-    add("bgr",              mb);
-    add("gbr",              mb);
-    add("brg",              mb);
-    add("grb",              mb);
-    add("rbg",              mb);
+    add("rgb",                 mb);
+    add("bgr",                 mb);
+    add("gbr",                 mb);
+    add("brg",                 mb);
+    add("grb",                 mb);
+    add("rbg",                 mb);
 
     // 32 bpp
-    add("rgba",             mb);
-    add("argb",             mb);
-    add("bgra",             mb);
-    add("abgr",             mb);
-    add("integer_32",       mb);
-    add("float_32",         mb);
+    add("rgba",                mb);
+    add("argb",                mb);
+    add("bgra",                mb);
+    add("abgr",                mb);
+    add("integer_32",          mb);
+    add("integer_32_signed",   mb);
+    add("float_32",            mb);
 
     // 64 bpp
-    add("integer_64",       mb);
-    add("float_64",         mb);
+    add("integer_64",          mb);
+    add("integer_64_signed",   mb);
+    add("float_64",            mb);
 }
 
 // =========================================================================
@@ -892,7 +913,6 @@ void PaletteManager::registerBaseGenerators()
 
 void PaletteManager::registerBaseConfigs()
 {
-    // Display names. Keys are stable IDs, not localizable values.
     m_names.insert(QStringLiteral("gray"),             tr("Grayscale"));
     m_names.insert(QStringLiteral("inverted"),         tr("Inverted"));
     m_names.insert(QStringLiteral("heat"),             tr("Heat"));
@@ -952,7 +972,8 @@ void PaletteManager::registerBaseConfigs()
     m_names.insert(QStringLiteral("bgr565"),           tr("BGR565"));
     m_names.insert(QStringLiteral("rgb555"),           tr("RGB555"));
     m_names.insert(QStringLiteral("argb1555"),         tr("ARGB1555"));
-    m_names.insert(QStringLiteral("integer_16"),       tr("Integer 16"));
+    m_names.insert(QStringLiteral("integer_16"),          tr("Integer 16 (unsigned)"));
+    m_names.insert(QStringLiteral("integer_16_signed"),   tr("Integer 16 (signed)"));
     m_names.insert(QStringLiteral("rgb"),              tr("RGB"));
     m_names.insert(QStringLiteral("bgr"),              tr("BGR"));
     m_names.insert(QStringLiteral("gbr"),              tr("GBR"));
@@ -963,9 +984,11 @@ void PaletteManager::registerBaseConfigs()
     m_names.insert(QStringLiteral("argb"),             tr("ARGB"));
     m_names.insert(QStringLiteral("bgra"),             tr("BGRA"));
     m_names.insert(QStringLiteral("abgr"),             tr("ABGR"));
-    m_names.insert(QStringLiteral("integer_32"),       tr("Integer 32"));
+    m_names.insert(QStringLiteral("integer_32"),          tr("Integer 32 (unsigned)"));
+    m_names.insert(QStringLiteral("integer_32_signed"),   tr("Integer 32 (signed)"));
     m_names.insert(QStringLiteral("float_32"),         tr("Float 32"));
-    m_names.insert(QStringLiteral("integer_64"),       tr("Integer 64"));
+    m_names.insert(QStringLiteral("integer_64"),          tr("Integer 64 (unsigned)"));
+    m_names.insert(QStringLiteral("integer_64_signed"),   tr("Integer 64 (signed)"));
     m_names.insert(QStringLiteral("float_64"),         tr("Float 64"));
 
     // --- группы по bpp ---
@@ -979,7 +1002,7 @@ void PaletteManager::registerBaseConfigs()
     m_groups[4]  = QStringList{"gray_4", "ega_16", "ega_alt",
                                "windows_16", "commodore_64", "zx_spectrum",
                                "amber_crt", "green_terminal", "heat_16",
-                               "rainbow_16"};
+                               "rainbow_16", "from_file"};
     m_groups[8]  = QStringList{"gray", "inverted", "heat", "thermal",
                                "viridis", "plasma", "rainbow", "hsv", "solarize",
                                "hash_color", "bit_scale", "bit_rotation",
@@ -988,12 +1011,14 @@ void PaletteManager::registerBaseConfigs()
                                "high_nibble", "low_nibble",
                                "threshold", "entropy", "bitplane",
                                "byte_frequency", "repeats", "custom", "from_file"};
-    m_groups[16] = QStringList{"rgb565", "bgr565", "rgb555", "argb1555", "integer_16"};
+    m_groups[16] = QStringList{"rgb565", "bgr565", "rgb555", "argb1555",
+                               "integer_16", "integer_16_signed"};
     m_groups[24] = QStringList{"rgb", "bgr", "gbr", "brg", "grb", "rbg"};
-    m_groups[32] = QStringList{"rgba", "argb", "bgra", "abgr", "integer_32", "float_32"};
-    m_groups[64] = QStringList{"integer_64", "float_64"};
+    m_groups[32] = QStringList{"rgba", "argb", "bgra", "abgr",
+                               "integer_32", "integer_32_signed", "float_32"};
+    m_groups[64] = QStringList{"integer_64", "integer_64_signed", "float_64"};
 
-    // --- конфиги для конфигурируемых палитр ---
+    // --- конфиги ---
     auto addCfg = [this](const QString &name, bool conf,
                          const QVariantMap &def, int bpp) {
         Config c;
@@ -1029,14 +1054,16 @@ void PaletteManager::registerBaseConfigs()
         addCfg("custom", true, p, 1);
     }
 
-    // Мультибайтовые
-    addCfg("rgb565",     true, {{"endianness", "big"}}, 2);
-    addCfg("bgr565",     true, {{"endianness", "big"}}, 2);
-    addCfg("rgb555",     true, {{"endianness", "big"}}, 2);
-    addCfg("argb1555",   true, {{"endianness", "big"}}, 2);
-    addCfg("integer_16", true, {{"endianness", "big"}, {"signed", false}}, 2);
+    // --- Мультибайтовые: не конфигурируемые ---
+    addCfg("rgb565",     false, QVariantMap(), 2);
+    addCfg("bgr565",     false, QVariantMap(), 2);
+    addCfg("rgb555",     false, QVariantMap(), 2);
+    addCfg("argb1555",   false, QVariantMap(), 2);
 
-    // 24 bpp — 6 отдельных неконфигурируемых палитр
+    // Integer 16: signed/unsigned — разные палитры, не конфигурируемые
+    addCfg("integer_16",        false, {{"signed", false}}, 2);
+    addCfg("integer_16_signed", false, {{"signed", true }}, 2);
+
     addCfg("rgb", false, QVariantMap(), 3);
     addCfg("bgr", false, QVariantMap(), 3);
     addCfg("gbr", false, QVariantMap(), 3);
@@ -1044,19 +1071,22 @@ void PaletteManager::registerBaseConfigs()
     addCfg("grb", false, QVariantMap(), 3);
     addCfg("rbg", false, QVariantMap(), 3);
 
-    // 32 bpp — 4 перестановки RGBA
     addCfg("rgba", false, QVariantMap(), 4);
     addCfg("argb", false, QVariantMap(), 4);
     addCfg("bgra", false, QVariantMap(), 4);
     addCfg("abgr", false, QVariantMap(), 4);
-    addCfg("integer_32", true, {{"endianness", "big"}, {"signed", false}}, 4);
-    addCfg("float_32",   true, {{"endianness", "big"}}, 4);
 
-    // 64 bpp
-    addCfg("integer_64", true, {{"endianness", "big"}, {"signed", false}}, 8);
-    addCfg("float_64",   true, {{"endianness", "big"}}, 8);
+    addCfg("integer_32",        false, {{"signed", false}}, 4);
+    addCfg("integer_32_signed", false, {{"signed", true }}, 4);
 
-    // Не-конфигурируемые — чтобы bytesPerPixel/defaultParams были доступны.
+    addCfg("float_32", false, QVariantMap(), 4);
+
+    addCfg("integer_64",        false, {{"signed", false}}, 8);
+    addCfg("integer_64_signed", false, {{"signed", true }}, 8);
+
+    addCfg("float_64", false, QVariantMap(), 8);
+
+    // Не-конфигурируемые базовые палитры (1 bpp и т.д.)
     for (auto it = m_groups.constBegin(); it != m_groups.constEnd(); ++it) {
         for (const QString &n : it.value()) {
             if (m_configs.contains(n))

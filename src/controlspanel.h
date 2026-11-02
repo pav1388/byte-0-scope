@@ -8,6 +8,8 @@
 #include <QWidget>
 #include <QVariantMap>
 
+#define CP_KEY_BYTE_ORDER "byte_order"
+
 class QComboBox;
 class QSpinBox;
 class QCheckBox;
@@ -40,9 +42,10 @@ public:
     quint64 length() const;
     bool    lengthMode() const;
     int     bytesPerRow() const;
-
+	
+	QString byteOrder() const;
+	
     QVariantMap currentConfig() const;
-
     void setConfig(const QVariantMap &cfg);
 
     void setScaleSilent(int s);
@@ -59,7 +62,7 @@ private slots:
     void onPaletteChanged();
     void onHexModeChanged(bool checked);
     void onLengthModeChanged(bool checked);
-    void onWidthModeChanged(int index);
+    void onWidthModeChanged();
     void resetRegionToDefault();
     void startRegionPick(bool startBoundary);
     void cancelRegionPick();
@@ -68,17 +71,22 @@ private slots:
 private:
     void buildUi();
     void refillPaletteList(int bpp);
-    void updateScaleSpinEnabled();
+	void updateDisplayControlsEnabled();
     void updateBitSettingsEnabled(int bpp);
     void applyHexModeToSpins(bool useHex);
 
     MainWindow *m_main = nullptr;
 
     // Формат пикселей
-    QComboBox *m_bppCombo = nullptr;
-    QComboBox *m_bitOrderCombo = nullptr;
-    QComboBox *m_pixelOrderCombo = nullptr;
-    QSpinBox  *m_rowPadSpin = nullptr;
+	QComboBox *m_bppCombo = nullptr;
+	QLabel    *m_bitOrderLabel = nullptr;
+	QComboBox *m_bitOrderCombo = nullptr;
+	QLabel    *m_byteOrderLabel = nullptr;
+	QComboBox *m_byteOrderCombo = nullptr;
+	QLabel    *m_pixelOrderLabel = nullptr;
+	QComboBox *m_pixelOrderCombo = nullptr;
+	QLabel    *m_rowPadLabel = nullptr;
+	QSpinBox  *m_rowPadSpin = nullptr;
 
     // Палитра
     QComboBox *m_paletteCombo = nullptr;
@@ -96,7 +104,9 @@ private:
 
     // Отображение
     QComboBox   *m_widthModeCombo = nullptr;
+    QLabel      *m_widthLabel = nullptr;
     QSpinBox    *m_widthSpin = nullptr;
+    QLabel      *m_widthStepLabel = nullptr;
     QSpinBox    *m_widthStepSpin = nullptr;
     QSpinBox    *m_scaleSpin = nullptr;
     QCheckBox   *m_autoScaleCheck = nullptr;
