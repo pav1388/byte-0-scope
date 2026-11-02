@@ -404,7 +404,7 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
 {
     RuleWidget rw;
     rw.container = new QWidget();
-    rw.container->setStyleSheet("background-color: transparent;");
+    rw.container->setAutoFillBackground(false);
 
     auto *lay = new QHBoxLayout(rw.container);
     lay->setContentsMargins(0, 0, 0, 0);
