@@ -132,6 +132,10 @@ void PaletteSettingsPanel::clearContent()
     m_recordSizeSpin       = nullptr;
     m_endianCombo          = nullptr;
     m_countSpin            = nullptr;
+    m_asciiExtendedCheck   = nullptr;
+    m_asciiColorButtons.clear();
+    m_asciiBasicColorButtons.clear();
+    m_asciiExtendedColorButtons.clear();
 
     clearLayoutDeep(m_contentLayout);
 
@@ -164,8 +168,14 @@ void PaletteSettingsPanel::buildFor(const QString &paletteId)
 
     const bool configurable = pm->isConfigurable(idCopy);
 
+    // Every configurable palette uses the standard reset / auto-apply row.
+    m_resetBtn->setVisible(true);
+    m_autoApplyCheck->setVisible(true);
+
     if (idCopy == "custom") {
         buildCustomUi(params);
+    } else if (idCopy == "ascii") {
+        buildAsciiUi(params);
     } else if (idCopy == "entropy") {
         buildEntropyUi(params);
     } else if (idCopy == "bitplane") {
@@ -217,6 +227,91 @@ void PaletteSettingsPanel::addSeparator()
 // =========================================================================
 //  Секции
 // =========================================================================
+
+void PaletteSettingsPanel::buildAsciiUi(const QVariantMap &params)
+{
+    addAsciiColorRow(tr("Printable (20–7E)"),
+                     "printable_color", "#5ad296", params, false);
+    addAsciiColorRow(tr("Other:"), 
+                     "nonprintable_color", "#e65555", params, false);
+
+    addSeparator();
+
+    m_asciiExtendedCheck = new QCheckBox(
+        tr("Extended colors"), m_contentWidget);
+    m_asciiExtendedCheck->setChecked(params.value("extended", false).toBool());
+    m_contentLayout->addWidget(m_asciiExtendedCheck);
+
+	addAsciiColorRow(tr("Controls (00-1F, 7F)"),
+					 "control_color", "#aa78e6", params, true);
+	addAsciiColorRow(tr("Whitespace (09-0D, 20)"),
+					 "whitespace_color", "#5abedc", params, true);
+	addAsciiColorRow(tr("Digits (30-39)"),
+					 "digit_color", "#ffcd56", params, true);
+	addAsciiColorRow(tr("Uppercase (41-5A)"),
+					 "uppercase_color", "#5ad296", params, true);
+	addAsciiColorRow(tr("Lowercase (61-7A)"),
+					 "lowercase_color", "#5ad296", params, true);
+	addAsciiColorRow(tr("Symbols(21-2F,3A-40,5B-60,7B-7E)"),
+					 "symbol_color", "#e1915a", params, true);
+	addAsciiColorRow(tr("Extended (80-FF)"),
+					 "extended_color", "#e65555", params, true);
+
+    const bool extended = m_asciiExtendedCheck->isChecked();
+
+    for (QPushButton *button : m_asciiBasicColorButtons)
+        button->setEnabled(!extended);
+
+    for (QPushButton *button : m_asciiExtendedColorButtons)
+        button->setEnabled(extended);
+
+    connect(m_asciiExtendedCheck, &QCheckBox::toggled, this,
+            [this](bool enabled) {
+        for (QPushButton *button : m_asciiBasicColorButtons)
+            button->setEnabled(!enabled);
+
+        for (QPushButton *button : m_asciiExtendedColorButtons)
+            button->setEnabled(enabled);
+
+        notifyChanged();
+    });
+}
+
+void PaletteSettingsPanel::addAsciiColorRow(const QString &label,
+                                             const QString &paramKey,
+                                             const QString &defaultColor,
+                                             const QVariantMap &params,
+                                             bool extendedOnly)
+{
+    QPushButton *button = new QPushButton(m_contentWidget);
+    button->setFixedSize(PS_SMALL_BUTTON_WIDTH, PS_COLOR_BUTTON_HEIGHT);
+
+    QString color = params.value(paramKey, defaultColor).toString();
+    if (color.isEmpty())
+        color = defaultColor;
+
+    updateColorButton(button, color);
+    button->setProperty("param_key", paramKey);
+    button->setToolTip(tr("Choose color (%1)").arg(color));
+
+    connect(button, &QPushButton::clicked, this,
+            [this, button]() { pickColorForButton(button); });
+
+    QHBoxLayout *row = new QHBoxLayout;
+    row->setContentsMargins(0, 0, 0, 0);
+    row->setSpacing(4);
+    row->addWidget(button);
+    row->addWidget(new QLabel(label, m_contentWidget));
+    row->addStretch();
+
+    m_contentLayout->addLayout(row);
+
+    m_asciiColorButtons.append(button);
+    if (extendedOnly)
+        m_asciiExtendedColorButtons.append(button);
+    else
+        m_asciiBasicColorButtons.append(button);
+}
 
 void PaletteSettingsPanel::buildEntropyUi(const QVariantMap &params)
 {
@@ -621,7 +716,17 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
         return p;
     }
 
-    if (m_currentPaletteId == "entropy" && m_stepSpin) {
+    if (m_currentPaletteId == "ascii") {
+        p["extended"] = m_asciiExtendedCheck && m_asciiExtendedCheck->isChecked();
+        for (QPushButton *button : m_asciiColorButtons) {
+            if (!button)
+                continue;
+            const QString key = button->property("param_key").toString();
+            const QString color = button->property("color_hex").toString();
+            if (!key.isEmpty() && !color.isEmpty())
+                p[key] = color;
+        }
+    } else if (m_currentPaletteId == "entropy" && m_stepSpin) {
         p["step"] = m_stepSpin->value();
     } else if (m_currentPaletteId == "bitplane" && m_planeSpin) {
         p["plane"] = m_planeSpin->value();

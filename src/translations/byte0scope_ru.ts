@@ -628,7 +628,6 @@ LSB-first: биты в байте расположены в обратном п�
         <source>Reset display settings</source>
         <translation>Сбросить настройки отображения</translation>
     </message>
-    
     <message>
         <location line="+4"/>
         <location line="+1073"/>
@@ -1039,14 +1038,11 @@ Restart the application to apply the change.</source>
         <translation>Не удалось сохранить PNG:
 %1</translation>
     </message>
-    
     <message>
         <location line="-82"/>
         <source>PNG (*.png)</source>
         <translation>PNG (*.png)</translation>
     </message>
-    
-    
     <message>
         <location line="+96"/>
         <source>Byte-0-scope v%1</source>
@@ -1116,7 +1112,7 @@ Restart the application to apply the change.</source>
 <context>
     <name>PaletteManager</name>
     <message>
-        <location filename="../palettemanager.cpp" line="+916"/>
+        <location filename="../palettemanager.cpp" line="+981"/>
         <source>Grayscale</source>
         <translation>Оттенки серого</translation>
     </message>
@@ -1127,52 +1123,52 @@ Restart the application to apply the change.</source>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+193"/>
+        <location line="+206"/>
         <source>Heat</source>
         <translation>Тепловая</translation>
     </message>
     <message>
-        <location line="-192"/>
+        <location line="-205"/>
         <source>Thermal</source>
         <translation>Термальная</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+192"/>
+        <location line="+205"/>
         <source>Viridis</source>
         <translation>Вирдис</translation>
     </message>
     <message>
-        <location line="-191"/>
-        <location line="+192"/>
+        <location line="-204"/>
+        <location line="+205"/>
         <source>Plasma</source>
         <translation>Плазма</translation>
     </message>
     <message>
-        <location line="-191"/>
-        <location line="+192"/>
+        <location line="-204"/>
+        <location line="+205"/>
         <source>Rainbow</source>
         <translation>Радуга</translation>
     </message>
     <message>
-        <location line="-191"/>
+        <location line="-204"/>
         <source>HSV</source>
         <translation>HSV</translation>
     </message>
     <message>
         <location line="+1"/>
-        <location line="+191"/>
+        <location line="+204"/>
         <source>Solarize</source>
         <translation>Соляризация</translation>
     </message>
     <message>
-        <location line="-190"/>
-        <location line="+191"/>
+        <location line="-203"/>
+        <location line="+204"/>
         <source>Hash color</source>
         <translation>Хеш-цвет</translation>
     </message>
     <message>
-        <location line="-190"/>
+        <location line="-203"/>
         <source>Bit scale</source>
         <translation>Битовая шкала</translation>
     </message>
@@ -1220,6 +1216,11 @@ Restart the application to apply the change.</source>
         <location line="+1"/>
         <source>Threshold</source>
         <translation>Порог</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>ASCII</source>
+        <translation>ASCII</translation>
     </message>
     <message>
         <location line="+1"/>
@@ -1520,7 +1521,47 @@ Restart the application to apply the change.</source>
         <translation>Автоприменение настроек</translation>
     </message>
     <message>
-        <location line="+129"/>
+        <location line="+133"/>
+        <source>Printable (20–7E)</source>
+        <translation>Печатные (20–7E)</translation>
+    </message>
+    <message>
+        <location line="+12"/>
+        <source>Controls (00-1F, 7F)</source>
+        <translation>Управляющие (00-1F, 7F)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Whitespace (09-0D, 20)</source>
+        <translation>Пробельные (09-0D, 20)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Digits (30-39)</source>
+        <translation>Цифры (30-39)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Uppercase (41-5A)</source>
+        <translation>Заглавные (41-5A)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Lowercase (61-7A)</source>
+        <translation>Строчные (61-7A)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Symbols(21-2F,3A-40,5B-60,7B-7E)</source>
+        <translation>Символы(21-2F,3A-40,5B-60,7B-7E)</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Extended (80-FF)</source>
+        <translation>Расширенные (80-FF)</translation>
+    </message>
+    <message>
+        <location line="+67"/>
         <source>Step (bands):</source>
         <translation>Шаг (полосы):</translation>
     </message>
@@ -1559,7 +1600,22 @@ low values - more.</source>
 низкие значения — больше.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="-90"/>
+        <source>Other:</source>
+        <translation>Другие:</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Extended colors</source>
+        <translation>Расширенные цвета</translation>
+    </message>
+    <message>
+        <location line="+54"/>
+        <source>Choose color (%1)</source>
+        <translation>Выберите цвет (%1)</translation>
+    </message>
+    <message>
+        <location line="+42"/>
         <source>Select bit plane.</source>
         <translation>Выберите битовую плоскость.</translation>
     </message>

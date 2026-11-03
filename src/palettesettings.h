@@ -43,6 +43,12 @@ private:
     };
 
     void buildCustomUi(const QVariantMap &params);
+    void buildAsciiUi(const QVariantMap &params);
+    void addAsciiColorRow(const QString &label,
+                          const QString &paramKey,
+                          const QString &defaultColor,
+                          const QVariantMap &params,
+                          bool extendedOnly);
     void buildEntropyUi(const QVariantMap &params);
     void buildPlaneUi(const QVariantMap &params);
     void buildThresholdUi(const QVariantMap &params);
@@ -89,6 +95,11 @@ private:
     QSpinBox  *m_recordSizeSpin = nullptr;
     QComboBox *m_endianCombo    = nullptr;
     QSpinBox  *m_countSpin      = nullptr;
+
+    QCheckBox *m_asciiExtendedCheck = nullptr;
+    QVector<QPushButton*> m_asciiColorButtons;
+    QVector<QPushButton*> m_asciiBasicColorButtons;
+    QVector<QPushButton*> m_asciiExtendedColorButtons;
 
     bool m_clearing = false;
 };

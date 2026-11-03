@@ -90,6 +90,70 @@ QVector<QColor> createGrayscale(const QVariantMap &)
     return grayPalette(PM_DEFAULT_PALETTE_SIZE);
 }
 
+QColor asciiParamColor(const QVariantMap &params,
+                       const char *key,
+                       const QColor &fallback)
+{
+    const QColor color(params.value(QLatin1String(key), fallback.name()).toString());
+    return color.isValid() ? color : fallback;
+}
+
+QVector<QColor> createAscii(const QVariantMap &params)
+{
+    const QColor printableColor = asciiParamColor(
+        params, "printable_color", QColor(90, 210, 150));
+    const QColor nonPrintableColor = asciiParamColor(
+        params, "nonprintable_color", QColor(230, 85, 85));
+
+    const bool extended = params.value("extended", false).toBool();
+    const QColor controlColor = asciiParamColor(
+        params, "control_color", QColor(230, 85, 85));
+    const QColor whitespaceColor = asciiParamColor(
+        params, "whitespace_color", QColor(90, 190, 220));
+    const QColor digitColor = asciiParamColor(
+        params, "digit_color", QColor(255, 205, 86));
+    const QColor upperColor = asciiParamColor(
+        params, "uppercase_color", QColor(90, 160, 255));
+    const QColor lowerColor = asciiParamColor(
+        params, "lowercase_color", QColor(90, 210, 150));
+    const QColor symbolColor = asciiParamColor(
+        params, "symbol_color", QColor(225, 145, 90));
+    const QColor extendedColor = asciiParamColor(
+        params, "extended_color", QColor(170, 120, 230));
+
+    QVector<QColor> out;
+    out.reserve(PM_DEFAULT_PALETTE_SIZE);
+
+    for (int value = 0; value < PM_DEFAULT_PALETTE_SIZE; ++value) {
+        if (!extended) {
+            out.append(value >= 0x20 && value <= 0x7E
+                       ? printableColor : nonPrintableColor);
+            continue;
+        }
+
+        // Whitespace is checked before controls / printable symbols so that
+        // TAB, LF, CR and SPACE have their own category.
+        if (value == 0x09 || value == 0x0A || value == 0x0B ||
+            value == 0x0C || value == 0x0D || value == 0x20) {
+            out.append(whitespaceColor);
+        } else if (value < 0x20 || value == 0x7F) {
+            out.append(controlColor);
+        } else if (value >= '0' && value <= '9') {
+            out.append(digitColor);
+        } else if (value >= 'A' && value <= 'Z') {
+            out.append(upperColor);
+        } else if (value >= 'a' && value <= 'z') {
+            out.append(lowerColor);
+        } else if (value >= 0x21 && value <= 0x7E) {
+            out.append(symbolColor);
+        } else {
+            out.append(extendedColor);
+        }
+    }
+
+    return out;
+}
+
 QVector<QColor> createInverted(const QVariantMap &)
 {
     QVector<QColor> o;
@@ -829,6 +893,7 @@ void PaletteManager::registerBaseGenerators()
     add("high_nibble",      createHighNibble);
     add("low_nibble",       createLowNibble);
     add("threshold",        createSolarized);
+    add("ascii",            createAscii);
     add("entropy",          createEntropy);
     add("bitplane",         createBitplane);
     add("custom",           createCustom);
@@ -933,6 +998,7 @@ void PaletteManager::registerBaseConfigs()
     m_names.insert(QStringLiteral("high_nibble"),      tr("High nibble"));
     m_names.insert(QStringLiteral("low_nibble"),       tr("Low nibble"));
     m_names.insert(QStringLiteral("threshold"),        tr("Threshold"));
+    m_names.insert(QStringLiteral("ascii"),            tr("ASCII"));
     m_names.insert(QStringLiteral("entropy"),          tr("Entropy bands"));
     m_names.insert(QStringLiteral("bitplane"),         tr("Bit plane"));
     m_names.insert(QStringLiteral("custom"),           tr("Custom"));
@@ -1009,7 +1075,7 @@ void PaletteManager::registerBaseConfigs()
                                "zeros_ones", "nonzero", "highbit",
                                "lowbit", "nibbles",
                                "high_nibble", "low_nibble",
-                               "threshold", "entropy", "bitplane",
+                               "threshold", "ascii", "entropy", "bitplane",
                                "byte_frequency", "repeats", "custom", "from_file"};
     m_groups[16] = QStringList{"rgb565", "bgr565", "rgb555", "argb1555",
                                "integer_16", "integer_16_signed"};
@@ -1040,11 +1106,23 @@ void PaletteManager::registerBaseConfigs()
         addCfg("from_file", true, p, 1);
     }
 
-    // 8-bit configurable
+    // 8-bit configurable palettes
+    QVariantMap asciiParams;
+    asciiParams["extended"] = false;
+    asciiParams["printable_color"] = "#5ad296";
+    asciiParams["nonprintable_color"] = "#e65555";
+    asciiParams["control_color"] = "#aa78e6";
+    asciiParams["whitespace_color"] = "#5abedc";
+    asciiParams["digit_color"] = "#ffcd56";
+    asciiParams["uppercase_color"] = "#5ad296";
+    asciiParams["lowercase_color"] = "#5ad296";
+    asciiParams["symbol_color"] = "#e1915a";
+    asciiParams["extended_color"] = "#e65555";
+    addCfg("ascii", true, asciiParams, 1);
     addCfg("threshold", true, {{"threshold", PM_THRESHOLD_DEFAULT}}, 1);
-    addCfg("entropy",   true, {{"step", PM_ENTROPY_STEP_DEFAULT}}, 1);
-    addCfg("bitplane",  true, {{"plane", PM_BITPLANE_DEFAULT}}, 1);
-    addCfg("repeats",   true, {{"min_count", PM_MIN_COUNT_DEFAULT}}, 1);
+    addCfg("entropy", true, {{"step", PM_ENTROPY_STEP_DEFAULT}}, 1);
+    addCfg("bitplane", true, {{"plane", PM_BITPLANE_DEFAULT}}, 1);
+    addCfg("repeats", true, {{"min_count", PM_MIN_COUNT_DEFAULT}}, 1);
 
     // Пользовательская
     {
