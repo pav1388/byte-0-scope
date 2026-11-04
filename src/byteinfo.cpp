@@ -25,7 +25,7 @@ QString hexU(qint64 v, int width)
 
 QString emptyInfoText()
 {
-    return QStringLiteral("&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp;");
+    return QStringLiteral("<br><br><br><br>");
 }
 
 int hexDigitsForBpp(int bpp)
@@ -125,9 +125,9 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
 
     const bool rev = (m_main->bitOrder() == QLatin1String("lsb"));
 
-    // Контекст ±2 байта — сразу в интерпретированном виде.
     QVector<int> ctx;
-    for (int off = -2; off <= 2; ++off) {
+    ctx.reserve(11);
+    for (int off = -5; off <= 5; ++off) {
         const qint64 pos = addr + off;
         if (m_main && pos >= 0 && pos < qint64(m_main->fileSize())) {
             quint8 b = m_main->readByte(pos);
@@ -139,31 +139,39 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
         }
     }
 
-    // Hex: байты в том виде, в котором их видит декодер.
     QStringList hexParts;
+    hexParts.reserve(ctx.size());
     for (int i = 0; i < ctx.size(); ++i) {
         const QString h = (ctx[i] >= 0) ? hexU(ctx[i], 2) : QStringLiteral("--");
-        hexParts << (i == 2 ? QString("<b>%1</b>").arg(h) : h);
+        hexParts << (i == 5 ? QString("<b>%1</b>").arg(h) : h);
     }
     lines << "&nbsp;&nbsp;Hex:&nbsp;"
-          + hexParts.mid(0, 2).join("&nbsp;")
-          + "&nbsp;>&nbsp;" + hexParts[2]
-          + "&nbsp;>&nbsp;" + hexParts.mid(3).join("&nbsp;");
+          + hexParts.mid(3, 2).join("&nbsp;")
+          + "&nbsp;>&nbsp;" + hexParts[5]
+          + "&nbsp;>&nbsp;" + hexParts.mid(6, 2).join("&nbsp;");
 
-    // ASCII: тоже по интерпретированным значениям.
     QStringList asciiParts;
+    asciiParts.reserve(ctx.size());
     for (int v : ctx) {
-        if (v >= 32 && v <= 126)
+        if (v >= 33 && v <= 126)
             asciiParts << QString(QChar(v)).toHtmlEscaped();
         else
             asciiParts << QStringLiteral("&nbsp;");
     }
-    lines << QString("ASCII:&nbsp;%1&nbsp;&nbsp;%2&nbsp;&nbsp;>&nbsp;<b>%3</b>&nbsp;&nbsp;>&nbsp;%4&nbsp;&nbsp;%5")
-        .arg(asciiParts[0], asciiParts[1], asciiParts[2],
-             asciiParts[3], asciiParts[4]);
 
-    // Текущее значение центрального байта (уже bit-reversed при lsb).
-    const quint8 value = quint8(ctx[2] < 0 ? rawByte : ctx[2]);
+    const QString asciiLeft  = asciiParts.mid(0, 5).join("");
+    const QString asciiRight = asciiParts.mid(6, 5).join("");
+    lines << QString("ASCII:&nbsp;%1&nbsp;>&nbsp;<b>%2</b>&nbsp;&nbsp;>&nbsp;%3")
+                 .arg(asciiLeft, asciiParts.value(5), asciiRight);
+
+    quint8 value;
+    if (ctx[5] >= 0) {
+        value = quint8(ctx[5]);
+    } else {
+        value = rawByte;
+        if (rev)
+            value = PixelDecoder::reverseBits8(value);
+    }
 
     lines << QString("&nbsp;&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
                  .arg(byteToBin(value))
