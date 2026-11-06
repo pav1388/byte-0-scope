@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "aboutdialog.h"
+#include "appversion.h"
 
 #include <QCoreApplication>
 #include <QDialog>
@@ -18,10 +19,6 @@
 #include <QDesktopServices>
 #include <QUrl>
 
-#ifndef APP_VERSION
-#  define APP_VERSION "dev"
-#endif
-
 // --- Настройки модуля AboutDialog (префикс AD_) ---
 
 #define AD_DIALOG_WIDTH         640
@@ -31,7 +28,7 @@
 #define AD_HOMEPAGE_URL         "https://github.com/pav1388/byte-0-scope"
 
 static const char *kAboutTitle = QT_TRANSLATE_NOOP("AboutDialog",
-    "Byte-0-scope v%1 by pav13");
+    "Byte-0-scope v%1 by pav13 (2026)");
 
 static const char *kAboutSubtitle = QT_TRANSLATE_NOOP("AboutDialog",
     "Interactive binary data visualizer.\n"

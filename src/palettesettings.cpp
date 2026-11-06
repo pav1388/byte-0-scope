@@ -232,7 +232,7 @@ void PaletteSettingsPanel::buildAsciiUi(const QVariantMap &params)
 {
     addAsciiColorRow(tr("Printable (20–7E)"),
                      "printable_color", "#5ad296", params, false);
-    addAsciiColorRow(tr("Other:"), 
+    addAsciiColorRow(tr("Other:"),
                      "nonprintable_color", "#e65555", params, false);
 
     addSeparator();
@@ -242,20 +242,20 @@ void PaletteSettingsPanel::buildAsciiUi(const QVariantMap &params)
     m_asciiExtendedCheck->setChecked(params.value("extended", false).toBool());
     m_contentLayout->addWidget(m_asciiExtendedCheck);
 
-	addAsciiColorRow(tr("Controls (00-1F, 7F)"),
-					 "control_color", "#aa78e6", params, true);
-	addAsciiColorRow(tr("Whitespace (09-0D, 20)"),
-					 "whitespace_color", "#5abedc", params, true);
-	addAsciiColorRow(tr("Digits (30-39)"),
-					 "digit_color", "#ffcd56", params, true);
-	addAsciiColorRow(tr("Uppercase (41-5A)"),
-					 "uppercase_color", "#5ad296", params, true);
-	addAsciiColorRow(tr("Lowercase (61-7A)"),
-					 "lowercase_color", "#5ad296", params, true);
-	addAsciiColorRow(tr("Symbols(21-2F,3A-40,5B-60,7B-7E)"),
-					 "symbol_color", "#e1915a", params, true);
-	addAsciiColorRow(tr("Extended (80-FF)"),
-					 "extended_color", "#e65555", params, true);
+    addAsciiColorRow(tr("Controls (00-1F, 7F)"),
+                     "control_color", "#aa78e6", params, true);
+    addAsciiColorRow(tr("Whitespace (09-0D, 20)"),
+                     "whitespace_color", "#cecece", params, true);
+    addAsciiColorRow(tr("Digits (30-39)"),
+                     "digit_color", "#ffcd56", params, true);
+    addAsciiColorRow(tr("Uppercase (41-5A)"),
+                     "uppercase_color", "#5ad296", params, true);
+    addAsciiColorRow(tr("Lowercase (61-7A)"),
+                     "lowercase_color", "#5ad296", params, true);
+    addAsciiColorRow(tr("Symbols(21-2F,3A-40,5B-60,7B-7E)"),
+                     "symbol_color", "#e1915a", params, true);
+    addAsciiColorRow(tr("Extended (80-FF)"),
+                     "extended_color", "#e65555", params, true);
 
     const bool extended = m_asciiExtendedCheck->isChecked();
 
@@ -318,9 +318,7 @@ void PaletteSettingsPanel::buildEntropyUi(const QVariantMap &params)
     m_stepSpin = new QSpinBox();
     m_stepSpin->setRange(PS_STEP_MIN, PS_STEP_MAX);
     m_stepSpin->setValue(params.value("step", 16).toInt());
-    connect(m_stepSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_stepSpin);
     addRow(tr("Step (bands):"), m_stepSpin);
     addInfoLabel(tr("High values - fewer bands,\nlow values - more."));
 }
@@ -330,9 +328,7 @@ void PaletteSettingsPanel::buildPlaneUi(const QVariantMap &params)
     m_planeSpin = new QSpinBox();
     m_planeSpin->setRange(0, PS_PLANE_MAX);
     m_planeSpin->setValue(params.value("plane", 0).toInt());
-    connect(m_planeSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_planeSpin);
     addRow(tr("Bit plane (0–7):"), m_planeSpin);
     addInfoLabel(tr("Select bit plane."));
 }
@@ -342,9 +338,7 @@ void PaletteSettingsPanel::buildThresholdUi(const QVariantMap &params)
     m_thresholdSpin = new QSpinBox();
     m_thresholdSpin->setRange(0, PS_BYTE_MAX);
     m_thresholdSpin->setValue(params.value("threshold", 64).toInt());
-    connect(m_thresholdSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_thresholdSpin);
     addRow(tr("Threshold (0–255):"), m_thresholdSpin);
 }
 
@@ -355,14 +349,12 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
     m_minCountSpin->setValue(params.value("min_count", 50).toInt());
     m_minCountSpin->setToolTip(tr("Bytes appearing at least N times\n"
                                   "are highlighted in red."));
-    connect(m_minCountSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_minCountSpin);
 
     addRow(tr("Min. repeat count:"), m_minCountSpin);
-	addInfoLabel(tr("Byte values that occur at least N times in the file\n"
-					"are highlighted in red. The rest — grayscale.\n"
-					"Counted over the whole file, not the visible region."));
+    addInfoLabel(tr("Byte values that occur at least N times in the file\n"
+                    "are highlighted in red. The rest — grayscale.\n"
+                    "Counted over the whole file, not the visible region."));
 }
 
 void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
@@ -371,9 +363,7 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     m_addrSpin->setRange(0, PS_ADDR_MAX);
     m_addrSpin->setValue(params.value("address", 0).toInt());
     m_addrSpin->setGroupSeparatorShown(false);
-    connect(m_addrSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_addrSpin);
     addRow(tr("Start address:"), m_addrSpin);
 
     m_lenSpin = new QSpinBox();
@@ -383,17 +373,13 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
                                int(qMin<qint64>(rawLen, qint64(PS_ADDR_MAX))),
                                PS_ADDR_MAX));
     m_lenSpin->setGroupSeparatorShown(false);
-    connect(m_lenSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_lenSpin);
     addRow(tr("Max length (bytes):"), m_lenSpin);
 
     m_formatCombo = new QComboBox();
     m_formatCombo->addItems(formatOptions());
     m_formatCombo->setCurrentText(params.value("format", "auto").toString());
-    connect(m_formatCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_formatCombo);
     addRow(tr("Color format:"), m_formatCombo);
 
     m_recordSizeSpin = new QSpinBox();
@@ -401,17 +387,13 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     m_recordSizeSpin->setValue(params.value("record_size", 1).toInt());
     m_recordSizeSpin->setToolTip(tr("Size of one palette record in bytes.\n"
                                     "RGB — 3, RGB565 — 2, RGBA — 4."));
-    connect(m_recordSizeSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_recordSizeSpin);
     addRow(tr("Entry size (bytes):"), m_recordSizeSpin);
 
     m_endianCombo = new QComboBox();
     m_endianCombo->addItems({"big", "little"});
     m_endianCombo->setCurrentText(params.value("endianness", "big").toString());
-    connect(m_endianCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_endianCombo);
     addRow(tr("Byte order:"), m_endianCombo);
 
     m_countSpin = new QSpinBox();
@@ -419,9 +401,7 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     m_countSpin->setValue(params.value("count", 0).toInt());
     m_countSpin->setToolTip(tr("Number of palette records.\n"
                                "0 = auto: 1<<bpp for bpp<=4, otherwise 256."));
-    connect(m_countSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(m_countSpin);
     addRow(tr("Entries (0=auto):"), m_countSpin);
 
     const int bpp = m_main ? m_main->bppMode() : 8;
@@ -481,12 +461,8 @@ void PaletteSettingsPanel::buildCustomUi(const QVariantMap &params)
             newStart = qMin(PS_BYTE_MAX, lastEnd + 1);
             newEnd   = qMin(PS_BYTE_MAX, newStart + 31);
         }
-        static const char *colors[] = {
-            "#FF0000", "#00FF00", "#0000FF", "#FF0080",
-            "#80FF00", "#0080FF", "#FF8000", "#8000FF"
-        };
-        const int ci = m_ruleWidgets.size() % 8;
-        addRuleWidget(newStart, newEnd, colors[ci]);
+        addRuleWidget(newStart, newEnd,
+                      PaletteManager::defaultRuleColor(m_ruleWidgets.size()));
         notifyChanged();
     });
     btnRow->addWidget(addBtn);
@@ -508,8 +484,7 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
     auto *numLabel = new QLabel(QString("%1.").arg(m_ruleWidgets.size() + 1));
     numLabel->setFixedWidth(PS_RULE_NUM_LABEL_WIDTH);
     numLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    numLabel->setStyleSheet(m_main && m_main->themeManager()
-        && m_main->themeManager()->isDark() ? "color: #ccc;" : "color: #666;");
+    numLabel->setStyleSheet(isDarkTheme() ? "color: #ccc;" : "color: #666;");
     lay->addWidget(numLabel);
 
     rw.start = new QSpinBox();
@@ -519,8 +494,7 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
     lay->addWidget(rw.start);
 
     auto *dash = new QLabel("–");
-    dash->setStyleSheet(m_main && m_main->themeManager()
-        && m_main->themeManager()->isDark() ? "color: #888;" : "color: #666;");
+    dash->setStyleSheet(isDarkTheme() ? "color: #888;" : "color: #666;");
     lay->addWidget(dash);
 
     rw.end = new QSpinBox();
@@ -540,10 +514,8 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
         QString("QPushButton { color: %1; font-weight: bold; font-size: 12pt; "
                 "border: none; background: transparent; } "
                 "QPushButton:hover { background: %2; border-radius: 3px; }")
-            .arg(m_main && m_main->themeManager()
-                 && m_main->themeManager()->isDark() ? "red" : "darkred")
-            .arg(m_main && m_main->themeManager()
-                 && m_main->themeManager()->isDark() ? "#444" : "#ddd"));
+            .arg(isDarkTheme() ? "red" : "darkred")
+            .arg(isDarkTheme() ? "#444" : "#ddd"));
     lay->addWidget(delBtn);
     lay->addStretch();
 
@@ -555,12 +527,8 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
     connect(delBtn, &QPushButton::clicked, this,
             [this, container]() { deleteRuleWidget(container); });
 
-    connect(rw.start,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
-    connect(rw.end,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) { notifyChanged(); });
+    watch(rw.start);
+    watch(rw.end);
 
     m_rulesLayout->addWidget(rw.container);
     m_ruleWidgets.append(rw);
@@ -745,6 +713,25 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
     }
 
     return p;
+}
+
+bool PaletteSettingsPanel::isDarkTheme() const
+{
+    return m_main && m_main->themeManager() && m_main->themeManager()->isDark();
+}
+
+void PaletteSettingsPanel::watch(QSpinBox *spin)
+{
+    connect(spin,
+            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, [this](int) { notifyChanged(); });
+}
+
+void PaletteSettingsPanel::watch(QComboBox *combo)
+{
+    connect(combo,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, [this](int) { notifyChanged(); });
 }
 
 void PaletteSettingsPanel::notifyChanged()

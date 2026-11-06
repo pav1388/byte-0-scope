@@ -12,6 +12,9 @@
 
 // Извлекает N-битные пиксели (N = 1..8) из байтового потока.
 // Порт BitPackedReader без numpy.
+//
+// Это единственная реализация извлечения bit-packed пикселей: extractRow()
+// и тайловый рендерер (TileManager) используют valueAt().
 class BitPackedReader {
 public:
     BitPackedReader(int bitsPerPixel, const QString &bitOrder,
@@ -23,6 +26,11 @@ public:
     // Полный размер строки в байтах (с учётом паддинга).
     int rowBytes(int rowWidth) const;
 
+    // Значение пикселя с номером index в строке row. availableBytes — число
+    // доступных байтов строки; недостающие биты читаются как нули.
+    // row может быть nullptr (все пиксели равны 0).
+    unsigned valueAt(const uchar *row, qint64 availableBytes, int index) const;
+
     // Извлечь одну строку. Возвращает массив длиной rowWidth.
     QVector<quint8> extractRow(const QByteArray &raw, int rowWidth) const;
 
@@ -30,9 +38,9 @@ public:
     QVector<QRgb> buildLut(const QVector<QColor> &palette) const;
 
 private:
-    int     m_bpp;
-    QString m_bitOrder;
-    QString m_pixelOrder;
-    int     m_rowPadding;
-    int     m_maxValue;
+    int  m_bpp;
+    bool m_lsbBits;     // bit_order  = "lsb"
+    bool m_lsbPixels;   // pixel_order = "lsb"
+    int  m_rowPadding;
+    int  m_maxValue;
 };

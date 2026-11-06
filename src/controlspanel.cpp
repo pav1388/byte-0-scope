@@ -7,9 +7,8 @@
 #include "mainwindow.h"
 #include "palettemanager.h"
 #include "canvaswidget.h"
+#include "configkeys.h"
 
-#include <QApplication>
-#include <QMouseEvent>
 
 #include <QComboBox>
 #include <QSpinBox>
@@ -23,7 +22,6 @@
 #include <QSignalBlocker>
 #include <QEvent>
 #include <QWheelEvent>
-#include <QMap>
 
 // --- Настройки модуля ControlsPanel (префикс CP_) ---
 
@@ -33,44 +31,6 @@
 #define CP_LAYOUT_SPACING           6
 #define CP_LAYOUT_COL_MIN_WIDTH     150
 #define CP_BUTTON_COMPACT_WIDTH     30
-
-// Индексы режимов ширины (совпадают с порядком в m_widthModeCombo)
-#define CP_WM_INDEX_FIXED           0
-#define CP_WM_INDEX_AUTO            1
-#define CP_WM_INDEX_POWER           2
-#define CP_WM_INDEX_ASPECT16_9      3
-#define CP_WM_INDEX_ASPECT4_3       4
-#define CP_WM_INDEX_BYTES           5
-#define CP_WM_INDEX_NICE            6
-#define CP_WM_INDEX_DIVISOR         7
-#define CP_WM_COUNT                 8
-
-// Строковые ключи режимов ширины (для QVariantMap)
-#define CP_WM_KEY_FIXED             "fixed"
-#define CP_WM_KEY_AUTO              "auto"
-#define CP_WM_KEY_POWER             "power"
-#define CP_WM_KEY_ASPECT16_9        "aspect16_9"
-#define CP_WM_KEY_ASPECT4_3         "aspect4_3"
-#define CP_WM_KEY_BYTES             "bytes"
-#define CP_WM_KEY_NICE              "nice"
-#define CP_WM_KEY_DIVISOR           "divisor"
-
-// Ключи QVariantMap конфигурации
-#define CP_KEY_BPP_MODE             "bpp_mode"
-#define CP_KEY_PALETTE              "palette"
-#define CP_KEY_BIT_ORDER            "bit_order"
-#define CP_KEY_PIXEL_ORDER          "pixel_order"
-#define CP_KEY_ROW_PADDING_BITS     "row_padding_bits"
-#define CP_KEY_WIDTH_MODE           "width_mode"
-#define CP_KEY_FIXED_WIDTH          "fixed_width"
-#define CP_KEY_WIDTH_STEP           "width_step"
-#define CP_KEY_SCALE                "scale"
-#define CP_KEY_AUTO_SCALE           "auto_scale"
-#define CP_KEY_FIT_TO_WINDOW        "fit_to_window"
-#define CP_KEY_OFFSET               "offset"
-#define CP_KEY_LENGTH               "length"
-#define CP_KEY_LENGTH_MODE          "length_mode"
-#define CP_KEY_BYTES_PER_ROW        "bytes_per_row"
 
 // Метки, изменяемые в зависимости от режима
 #define CP_LABEL_END                QT_TRANSLATE_NOOP("ControlsPanel", "End:")
@@ -91,7 +51,10 @@ protected:
                 return false;
 
             QWheelEvent *we = static_cast<QWheelEvent *>(ev);
-            const int delta = (we->angleDelta().y() > 0) ? +1 : -1;
+            const int wheel = we->angleDelta().y();
+            if (wheel == 0)
+                return false;
+            const int delta = (wheel > 0) ? +1 : -1;
             const int step = qMax(1, m_step ? m_step->value() : 8);
             const int cur = m_spin->value();
             const int nv = qMax(1, ((cur / step) + delta) * step);
@@ -107,52 +70,15 @@ private:
     QSpinBox *m_step;
 };
 
-int bppFromText(const QString &t)
+// Находит в комбобоксе элемент с данными value и выбирает его.
+// Возвращает false, если такого элемента нет (выбор остаётся прежним).
+bool selectByData(QComboBox *combo, const QVariant &value)
 {
-    static const QMap<QString, int> kMap = {
-        { QStringLiteral("1 bpp"),   1  },
-        { QStringLiteral("2 bpp"),   2  },
-        { QStringLiteral("3 bpp"),   3  },
-        { QStringLiteral("4 bpp"),   4  },
-        { QStringLiteral("8 bpp"),   8  },
-        { QStringLiteral("16 bpp"), 16  },
-        { QStringLiteral("24 bpp"), 24  },
-        { QStringLiteral("32 bpp"), 32  },
-        { QStringLiteral("64 bpp"), 64  },
-    };
-    return kMap.value(t, 8);
-}
-
-QString bppToText(int bpp)
-{
-    return QString::number(bpp) + QStringLiteral(" bpp");
-}
-
-QString widthModeToKey(int wmInt)
-{
-    switch (wmInt) {
-    case CP_WM_INDEX_AUTO:       return QStringLiteral(CP_WM_KEY_AUTO);
-    case CP_WM_INDEX_POWER:      return QStringLiteral(CP_WM_KEY_POWER);
-    case CP_WM_INDEX_ASPECT16_9: return QStringLiteral(CP_WM_KEY_ASPECT16_9);
-    case CP_WM_INDEX_ASPECT4_3:  return QStringLiteral(CP_WM_KEY_ASPECT4_3);
-    case CP_WM_INDEX_BYTES:      return QStringLiteral(CP_WM_KEY_BYTES);
-    case CP_WM_INDEX_NICE:       return QStringLiteral(CP_WM_KEY_NICE);
-    case CP_WM_INDEX_DIVISOR:    return QStringLiteral(CP_WM_KEY_DIVISOR);
-    case CP_WM_INDEX_FIXED:
-    default:                     return QStringLiteral(CP_WM_KEY_FIXED);
-    }
-}
-
-int widthModeFromKey(const QString &wm)
-{
-    if (wm == QLatin1String(CP_WM_KEY_AUTO))       return CP_WM_INDEX_AUTO;
-    if (wm == QLatin1String(CP_WM_KEY_POWER))      return CP_WM_INDEX_POWER;
-    if (wm == QLatin1String(CP_WM_KEY_ASPECT16_9)) return CP_WM_INDEX_ASPECT16_9;
-    if (wm == QLatin1String(CP_WM_KEY_ASPECT4_3))  return CP_WM_INDEX_ASPECT4_3;
-    if (wm == QLatin1String(CP_WM_KEY_BYTES))      return CP_WM_INDEX_BYTES;
-    if (wm == QLatin1String(CP_WM_KEY_NICE))       return CP_WM_INDEX_NICE;
-    if (wm == QLatin1String(CP_WM_KEY_DIVISOR))    return CP_WM_INDEX_DIVISOR;
-    return CP_WM_INDEX_FIXED;
+    const int idx = combo->findData(value);
+    if (idx < 0)
+        return false;
+    combo->setCurrentIndex(idx);
+    return true;
 }
 
 } // namespace
@@ -187,56 +113,38 @@ void ControlsPanel::buildUi()
     fmtLay->addWidget(new QLabel(tr("Bits per pixel:")), row, 0);
     m_bppCombo = new QComboBox(this);
     m_bppCombo->setObjectName("bppCombo");
-    m_bppCombo->addItems({
-        QStringLiteral("64 bpp"), QStringLiteral("32 bpp"),
-        QStringLiteral("24 bpp"), QStringLiteral("16 bpp"),
-        QStringLiteral("8 bpp"),  QStringLiteral("4 bpp"),
-        QStringLiteral("3 bpp"),  QStringLiteral("2 bpp"),
-        QStringLiteral("1 bpp"),
-    });
-    m_bppCombo->setCurrentText(QStringLiteral("8 bpp"));
+    for (int bpp : { 64, 32, 24, 16, 8, 4, 3, 2, 1 }) {
+        m_bppCombo->addItem(QString::number(bpp) + QStringLiteral(" bpp"), bpp);
+    }
+    selectByData(m_bppCombo, CFG_DEF_BPP_MODE);
     connect(m_bppCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, [this](int) { onBppChanged(); });
     fmtLay->addWidget(m_bppCombo, row++, 1);
 
-	m_bitOrderLabel = new QLabel(tr("Bit order:"), this);
+    m_bitOrderLabel = new QLabel(tr("Bit order:"), this);
     fmtLay->addWidget(m_bitOrderLabel, row, 0);
     m_bitOrderCombo = new QComboBox(this);
     m_bitOrderCombo->setObjectName("bitOrderCombo");
-    m_bitOrderCombo->addItems({
-        QStringLiteral("MSB-first (BE)"),
-        QStringLiteral("LSB-first (LE)"),
-    });
-    connect(m_bitOrderCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    m_bitOrderCombo->addItem(QStringLiteral("MSB-first (BE)"), QStringLiteral("msb"));
+    m_bitOrderCombo->addItem(QStringLiteral("LSB-first (LE)"), QStringLiteral("lsb"));
+    watch(m_bitOrderCombo);
     fmtLay->addWidget(m_bitOrderCombo, row++, 1);
-	
-	m_byteOrderLabel = new QLabel(tr("Byte order:"), this);
+
+    m_byteOrderLabel = new QLabel(tr("Byte order:"), this);
     fmtLay->addWidget(m_byteOrderLabel, row, 0);
     m_byteOrderCombo = new QComboBox(this);
     m_byteOrderCombo->setObjectName("byteOrderCombo");
-    m_byteOrderCombo->addItems({
-        QStringLiteral("Big-endian (BE)"),
-        QStringLiteral("Little-endian (LE)"),
-    });
+    m_byteOrderCombo->addItem(QStringLiteral("Big-endian (BE)"), QStringLiteral("big"));
+    m_byteOrderCombo->addItem(QStringLiteral("Little-endian (LE)"), QStringLiteral("little"));
     m_byteOrderCombo->setToolTip(tr(
         "Byte order within multi-byte pixel values (16/24/32/64 bpp).\n"
         "For RGB/RGBA palettes it also reverses the channel order\n"
         "(e.g. RGB + little = BGR)."));
-    connect(m_byteOrderCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    watch(m_byteOrderCombo);
     fmtLay->addWidget(m_byteOrderCombo, row++, 1);
 
-	m_rowPadLabel = new QLabel(tr("Padding (bits):"), this);
+    m_rowPadLabel = new QLabel(tr("Padding (bits):"), this);
     fmtLay->addWidget(m_rowPadLabel, row, 0);
     m_rowPadSpin = new QSpinBox(this);
     m_rowPadSpin->setObjectName("rowPadSpin");
@@ -246,28 +154,16 @@ void ControlsPanel::buildUi()
                                 "8 — rows are multiples of 1 byte.\n"
                                 "16 — multiples of 2 bytes.\n"
                                 "32 — multiples of 4 bytes."));
-    connect(m_rowPadSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    watch(m_rowPadSpin);
     fmtLay->addWidget(m_rowPadSpin, row++, 1);
 
-	m_pixelOrderLabel = new QLabel(tr("Pixel order:"), this);
+    m_pixelOrderLabel = new QLabel(tr("Pixel order:"), this);
     fmtLay->addWidget(m_pixelOrderLabel, row, 0);
     m_pixelOrderCombo = new QComboBox(this);
     m_pixelOrderCombo->setObjectName("pixelOrderCombo");
-    m_pixelOrderCombo->addItems({
-        QStringLiteral("MSB-first"),
-        QStringLiteral("LSB-first"),
-    });
-    connect(m_pixelOrderCombo,
-            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    m_pixelOrderCombo->addItem(QStringLiteral("MSB-first"), QStringLiteral("msb"));
+    m_pixelOrderCombo->addItem(QStringLiteral("LSB-first"), QStringLiteral("lsb"));
+    watch(m_pixelOrderCombo);
     fmtLay->addWidget(m_pixelOrderCombo, row++, 1);
 
     layout->addWidget(fmtGroup);
@@ -303,7 +199,7 @@ void ControlsPanel::buildUi()
             this, [this](int) {
                 if (m_updatingConfig)
                     return;
-                clampRegionBounds(0);
+                clampRegionBounds(true);
                 emit settingsChanged();
             });
     regLay->addWidget(m_offsetSpin, 0, 1);
@@ -316,7 +212,7 @@ void ControlsPanel::buildUi()
     m_pickStartBtn->setToolTip(tr("Pick region start: click, then left-click the desired byte.\n"
                                   "Click again or press Esc to cancel."));
     connect(m_pickStartBtn, &QPushButton::clicked, this, [this]() {
-        if (m_regionPickTarget == 1)
+        if (m_regionPickTarget == PickStart)
             cancelRegionPick();
         else
             startRegionPick(true);
@@ -337,7 +233,7 @@ void ControlsPanel::buildUi()
             this, [this](int) {
                 if (m_updatingConfig)
                     return;
-                clampRegionBounds(1);
+                clampRegionBounds(false);
                 emit settingsChanged();
             });
     regLay->addWidget(m_endSpin, 1, 1);
@@ -350,7 +246,7 @@ void ControlsPanel::buildUi()
     m_pickEndBtn->setToolTip(tr("Pick region end: click, then left-click the desired byte.\n"
                                 "Click again or press Esc to cancel."));
     connect(m_pickEndBtn, &QPushButton::clicked, this, [this]() {
-        if (m_regionPickTarget == 2)
+        if (m_regionPickTarget == PickEnd)
             cancelRegionPick();
         else
             startRegionPick(false);
@@ -400,46 +296,36 @@ void ControlsPanel::buildUi()
         tr("Nearest \"round\" value"),
         tr("Divisor ≤ N"),
     });
-    m_widthModeCombo->setCurrentIndex(CP_WM_INDEX_FIXED);
+    m_widthModeCombo->setCurrentIndex(WM_Fixed);
     connect(m_widthModeCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ControlsPanel::onWidthModeChanged);
     dispLay->addWidget(m_widthModeCombo, dr++, 1);
-	
-	m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
+
+    m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
     dispLay->addWidget(m_bytesPerRowLabel, dr, 0);
     m_bytesPerRowSpin = new QSpinBox(this);
     m_bytesPerRowSpin->setRange(1, 65536);
     m_bytesPerRowSpin->setValue(16);
     m_bytesPerRowSpin->setToolTip(tr("Only for \"Bytes per row\" mode.\n"
                                      "Pixels per row = bytes / bytesPerPixel."));
-    connect(m_bytesPerRowSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    watch(m_bytesPerRowSpin);
     dispLay->addWidget(m_bytesPerRowSpin, dr++, 1);
 
     m_bytesPerRowLabel->setVisible(false);
     m_bytesPerRowSpin->setVisible(false);
 
-	m_widthLabel = new QLabel(tr("Width / N:"), this);
+    m_widthLabel = new QLabel(tr("Width / N:"), this);
     dispLay->addWidget(m_widthLabel, dr, 0);
     m_widthSpin = new QSpinBox(this);
     m_widthSpin->setRange(1, 65536);
     m_widthSpin->setValue(256);
     m_widthSpin->setToolTip(tr("For \"Manual\" — width in pixels.\n"
                                "For \"Divisor ≤ N\" — upper width limit."));
-    connect(m_widthSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
-	dispLay->addWidget(m_widthSpin, dr++, 1);
+    watch(m_widthSpin);
+    dispLay->addWidget(m_widthSpin, dr++, 1);
 
-	m_widthStepLabel = new QLabel(tr("Width step:"), this);
+    m_widthStepLabel = new QLabel(tr("Width step:"), this);
     dispLay->addWidget(m_widthStepLabel, dr, 0);
     m_widthStepSpin = new QSpinBox(this);
     m_widthStepSpin->setObjectName("widthStepSpin");
@@ -447,12 +333,7 @@ void ControlsPanel::buildUi()
     m_widthStepSpin->setValue(8);
     m_widthStepSpin->setToolTip(tr("Width change step with Ctrl+mouse wheel.\n"
                                    "Used in manual mode."));
-    connect(m_widthStepSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    watch(m_widthStepSpin);
     dispLay->addWidget(m_widthStepSpin, dr++, 1);
 
     dispLay->addWidget(new QLabel(tr("Zoom:")), dr, 0);
@@ -460,12 +341,7 @@ void ControlsPanel::buildUi()
     m_scaleSpin->setObjectName("scaleSpin");
     m_scaleSpin->setRange(1, 32);
     m_scaleSpin->setValue(1);
-    connect(m_scaleSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
-                if (!m_updatingConfig)
-                    emit settingsChanged();
-            });
+    watch(m_scaleSpin);
     dispLay->addWidget(m_scaleSpin, dr++, 1);
 
     auto *checkboxRow = new QHBoxLayout();
@@ -534,8 +410,7 @@ void ControlsPanel::onBppChanged()
     const int bpp = bppMode();
     refillPaletteList(bpp);
     updateBitSettingsEnabled(bpp);
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }
 
 void ControlsPanel::onPaletteChanged()
@@ -553,16 +428,14 @@ void ControlsPanel::onPaletteChanged()
 void ControlsPanel::onHexModeChanged(bool checked)
 {
     applyHexModeToSpins(checked);
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }
 
 void ControlsPanel::onLengthModeChanged(bool checked)
 {
     if (m_endLabel)
         m_endLabel->setText(checked ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }
 
 void ControlsPanel::resetRegionToDefault()
@@ -575,8 +448,7 @@ void ControlsPanel::resetRegionToDefault()
         if (m_endLabel)
             m_endLabel->setText(tr(CP_LABEL_END));
     }
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }
 
 void ControlsPanel::startRegionPick(bool startBoundary)
@@ -586,10 +458,10 @@ void ControlsPanel::startRegionPick(bool startBoundary)
         return;
     }
 
-    if (m_regionPickTarget != 0)
+    if (m_regionPickTarget != PickNone)
         cancelRegionPick();
 
-    m_regionPickTarget = startBoundary ? 1 : 2;
+    m_regionPickTarget = startBoundary ? PickStart : PickEnd;
 
     {
         QSignalBlocker b1(m_pickStartBtn), b2(m_pickEndBtn);
@@ -607,7 +479,7 @@ void ControlsPanel::startRegionPick(bool startBoundary)
 
 void ControlsPanel::cancelRegionPick()
 {
-    if (m_regionPickTarget == 0) {
+    if (m_regionPickTarget == PickNone) {
         if (m_main && m_main->canvasWidget())
             m_main->canvasWidget()->setRegionPickMode(false);
         if (m_pickStartBtn) {
@@ -621,7 +493,7 @@ void ControlsPanel::cancelRegionPick()
         return;
     }
 
-    m_regionPickTarget = 0;
+    m_regionPickTarget = PickNone;
 
     if (m_main && m_main->canvasWidget())
         m_main->canvasWidget()->setRegionPickMode(false);
@@ -638,20 +510,20 @@ void ControlsPanel::cancelRegionPick()
 
 void ControlsPanel::onRegionAddressCaptured(qint64 address)
 {
-    const int target = m_regionPickTarget;
+    const RegionPickTarget target = m_regionPickTarget;
     cancelRegionPick();
 
     if (m_main && m_main->canvasWidget())
         m_main->canvasWidget()->clearLock();
 
-    if (target != 1 && target != 2)
+    if (target == PickNone)
         return;
     if (address < 0 || address > 0x7FFFFFFF)
         return;
 
     const int maxVal = 0x7FFFFFFF;
 
-    if (target == 1) {
+    if (target == PickStart) {
         int newStart = int(address);
         if (!m_lengthModeCheck->isChecked()) {
             const int curEnd = m_endSpin->value();
@@ -677,39 +549,56 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
         m_endSpin->setValue(newEnd);
     }
 
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }
 
 // =========================================================================
 //  Внутренние помощники
 // =========================================================================
 
+void ControlsPanel::fillPaletteCombo(int bpp)
+{
+    m_paletteCombo->clear();
+
+    PaletteManager *pm = m_main ? m_main->paletteManager() : nullptr;
+    if (!pm)
+        return;
+
+    for (const QString &id : pm->paletteIdsForBpp(bpp)) {
+        const QString name = pm->displayName(id);
+        const QString label = pm->isConfigurable(id)
+            ? name + QStringLiteral(" *") : name;
+        m_paletteCombo->addItem(label, id);
+    }
+}
+
 void ControlsPanel::refillPaletteList(int bpp)
 {
     QSignalBlocker b(m_paletteCombo);
 
     const QString current = m_paletteCombo->currentData().toString();
+    fillPaletteCombo(bpp);
+    selectByData(m_paletteCombo, current);
+}
 
-    m_paletteCombo->clear();
-    if (m_main && m_main->paletteManager()) {
-        for (const QString &id : m_main->paletteManager()->paletteIdsForBpp(bpp)) {
-            const QString name = m_main->paletteManager()->displayName(id);
-            const bool cfg = m_main->paletteManager()->isConfigurable(id);
-            const QString label = cfg ? name + QStringLiteral(" *") : name;
-            m_paletteCombo->addItem(label, id);
-        }
-    }
+void ControlsPanel::notifyChanged()
+{
+    if (!m_updatingConfig)
+        emit settingsChanged();
+}
 
-    int idx = -1;
-    for (int i = 0; i < m_paletteCombo->count(); ++i) {
-        if (m_paletteCombo->itemData(i).toString() == current) {
-            idx = i;
-            break;
-        }
-    }
-    if (idx >= 0)
-        m_paletteCombo->setCurrentIndex(idx);
+void ControlsPanel::watch(QSpinBox *spin)
+{
+    connect(spin,
+            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, [this](int) { notifyChanged(); });
+}
+
+void ControlsPanel::watch(QComboBox *combo)
+{
+    connect(combo,
+            static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, [this](int) { notifyChanged(); });
 }
 
 void ControlsPanel::updateBitSettingsEnabled(int bpp)
@@ -759,10 +648,8 @@ void ControlsPanel::updateBitSettingsEnabled(int bpp)
 QString ControlsPanel::byteOrder() const
 {
     if (!m_byteOrderCombo)
-        return QStringLiteral("big");
-    return m_byteOrderCombo->currentText().startsWith(QStringLiteral("Little"))
-        ? QStringLiteral("little")
-        : QStringLiteral("big");
+        return QStringLiteral(CFG_DEF_BYTE_ORDER);
+    return m_byteOrderCombo->currentData().toString();
 }
 
 void ControlsPanel::updateDisplayControlsEnabled()
@@ -772,10 +659,9 @@ void ControlsPanel::updateDisplayControlsEnabled()
 
     const int idx = m_widthModeCombo->currentIndex();
 
-    const bool widthVisible = (idx == CP_WM_INDEX_FIXED ||
-                               idx == CP_WM_INDEX_DIVISOR);
-    const bool stepVisible  = (idx == CP_WM_INDEX_FIXED);
-    const bool bprVisible   = (idx == CP_WM_INDEX_BYTES);
+    const bool widthVisible = (idx == WM_Fixed || idx == WM_Divisor);
+    const bool stepVisible  = (idx == WM_Fixed);
+    const bool bprVisible   = (idx == WM_BytesPerRow);
 
     if (m_widthLabel)
         m_widthLabel->setVisible(widthVisible);
@@ -828,7 +714,7 @@ void ControlsPanel::applyHexModeToSpins(bool useHex)
     }
 }
 
-void ControlsPanel::clampRegionBounds(int changedSpin)
+void ControlsPanel::clampRegionBounds(bool startChanged)
 {
     if (m_updatingConfig)
         return;
@@ -842,7 +728,7 @@ void ControlsPanel::clampRegionBounds(int changedSpin)
     QSignalBlocker bo(m_offsetSpin);
     QSignalBlocker be(m_endSpin);
 
-    if (changedSpin == 0) {
+    if (startChanged) {
         if (curEnd != 0 && curStart >= curEnd) {
             const int newStart = qMax(0, curEnd - 1);
             m_offsetSpin->setValue(newStart);
@@ -871,7 +757,9 @@ bool ControlsPanel::regionIsValid() const
 
 int ControlsPanel::bppMode() const
 {
-    return bppFromText(m_bppCombo->currentText());
+    bool ok = false;
+    const int bpp = m_bppCombo->currentData().toInt(&ok);
+    return ok ? bpp : CFG_DEF_BPP_MODE;
 }
 
 QString ControlsPanel::currentPaletteId() const
@@ -881,14 +769,12 @@ QString ControlsPanel::currentPaletteId() const
 
 QString ControlsPanel::bitOrder() const
 {
-    return m_bitOrderCombo->currentText().startsWith(QStringLiteral("MSB"))
-        ? QStringLiteral("msb") : QStringLiteral("lsb");
+    return m_bitOrderCombo->currentData().toString();
 }
 
 QString ControlsPanel::pixelOrder() const
 {
-    return m_pixelOrderCombo->currentText().startsWith(QStringLiteral("MSB"))
-        ? QStringLiteral("msb") : QStringLiteral("lsb");
+    return m_pixelOrderCombo->currentData().toString();
 }
 
 int ControlsPanel::rowPaddingBits() const
@@ -908,7 +794,7 @@ int ControlsPanel::fixedWidth() const
 
 int ControlsPanel::widthStep() const
 {
-    return m_widthStepSpin ? m_widthStepSpin->value() : 8;
+    return m_widthStepSpin ? m_widthStepSpin->value() : CFG_DEF_WIDTH_STEP;
 }
 
 int ControlsPanel::scaleValue() const
@@ -947,28 +833,28 @@ bool ControlsPanel::lengthMode() const
 
 int ControlsPanel::bytesPerRow() const
 {
-    return m_bytesPerRowSpin ? m_bytesPerRowSpin->value() : 16;
+    return m_bytesPerRowSpin ? m_bytesPerRowSpin->value() : CFG_DEF_BYTES_PER_ROW;
 }
 
 QVariantMap ControlsPanel::currentConfig() const
 {
     QVariantMap cfg;
-    cfg[QStringLiteral(CP_KEY_BPP_MODE)]         = bppMode();
-    cfg[QStringLiteral(CP_KEY_PALETTE)]          = currentPaletteId();
-    cfg[QStringLiteral(CP_KEY_BIT_ORDER)]        = bitOrder();
-	cfg[QStringLiteral(CP_KEY_BYTE_ORDER)]       = byteOrder();
-    cfg[QStringLiteral(CP_KEY_PIXEL_ORDER)]      = pixelOrder();
-    cfg[QStringLiteral(CP_KEY_ROW_PADDING_BITS)] = rowPaddingBits();
-    cfg[QStringLiteral(CP_KEY_WIDTH_MODE)]       = widthModeToKey(widthMode());
-    cfg[QStringLiteral(CP_KEY_FIXED_WIDTH)]      = fixedWidth();
-    cfg[QStringLiteral(CP_KEY_WIDTH_STEP)]       = widthStep();
-    cfg[QStringLiteral(CP_KEY_SCALE)]            = scaleValue();
-    cfg[QStringLiteral(CP_KEY_AUTO_SCALE)]       = autoScale();
-    cfg[QStringLiteral(CP_KEY_FIT_TO_WINDOW)]    = fitToWindow();
-    cfg[QStringLiteral(CP_KEY_OFFSET)]           = offset();
-    cfg[QStringLiteral(CP_KEY_LENGTH)]           = length();
-    cfg[QStringLiteral(CP_KEY_LENGTH_MODE)]      = lengthMode();
-    cfg[QStringLiteral(CP_KEY_BYTES_PER_ROW)]    = bytesPerRow();
+    cfg[QStringLiteral(CFG_BPP_MODE)]         = bppMode();
+    cfg[QStringLiteral(CFG_PALETTE)]          = currentPaletteId();
+    cfg[QStringLiteral(CFG_BIT_ORDER)]        = bitOrder();
+    cfg[QStringLiteral(CFG_BYTE_ORDER)]       = byteOrder();
+    cfg[QStringLiteral(CFG_PIXEL_ORDER)]      = pixelOrder();
+    cfg[QStringLiteral(CFG_ROW_PADDING_BITS)] = rowPaddingBits();
+    cfg[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(widthMode());
+    cfg[QStringLiteral(CFG_FIXED_WIDTH)]      = fixedWidth();
+    cfg[QStringLiteral(CFG_WIDTH_STEP)]       = widthStep();
+    cfg[QStringLiteral(CFG_SCALE)]            = scaleValue();
+    cfg[QStringLiteral(CFG_AUTO_SCALE)]       = autoScale();
+    cfg[QStringLiteral(CFG_FIT_TO_WINDOW)]    = fitToWindow();
+    cfg[QStringLiteral(CFG_OFFSET)]           = offset();
+    cfg[QStringLiteral(CFG_LENGTH)]           = length();
+    cfg[QStringLiteral(CFG_LENGTH_MODE)]      = lengthMode();
+    cfg[QStringLiteral(CFG_BYTES_PER_ROW)]    = bytesPerRow();
     return cfg;
 }
 
@@ -983,7 +869,7 @@ void ControlsPanel::setCanvasWidget(CanvasWidget *canvas)
 
     connect(canvas, &CanvasWidget::lockedChanged, this,
             [this](qint64 address) {
-                if (m_regionPickTarget != 0 && address >= 0)
+                if (m_regionPickTarget != PickNone && address >= 0)
                     onRegionAddressCaptured(address);
             });
 
@@ -1004,7 +890,7 @@ void ControlsPanel::setWidthModeSilent(int idx)
     if (!m_widthModeCombo)
         return;
     QSignalBlocker b(m_widthModeCombo);
-    const int clamped = qBound(0, idx, CP_WM_COUNT - 1);
+    const int clamped = qBound(0, idx, int(WM_Count) - 1);
     m_widthModeCombo->setCurrentIndex(clamped);
     updateDisplayControlsEnabled();
 }
@@ -1032,129 +918,101 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
                    b13(m_fitCheck), b14(m_lengthModeCheck), b15(m_hexModeCheck),
                    b16(m_byteOrderCombo);
 
-    const int bpp = cfg.value(QStringLiteral(CP_KEY_BPP_MODE), 8).toInt();
-    m_bppCombo->setCurrentText(bppToText(bpp));
+    const int bpp = cfg.value(QStringLiteral(CFG_BPP_MODE),
+                              CFG_DEF_BPP_MODE).toInt();
+    selectByData(m_bppCombo, bpp);
 
     // Список палитр для выбранного bpp
-    m_paletteCombo->clear();
-    if (m_main && m_main->paletteManager()) {
-        for (const QString &id : m_main->paletteManager()->paletteIdsForBpp(bpp)) {
-            const QString name = m_main->paletteManager()->displayName(id);
-            const bool c = m_main->paletteManager()->isConfigurable(id);
-            const QString label = c ? name + QStringLiteral(" *") : name;
-            m_paletteCombo->addItem(label, id);
-        }
-    }
+    fillPaletteCombo(bpp);
 
-    QString paletteId = cfg.value(QStringLiteral(CP_KEY_PALETTE)).toString();
+    QString paletteId = cfg.value(QStringLiteral(CFG_PALETTE)).toString();
     if (m_main && m_main->paletteManager() &&
         !m_main->paletteManager()->contains(paletteId))
         paletteId.clear();
-    if (paletteId.isEmpty()) {
-        paletteId = m_paletteCombo->count() > 0
-            ? m_paletteCombo->itemData(0).toString()
-            : QStringLiteral("gray");
-    }
+    if (!selectByData(m_paletteCombo, paletteId) && m_paletteCombo->count() > 0)
+        m_paletteCombo->setCurrentIndex(0);
 
-    int pidx = -1;
-    for (int i = 0; i < m_paletteCombo->count(); ++i) {
-        if (m_paletteCombo->itemData(i).toString() == paletteId) {
-            pidx = i;
-            break;
-        }
-    }
-    if (pidx < 0 && m_paletteCombo->count() > 0)
-        pidx = 0;
-    if (pidx >= 0)
-        m_paletteCombo->setCurrentIndex(pidx);
-
-    m_bitOrderCombo->setCurrentText(
-        cfg.value(QStringLiteral(CP_KEY_BIT_ORDER), QStringLiteral("msb"))
-            .toString() == QLatin1String("msb")
-            ? QStringLiteral("MSB-first (BE)")
-            : QStringLiteral("LSB-first (LE)"));
-	
-	m_byteOrderCombo->setCurrentText(
-        cfg.value(QStringLiteral(CP_KEY_BYTE_ORDER), QStringLiteral("big"))
-            .toString() == QLatin1String("little")
-            ? QStringLiteral("Little-endian (LE)")
-            : QStringLiteral("Big-endian (BE)"));
-			
-    m_pixelOrderCombo->setCurrentText(
-        cfg.value(QStringLiteral(CP_KEY_PIXEL_ORDER), QStringLiteral("msb"))
-            .toString() == QLatin1String("msb")
-            ? QStringLiteral("MSB-first")
-            : QStringLiteral("LSB-first"));
+    // Любое значение, кроме «msb»/«big», трактуется как противоположный порядок.
+    selectByData(m_bitOrderCombo,
+        cfg.value(QStringLiteral(CFG_BIT_ORDER),
+                  QStringLiteral(CFG_DEF_BIT_ORDER)).toString()
+            == QLatin1String("msb") ? QStringLiteral("msb") : QStringLiteral("lsb"));
+    selectByData(m_byteOrderCombo,
+        cfg.value(QStringLiteral(CFG_BYTE_ORDER),
+                  QStringLiteral(CFG_DEF_BYTE_ORDER)).toString()
+            == QLatin1String("little") ? QStringLiteral("little") : QStringLiteral("big"));
+    selectByData(m_pixelOrderCombo,
+        cfg.value(QStringLiteral(CFG_PIXEL_ORDER),
+                  QStringLiteral(CFG_DEF_PIXEL_ORDER)).toString()
+            == QLatin1String("msb") ? QStringLiteral("msb") : QStringLiteral("lsb"));
 
     m_rowPadSpin->setValue(
-        cfg.value(QStringLiteral(CP_KEY_ROW_PADDING_BITS), 0).toInt());
+        cfg.value(QStringLiteral(CFG_ROW_PADDING_BITS), CFG_DEF_ROW_PADDING).toInt());
     updateBitSettingsEnabled(bpp);
 
     m_scaleSpin->setValue(
-        qBound(1, cfg.value(QStringLiteral(CP_KEY_SCALE), 1).toInt(), 32));
+        qBound(1, cfg.value(QStringLiteral(CFG_SCALE), CFG_DEF_SCALE).toInt(), 32));
     m_autoScaleCheck->setChecked(
-        cfg.value(QStringLiteral(CP_KEY_AUTO_SCALE), false).toBool());
+        cfg.value(QStringLiteral(CFG_AUTO_SCALE), false).toBool());
     m_fitCheck->setChecked(
-        cfg.value(QStringLiteral(CP_KEY_FIT_TO_WINDOW), false).toBool());
+        cfg.value(QStringLiteral(CFG_FIT_TO_WINDOW), false).toBool());
     if (m_autoScaleCheck->isChecked() && m_fitCheck->isChecked()) {
         QSignalBlocker b(m_autoScaleCheck);
         m_autoScaleCheck->setChecked(false);
     }
 
-    const QString wmKey = cfg.value(QStringLiteral(CP_KEY_WIDTH_MODE),
-                                    QStringLiteral(CP_WM_KEY_FIXED)).toString();
-    const int wmIdx = widthModeFromKey(wmKey);
-
-    m_widthModeCombo->setCurrentIndex(wmIdx);
-    m_widthSpin->setValue(
-        qMax(1, cfg.value(QStringLiteral(CP_KEY_FIXED_WIDTH), 256).toInt()));
+    const QString wmKey = cfg.value(QStringLiteral(CFG_WIDTH_MODE),
+                                    QStringLiteral(CFG_DEF_WIDTH_MODE)).toString();
+    m_widthModeCombo->setCurrentIndex(widthModeFromKey(wmKey));
+    m_widthSpin->setValue(qMax(1,
+        cfg.value(QStringLiteral(CFG_FIXED_WIDTH), CFG_DEF_FIXED_WIDTH).toInt()));
     if (m_widthStepSpin) {
-        m_widthStepSpin->setValue(
-            qMax(1, cfg.value(QStringLiteral(CP_KEY_WIDTH_STEP), 8).toInt()));
+        m_widthStepSpin->setValue(qMax(1,
+            cfg.value(QStringLiteral(CFG_WIDTH_STEP), CFG_DEF_WIDTH_STEP).toInt()));
     }
     if (m_bytesPerRowSpin) {
-        m_bytesPerRowSpin->setValue(
-            qMax(1, cfg.value(QStringLiteral(CP_KEY_BYTES_PER_ROW), 16).toInt()));
+        m_bytesPerRowSpin->setValue(qMax(1,
+            cfg.value(QStringLiteral(CFG_BYTES_PER_ROW), CFG_DEF_BYTES_PER_ROW).toInt()));
     }
-	
-	updateDisplayControlsEnabled();
+
+    updateDisplayControlsEnabled();
 
     const quint64 offsetVal =
-        cfg.value(QStringLiteral(CP_KEY_OFFSET)).toULongLong();
+        cfg.value(QStringLiteral(CFG_OFFSET)).toULongLong();
     const quint64 lengthVal =
-        cfg.value(QStringLiteral(CP_KEY_LENGTH)).toULongLong();
+        cfg.value(QStringLiteral(CFG_LENGTH)).toULongLong();
     const bool lenMode =
-        cfg.value(QStringLiteral(CP_KEY_LENGTH_MODE), false).toBool();
+        cfg.value(QStringLiteral(CFG_LENGTH_MODE), false).toBool();
 
     m_lengthModeCheck->setChecked(lenMode);
     if (m_endLabel)
         m_endLabel->setText(lenMode ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
 
-	const quint64 maxSpinValue = quint64(m_endSpin->maximum());
-	const quint64 safeOffsetVal = qMin(offsetVal, maxSpinValue);
+    const quint64 maxSpinValue = quint64(m_endSpin->maximum());
+    const quint64 safeOffsetVal = qMin(offsetVal, maxSpinValue);
 
-	quint64 displayVal = 0;
+    quint64 displayVal = 0;
+    if (lenMode) {
+        displayVal = qMin(lengthVal, maxSpinValue);
+    } else if (lengthVal > 0) {
+        const quint64 safeLengthVal = qMin(lengthVal, maxSpinValue);
+        displayVal = qMin(safeOffsetVal + safeLengthVal, maxSpinValue);
+    }
 
-	if (lenMode) {
-		displayVal = qMin(lengthVal, maxSpinValue);
-	} else if (lengthVal > 0) {
-		const quint64 safeLengthVal = qMin(lengthVal, maxSpinValue);
-		displayVal = qMin(safeOffsetVal + safeLengthVal, maxSpinValue);
-	}
+    applyHexModeToSpins(m_hexModeCheck->isChecked());
+    {
+        QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
 
-	applyHexModeToSpins(m_hexModeCheck->isChecked()); {
-		QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
+        m_offsetSpin->setValue(int(safeOffsetVal));
+        m_endSpin->setValue(int(displayVal));
 
-		m_offsetSpin->setValue(int(safeOffsetVal));
-		m_endSpin->setValue(int(displayVal));
-
-		if (!m_lengthModeCheck->isChecked()
-			&& m_endSpin->value() != 0
-			&& m_endSpin->value() <= m_offsetSpin->value()) {
-			const int maxVal = m_offsetSpin->maximum();
-			m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
-		}
-	}
+        if (!m_lengthModeCheck->isChecked()
+                && m_endSpin->value() != 0
+                && m_endSpin->value() <= m_offsetSpin->value()) {
+            const int maxVal = m_offsetSpin->maximum();
+            m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
+        }
+    }
 
     m_updatingConfig = false;
     emit settingsChanged();
@@ -1163,6 +1021,5 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
 void ControlsPanel::onWidthModeChanged()
 {
     updateDisplayControlsEnabled();
-    if (!m_updatingConfig)
-        emit settingsChanged();
+    notifyChanged();
 }

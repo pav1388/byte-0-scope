@@ -33,6 +33,14 @@ public:
 
     void rebuild();                  // сброс кэша, пересчёт размеров, стоп prefetch
     void clearHover();
+    // Пересчитать, что находится под курсором (после смены геометрии/зеркал).
+    void refreshHover();
+    // Смещение (0..7) выбранного пикселя внутри байта для 1–4 bpp; для
+    // остальных форматов 0. Относится к выбранному (locked) или hover-адресу.
+    int  selectedBitOffset() const
+    {
+        return m_locked ? m_lockedBitOffset : m_hoverBitOffset;
+    }
     void setForceRedraw() { m_forceRedraw = true; update(); }
     void setRegionPickMode(bool enabled);
     bool regionPickMode() const { return m_regionPickMode; }
@@ -70,8 +78,12 @@ private slots:
 
 private:
     qint64        byteAddressAt(const QPoint &pos,
-                                QPoint *sourcePixel = nullptr) const;
+                                QPoint *sourcePixel = nullptr,
+                                int *bitOffset = nullptr) const;
     QSet<TileKey> visibleTiles() const;
+    void          displayedRegion(quint64 *offset, quint64 *length) const;
+    bool          pixelForAddress(qint64 address, int bitOffset,
+                                  int *x, int *y) const;
 
     MainWindow *m_main = nullptr;
 
@@ -82,6 +94,8 @@ private:
 
     qint64 m_hoverAddr  = -1;
     qint64 m_lockedAddr = -1;
+    int    m_hoverBitOffset  = 0;
+    int    m_lockedBitOffset = 0;
     bool   m_locked     = false;
     QPoint m_lockedSourcePixel;
     bool   m_lockedSourcePixelValid = false;

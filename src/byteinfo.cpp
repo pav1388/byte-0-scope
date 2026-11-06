@@ -6,6 +6,7 @@
 #include "byteinfo.h"
 #include "mainwindow.h"
 #include "pixeldecoder.h"
+#include "pixelmath.h"
 #include "thememanager.h"
 
 #include <QCursor>
@@ -18,7 +19,9 @@
 
 namespace {
 
-QString hexU(qint64 v, int width)
+// Беззнаковый hex: 64-битные значения со старшим битом не должны выводиться
+// как отрицательные числа.
+QString hexU(quint64 v, int width)
 {
     return QString::number(v, 16).toUpper().rightJustified(width, QChar('0'));
 }
@@ -184,24 +187,65 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
 //  isBitpacked() (1/2/3/4 bpp)
 // =========================================================================
 
-QString ByteInfoWidget::formatBitpacked(qint64 addr, quint8 rawByte)
+// 1–4 bpp: курсор выбирает не байт, а конкретный пиксель (бит/ниббл) внутри
+// него. bitOffset — позиция первого бита пикселя в байте addr (0..7) в
+// порядке чтения потока, поэтому она же индекс символа в строке Bin.
+QString ByteInfoWidget::formatBitpacked(qint64 addr, int bitOffset)
 {
-    QStringList lines;
+    const QByteArray raw = m_main->readRange(addr, 2);
+    if (raw.isEmpty())
+        return emptyInfoText();
 
+    const int bpp = qBound(1, m_main->bppMode(), 8);
     const bool bitLsb = (m_main->bitOrder() == QLatin1String("lsb"));
+    const bool pixLsb = (m_main->pixelOrder() == QLatin1String("lsb"));
+    const int offset = qBound(0, bitOffset, 7);
 
-    lines << QString("Addr:&nbsp;<b>0x%1</b>&nbsp;(%2)")
-                 .arg(hexU(addr, 8)).arg(addr);
+    const uchar *bytes = reinterpret_cast<const uchar *>(raw.constData());
+    const unsigned pixel = PixelMath::bitpackedValue(
+        bytes, raw.size(), offset, bpp, bitLsb, pixLsb);
 
     // Байт в интерпретированном виде: при bit_order == lsb биты
     // реверсируются (так BitPackedReader их и читает).
-    const quint8 value = bitLsb
-        ? PixelDecoder::reverseBits8(rawByte)
-        : rawByte;
+    auto interpret = [bitLsb](quint8 v) -> quint8 {
+        return bitLsb ? PixelDecoder::reverseBits8(v) : v;
+    };
 
-	lines << QString("&nbsp;Hex:&nbsp;<b>%1</b>").arg(hexU(value, 2));
-	lines << QString("&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
-				 .arg(byteToBin(value)).arg(value);
+    // Бинарная строка байта с подчёркнутыми битами выбранного пикселя
+    // (from..to включительно, индексы символов слева направо).
+    auto binMarked = [](quint8 v, int from, int to) -> QString {
+        const QString bin = byteToBin(v);
+        if (from > to)
+            return bin;
+        return bin.left(from) + QStringLiteral("<u><b>")
+             + bin.mid(from, to - from + 1) + QStringLiteral("</b></u>")
+             + bin.mid(to + 1);
+    };
+
+    const int lastBit = offset + bpp - 1;           // может выйти за байт (3 bpp)
+    const bool spans = lastBit > 7 && raw.size() > 1;
+    const quint8 value = interpret(quint8(bytes[0]));
+
+    QStringList lines;
+    lines << QString("Addr:&nbsp;<b>0x%1</b>&nbsp;(%2)")
+                 .arg(hexU(addr, 8)).arg(addr);
+    lines << QString("&nbsp;Hex:&nbsp;<b>%1</b>").arg(hexU(value, 2));
+    lines << QString("&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
+                 .arg(binMarked(value, offset, qMin(7, lastBit)))
+                 .arg(value);
+
+    if (spans) {
+        const quint8 next = interpret(quint8(bytes[1]));
+        lines << QString("Next:&nbsp;<b>0x%1</b>&nbsp;Bin:&nbsp;<b>%2</b>")
+                     .arg(hexU(addr + 1, 8))
+                     .arg(binMarked(next, 0, lastBit - 8));
+    }
+
+    const QString bits = (bpp == 1)
+        ? QString::number(offset)
+        : QString("%1-%2").arg(offset).arg(lastBit);
+    lines << QString("Pixel:&nbsp;<b>%1</b>&nbsp;(%2&nbsp;bpp,&nbsp;bit&nbsp;%3)")
+                 .arg(pixel).arg(bpp).arg(bits);
 
     return lines.join("<br>");
 }
@@ -238,8 +282,8 @@ QString ByteInfoWidget::formatMultibyte(qint64 addr,
         value = (value << 8) | quint8(pixelBytes.at(i));
 
     const int digits = hexDigitsForBpp(bp * 8);
-    lines << QString("&nbsp;&nbsp;Hex:&nbsp;<b>%1</b>").arg(hexU(qint64(value), digits));
-	lines << QString("&nbsp;&nbsp;Dec:&nbsp;<b>%1</b>").arg(value);
+    lines << QString("&nbsp;&nbsp;Hex:&nbsp;<b>%1</b>").arg(hexU(value, digits));
+    lines << QString("&nbsp;&nbsp;Dec:&nbsp;<b>%1</b>").arg(value);
 
     // Декодированные каналы/поля.
     const QString desc = PixelDecoder::describe(dataBytes, paletteId,
@@ -254,7 +298,7 @@ QString ByteInfoWidget::formatMultibyte(qint64 addr,
 //  Публичный слот
 // =========================================================================
 
-void ByteInfoWidget::updateInfo(qint64 addr)
+void ByteInfoWidget::updateInfo(qint64 addr, int bitOffset)
 {
     if (!m_main || addr < 0 || addr >= qint64(m_main->fileSize())) {
         m_label->setText(emptyInfoText());
@@ -265,7 +309,7 @@ void ByteInfoWidget::updateInfo(qint64 addr)
     QString text;
 
     if (m_main->isBitpacked()) {
-        text = formatBitpacked(addr, m_main->readByte(addr));
+        text = formatBitpacked(addr, bitOffset);
     } else if (m_main->bytesPerPixel() == 1) {
         text = formatSingleByte(addr, m_main->readByte(addr));
     } else {

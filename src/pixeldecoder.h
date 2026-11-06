@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "pixelmath.h"
+
 #include <QByteArray>
 #include <QColor>
 #include <QString>
@@ -12,14 +14,47 @@
 
 namespace PixelDecoder {
 
-// Реверс битов в байте. Используется при bit_order = "lsb" для bpp >= 8.
+// Реверс битов в байте. Используется при bit_order = "lsb".
 inline quint8 reverseBits8(quint8 b) noexcept
 {
-    b = quint8((b & 0xF0u) >> 4) | quint8((b & 0x0Fu) << 4);
-    b = quint8((b & 0xCCu) >> 2) | quint8((b & 0x33u) << 2);
-    b = quint8((b & 0xAAu) >> 1) | quint8((b & 0x55u) << 1);
-    return b;
+    return PixelMath::reverseBits8(b);
 }
+
+// Декодер многобайтовых пикселей.
+//
+// Разбор идентификатора палитры, порядка байтов/битов и параметров делается
+// один раз в конструкторе, поэтому decode() подходит для горячего цикла
+// (раньше каждый пиксель заново сравнивал строки и доставал значения из
+// QVariantMap). Объект не изменяется после создания — decode() можно
+// вызывать из нескольких потоков.
+class Decoder {
+public:
+    Decoder(const QString &paletteId, const QString &bitOrder,
+            const QString &byteOrder,
+            const QVariantMap &params = QVariantMap());
+
+    PixelMath::PixelFormat format() const   { return m_format; }
+    bool                   isSigned() const { return m_signed; }
+
+    // Приводит байты пикселя к «нормализованному» виду: big-endian и
+    // нормальный порядок битов. Возвращает число записанных байтов (<= 8).
+    int normalize(const uchar *pixel, int size, uchar out[8]) const;
+
+    QRgb decode(const uchar *pixel, int size) const;
+
+private:
+    PixelMath::PixelFormat m_format;
+    bool    m_littleEndian;
+    bool    m_reverseBits;
+    bool    m_signed;
+
+    // Параметры палитры from_file (используются только для PF_FromFile).
+    QString m_fileFormat;
+    QString m_fileEndianness;
+    int     m_fileRecordSize;
+};
+
+PixelMath::PixelFormat parseFormat(const QString &paletteId);
 
 QRgb decodeArgb(const QByteArray &pixelData, const QString &paletteId,
                 const QString &bitOrder, const QString &byteOrder,

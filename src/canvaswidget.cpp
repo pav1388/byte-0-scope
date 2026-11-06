@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "canvaswidget.h"
+#include "pixelmath.h"
 #include "mainwindow.h"
 #include <QApplication>
 #include <QMouseEvent>
@@ -36,11 +37,15 @@ CanvasWidget::CanvasWidget(MainWindow *parent)
     connect(m_hoverTimer, &QTimer::timeout, this, [this]() {
         if (m_locked)
             return;
-        const qint64 a = byteAddressAt(m_pendingHoverPos);
-        if (a == m_hoverAddr)
+        int bitOffset = 0;
+        const qint64 a = byteAddressAt(m_pendingHoverPos, nullptr, &bitOffset);
+        // В режимах 1–4 bpp несколько пикселей делят один байт, поэтому
+        // одного адреса для сравнения недостаточно.
+        if (a == m_hoverAddr && (a < 0 || bitOffset == m_hoverBitOffset))
             return;
 
         m_hoverAddr = a;
+        m_hoverBitOffset = (a >= 0) ? bitOffset : 0;
         emit hoverChanged(a);
         update();
     });
@@ -78,6 +83,7 @@ void CanvasWidget::clearLock()
         return;
     m_locked = false;
     m_lockedAddr = -1;
+    m_lockedBitOffset = 0;
     m_lockedSourcePixel = QPoint();
     m_lockedSourcePixelValid = false;
     emit lockedChanged(-1);
@@ -130,6 +136,18 @@ void CanvasWidget::rebuild()
     // the next paintEvent (the old code performed two generation changes).
     m_forceRedraw = false;
     update();
+
+    // Изображение под неподвижным курсором изменилось (ширина, зеркало,
+    // bpp...) — адрес и маркер нужно пересчитать, не дожидаясь движения мыши.
+    refreshHover();
+}
+
+void CanvasWidget::refreshHover()
+{
+    if (m_locked || !underMouse() || !m_hoverTimer)
+        return;
+    m_pendingHoverPos = mapFromGlobal(QCursor::pos());
+    m_hoverTimer->start(CW_HOVER_DELAY_MS);
 }
 
 QSize CanvasWidget::scaledSize() const
@@ -234,51 +252,15 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
     if (address < 0)
         return;
 
-    const quint64 offsetValue = m_main->offset();
-    const quint64 fileSizeValue = m_main->fileSize();
-    if (offsetValue > fileSizeValue
-            || offsetValue > quint64(std::numeric_limits<qint64>::max())
-            || address < qint64(offsetValue)
-            || quint64(address) >= fileSizeValue)
-        return;
-    const quint64 availableBytes = fileSizeValue - offsetValue;
-    const quint64 requestedBytes = m_main->length() > 0
-        ? m_main->length() : availableBytes;
-    const quint64 regionEndValue = offsetValue
-        + qMin(requestedBytes, availableBytes);
-    if (quint64(address) >= regionEndValue)
-        return;
-    const qint64 regionStart = qint64(offsetValue);
+    const int bitOffset = m_locked ? m_lockedBitOffset : m_hoverBitOffset;
 
+    // Пиксель в координатах исходного изображения...
     int x = -1;
     int y = -1;
-    if (m_main->isBitpacked()) {
-        const int bitsPerPixel = qBound(1, m_main->bppMode(), 8);
-        const qint64 rowBits = qint64(m_imageWidth) * bitsPerPixel
-                             + qMax(0, m_main->rowPaddingBits());
-        const qint64 rowBytes = (rowBits + 7) / 8;
-        const qint64 relative = address - regionStart;
-        if (rowBytes <= 0)
-            return;
-        const qint64 row = relative / rowBytes;
-        const qint64 byteInRow = relative % rowBytes;
-        const qint64 column = (byteInRow * 8) / bitsPerPixel;
-        if (row < 0 || row >= m_imageHeight
-                || column < 0 || column >= m_imageWidth)
-            return;
-        x = int(column);
-        y = int(row);
-    } else {
-        const int bytesPerPixel = qBound(1, m_main->bytesPerPixel(), 8);
-        const qint64 relative = address - regionStart;
-        const qint64 pixelIndex = relative / bytesPerPixel;
-        const qint64 totalPixels = qint64(m_imageWidth) * m_imageHeight;
-        if (pixelIndex < 0 || pixelIndex >= totalPixels)
-            return;
-        x = int(pixelIndex % m_imageWidth);
-        y = int(pixelIndex / m_imageWidth);
-    }
+    if (!pixelForAddress(address, bitOffset, &x, &y))
+        return;
 
+    // ...и его положение на экране (зеркала применяются только здесь).
     if (m_main->mirrorHorizontal())
         x = m_imageWidth - 1 - x;
     if (m_main->mirrorVertical())
@@ -298,7 +280,17 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
     if (!dirtyRegion.intersects(markerRect.adjusted(-2, -2, 2, 2)))
         return;
 
-    const quint8 byteValue = m_main->readByte(address);
+    // Значение для цвета контура: для 1–4 bpp — значение выбранного пикселя,
+    // а не всего байта.
+    quint8 byteValue = m_main->readByte(address);
+    if (m_main->isBitpacked()) {
+        const QByteArray raw = m_main->readRange(address, 2);
+        byteValue = quint8(PixelMath::bitpackedValue(
+            reinterpret_cast<const uchar *>(raw.constData()), raw.size(),
+            bitOffset, qBound(1, m_main->bppMode(), 8),
+            m_main->bitOrder() == QLatin1String("lsb"),
+            m_main->pixelOrder() == QLatin1String("lsb")));
+    }
     const QVector<QColor> palette = m_main->currentPalette();
     int r = byteValue, g = byteValue, b = byteValue;
     if (!palette.isEmpty()) {
@@ -373,25 +365,90 @@ QSet<TileKey> CanvasWidget::visibleTiles() const
     return result;
 }
 
-qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel) const
+// Диапазон байтов файла, отображаемый на холсте: [offset, offset + length).
+// Единственное место, где регион пересекается с размером файла.
+void CanvasWidget::displayedRegion(quint64 *offset, quint64 *length) const
+{
+    *offset = 0;
+    *length = 0;
+    if (!m_main)
+        return;
+
+    const quint64 offsetValue = m_main->offset();
+    if (offsetValue > quint64(std::numeric_limits<qint64>::max()))
+        return;
+
+    *offset = offsetValue;
+    *length = PixelMath::effectiveRegionLength(m_main->fileSize(), offsetValue,
+                                               m_main->length());
+}
+
+// Пиксель в координатах ИСХОДНОГО изображения (без учёта зеркал), которому
+// принадлежит бит bitOffset (0..7) байта с адресом address. Для 1–4 bpp
+// именно смещение в битах выбирает пиксель внутри байта. Обратная операция к
+// byteAddressAt().
+bool CanvasWidget::pixelForAddress(qint64 address, int bitOffset,
+                                   int *outX, int *outY) const
+{
+    quint64 offsetValue = 0;
+    quint64 regionLength = 0;
+    displayedRegion(&offsetValue, &regionLength);
+    if (!m_main || address < 0 || regionLength == 0
+            || quint64(address) < offsetValue
+            || quint64(address) - offsetValue >= regionLength)
+        return false;
+
+    const qint64 relative = qint64(quint64(address) - offsetValue);
+    int x = -1;
+    int y = -1;
+    if (m_main->isBitpacked()) {
+        const int bitsPerPixel = qBound(1, m_main->bppMode(), 8);
+        const qint64 rowBytes = PixelMath::bitpackedRowBytes(
+            m_imageWidth, bitsPerPixel, m_main->rowPaddingBits());
+        if (rowBytes <= 0)
+            return false;
+        // Абсолютная позиция бита от начала региона.
+        const qint64 bitPos = relative * 8 + qBound(0, bitOffset, 7);
+        const qint64 rowBits = rowBytes * 8;
+        const qint64 row = bitPos / rowBits;
+        const qint64 column = (bitPos % rowBits) / bitsPerPixel;
+        // column >= width — это биты паддинга в конце строки.
+        if (row >= m_imageHeight || column >= m_imageWidth)
+            return false;
+        x = int(column);
+        y = int(row);
+    } else {
+        const int bytesPerPixel = qBound(1, m_main->bytesPerPixel(), 8);
+        const qint64 pixelIndex = relative / bytesPerPixel;
+        const qint64 totalPixels = qint64(m_imageWidth) * m_imageHeight;
+        if (pixelIndex >= totalPixels)
+            return false;
+        x = int(pixelIndex % m_imageWidth);
+        y = int(pixelIndex / m_imageWidth);
+    }
+
+    *outX = x;
+    *outY = y;
+    return true;
+}
+
+qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel,
+                                   int *bitOffset) const
 {
     if (sourcePixel)
         *sourcePixel = QPoint(-1, -1);
+    if (bitOffset)
+        *bitOffset = 0;
 
     if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main
             || pos.x() < 0 || pos.y() < 0)
         return -1;
 
-    const quint64 fileSize = m_main->fileSize();
-    const quint64 offsetValue = m_main->offset();
-    if (offsetValue > fileSize
-            || offsetValue > quint64(std::numeric_limits<qint64>::max()))
+    quint64 offsetValue = 0;
+    quint64 regionLength = 0;
+    displayedRegion(&offsetValue, &regionLength);
+    if (regionLength == 0)
         return -1;
-
-    const quint64 available = fileSize - offsetValue;
-    const quint64 requested = m_main->length() > 0
-        ? m_main->length() : available;
-    const quint64 regionLength = qMin(requested, available);
 
     const int scale = qMax(1, m_scale);
     const int ds = qMax(1, m_downsample);
@@ -418,13 +475,15 @@ qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel) const
     qint64 relative = 0;
     if (m_main->isBitpacked()) {
         const int bpp = qBound(1, m_main->bppMode(), 8);
-        const qint64 rowBits = qint64(m_imageWidth) * bpp
-                             + qMax(0, m_main->rowPaddingBits());
-        const qint64 rowBytes = (rowBits + 7) / 8;
+        const qint64 rowBytes = PixelMath::bitpackedRowBytes(
+            m_imageWidth, bpp, m_main->rowPaddingBits());
         if (rowBytes <= 0)
             return -1;
-        const qint64 byteInRow = (qint64(x) * bpp) / 8;
-        relative = qint64(y) * rowBytes + byteInRow;
+        const qint64 bitInRow = qint64(x) * bpp;
+        relative = qint64(y) * rowBytes + bitInRow / 8;
+        // Какой именно пиксель (бит/ниббл) внутри байта под курсором.
+        if (bitOffset)
+            *bitOffset = int(bitInRow % 8);
     } else {
         const int bytesPerPixel = qBound(1, m_main->bytesPerPixel(), 8);
         const qint64 pixelIndex = qint64(y) * m_imageWidth + x;
@@ -450,7 +509,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
 
     if (e->button() == Qt::LeftButton) {
         QPoint sourcePixel;
-        const qint64 a = byteAddressAt(e->pos(), &sourcePixel);
+        int bitOffset = 0;
+        const qint64 a = byteAddressAt(e->pos(), &sourcePixel, &bitOffset);
         if (a < 0) {
             if (m_regionPickMode) {
                 setRegionPickMode(false);
@@ -466,9 +526,11 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
         if (m_regionPickMode) {
             m_locked     = true;
             m_lockedAddr = a;
+            m_lockedBitOffset = bitOffset;
             m_lockedSourcePixel = sourcePixel;
             m_lockedSourcePixelValid = true;
             m_hoverAddr  = a;
+            m_hoverBitOffset = bitOffset;
             emit lockedChanged(a);
             emit hoverChanged(a);
             update();
@@ -479,13 +541,16 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
         if (m_locked) {
             m_locked     = false;
             m_lockedAddr = -1;
+            m_lockedBitOffset = 0;
             m_lockedSourcePixel = QPoint();
             m_lockedSourcePixelValid = false;
             m_hoverAddr  = a;
+            m_hoverBitOffset = bitOffset;
             emit lockedChanged(-1);
         } else {
             m_locked     = true;
             m_lockedAddr = a;
+            m_lockedBitOffset = bitOffset;
             m_lockedSourcePixel = sourcePixel;
             m_lockedSourcePixelValid = true;
             emit lockedChanged(a);
@@ -520,8 +585,16 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent *e)
 
 void CanvasWidget::wheelEvent(QWheelEvent *e)
 {
+    // Горизонтальная прокрутка (angleDelta().y() == 0) раньше трактовалась как
+    // «уменьшить» — отдаём такие события родительской области прокрутки.
+    const int wheel = e->angleDelta().y();
+    if (wheel == 0) {
+        e->ignore();
+        return;
+    }
+    const int d = (wheel > 0) ? +1 : -1;
+
     if (e->modifiers() & Qt::ControlModifier) {
-        const int d = (e->angleDelta().y() > 0) ? +1 : -1;
         emit widthStepRequested(d);
         e->accept();
         return;
@@ -532,7 +605,6 @@ void CanvasWidget::wheelEvent(QWheelEvent *e)
         return;
     }
 
-    const int d = (e->angleDelta().y() > 0) ? +1 : -1;
     m_wheelAccumulatedDelta += d;
     m_pendingWheelCursorPos = e->pos();
     m_wheelDebounceTimer->start(CW_WHEEL_DEBOUNCE_MS);
@@ -543,6 +615,7 @@ void CanvasWidget::leaveEvent(QEvent *e)
 {
     if (!m_locked && m_hoverAddr != -1) {
         m_hoverAddr = -1;
+        m_hoverBitOffset = 0;
         emit hoverChanged(-1);
         update();
     }
@@ -552,6 +625,8 @@ void CanvasWidget::leaveEvent(QEvent *e)
 void CanvasWidget::clearHover()
 {
     m_hoverAddr  = -1;
+    m_hoverBitOffset  = 0;
+    m_lockedBitOffset = 0;
     m_locked     = false;
     m_lockedAddr = -1;
     m_lockedSourcePixel = QPoint();

@@ -14,6 +14,9 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTextStream>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  include <QStringConverter>
+#endif
 
 #ifdef Q_OS_WIN
 #  ifndef WIN32_LEAN_AND_MEAN
@@ -41,7 +44,7 @@
 
 // Идентичность приложения (используется и в MIME, и в .desktop)
 #define FA_APP_NAME             "Byte-0-scope"
-#define FA_APP_DESC             "Byte-0-scope config file"
+#define FA_APP_DESC             FA_PROGID_DESC
 
 // Внешние утилиты и таймаут
 #define FA_TOOL_UPDATE_MIME     "update-mime-database"
@@ -138,6 +141,16 @@ QString mimeTypeForExt(const QString &ext)
     return QStringLiteral(FA_MIME_PREFIX) + extensionWithoutDot(ext);
 }
 
+// Файлы .desktop и MIME XML — всегда UTF-8, а не кодировка локали.
+void setUtf8(QTextStream &out)
+{
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    out.setCodec("UTF-8");
+#else
+    out.setEncoding(QStringConverter::Utf8);
+#endif
+}
+
 bool registerLinux(const QString &ext, QString *err)
 {
     const QString exePath = QCoreApplication::applicationFilePath();
@@ -167,11 +180,12 @@ bool registerLinux(const QString &ext, QString *err)
             return false;
         }
         QTextStream out(&xml);
+        setUtf8(out);
         out << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             << "<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\n"
-            << "  <mime-type type=\"" << mimeType << "\">\n"
+            << "  <mime-type type=\"" << mimeType.toHtmlEscaped() << "\">\n"
             << "    <comment>" << FA_APP_DESC << "</comment>\n"
-            << "    <glob pattern=\"*." << cleanExt << "\"/>\n"
+            << "    <glob pattern=\"*." << cleanExt.toHtmlEscaped() << "\"/>\n"
             << "  </mime-type>\n"
             << "</mime-info>\n";
     }
@@ -196,6 +210,7 @@ bool registerLinux(const QString &ext, QString *err)
             return false;
         }
         QTextStream out(&desk);
+        setUtf8(out);
         out << "[Desktop Entry]\n"
             << "Type=Application\n"
             << "Name=" << FA_APP_NAME << "\n"
@@ -212,10 +227,25 @@ bool registerLinux(const QString &ext, QString *err)
                   { QStringLiteral("default"),
                     QFileInfo(desktopPath).fileName(),
                     mimeType });
+    if (!xdgMime.waitForStarted(FA_TOOL_TIMEOUT_MS)) {
+        if (err)
+            *err = QCoreApplication::translate(
+                "FileAssoc", "xdg-mime could not be started.");
+        return false;
+    }
     if (!xdgMime.waitForFinished(FA_TOOL_TIMEOUT_MS)) {
+        // Не оставляем висящий процесс (иначе QProcess ругнётся при разрушении).
+        xdgMime.kill();
+        xdgMime.waitForFinished(FA_TOOL_TIMEOUT_MS);
         if (err)
             *err = QCoreApplication::translate(
                 "FileAssoc", "xdg-mime did not respond within the timeout.");
+        return false;
+    }
+    if (xdgMime.exitStatus() != QProcess::NormalExit || xdgMime.exitCode() != 0) {
+        if (err)
+            *err = QCoreApplication::translate(
+                "FileAssoc", "xdg-mime failed to set the default application.");
         return false;
     }
 

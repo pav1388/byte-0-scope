@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "demobuilder.h"
+#include "configkeys.h"
 
 #include <QDateTime>
 #include <QtMath>
@@ -298,21 +299,21 @@ QByteArray buildTrainingDemo()
 QVariantMap trainingCorrectConfig()
 {
     QVariantMap cfg;
-    cfg["bpp_mode"]         = DB_TR_BPP;
-    cfg["bit_order"]        = "lsb";
-    cfg["pixel_order"]      = "lsb";
-    cfg["row_padding_bits"] = DB_TR_PAD_BITS;
-    cfg["palette"]          = "inverted";
-    cfg["width_mode"]       = "fixed";
-    cfg["fixed_width"]      = DB_TR_R;
-    cfg["scale"]            = 1;
-    cfg["auto_scale"]       = false;
-    cfg["fit_to_window"]    = false;
-    cfg["offset"]           = 0;
-    cfg["length"]           = 0;
-    cfg["length_mode"]      = false;
-    cfg["mirror_horizontal"] = true;
-    cfg["mirror_vertical"]   = false;
+    cfg[QStringLiteral(CFG_BPP_MODE)]         = DB_TR_BPP;
+    cfg[QStringLiteral(CFG_BIT_ORDER)]        = "lsb";
+    cfg[QStringLiteral(CFG_PIXEL_ORDER)]      = "lsb";
+    cfg[QStringLiteral(CFG_ROW_PADDING_BITS)] = DB_TR_PAD_BITS;
+    cfg[QStringLiteral(CFG_PALETTE)]          = "inverted";
+    cfg[QStringLiteral(CFG_WIDTH_MODE)]       = "fixed";
+    cfg[QStringLiteral(CFG_FIXED_WIDTH)]      = DB_TR_R;
+    cfg[QStringLiteral(CFG_SCALE)]            = 1;
+    cfg[QStringLiteral(CFG_AUTO_SCALE)]       = false;
+    cfg[QStringLiteral(CFG_FIT_TO_WINDOW)]    = false;
+    cfg[QStringLiteral(CFG_OFFSET)]           = 0;
+    cfg[QStringLiteral(CFG_LENGTH)]           = 0;
+    cfg[QStringLiteral(CFG_LENGTH_MODE)]      = false;
+    cfg[QStringLiteral(CFG_MIRROR_H)] = true;
+    cfg[QStringLiteral(CFG_MIRROR_V)]   = false;
     return cfg;
 }
 

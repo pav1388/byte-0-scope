@@ -25,11 +25,12 @@ public:
     void updateTheme();
 
 public slots:
-    void updateInfo(qint64 addr);
+    // bitOffset — смещение выбранного пикселя в байте (только для 1–4 bpp).
+    void updateInfo(qint64 addr, int bitOffset = 0);
 
 private:
     QString formatSingleByte(qint64 addr, quint8 rawByte);
-    QString formatBitpacked(qint64 addr, quint8 rawByte);
+    QString formatBitpacked(qint64 addr, int bitOffset);
     QString formatMultibyte(qint64 addr, const QByteArray &dataBytes,
                             const QString &paletteId,
                             const QVariantMap &params);

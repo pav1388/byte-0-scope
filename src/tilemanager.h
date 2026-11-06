@@ -145,8 +145,11 @@ public:
 
     QImage getTile(int tileX, int tileY);
     QImage renderImage(const QSize &targetSize, int scale, int downsample) const;
+    // Возвращает false, если экспорт не запущен; причина (если errorMessage
+    // не nullptr) записывается в *errorMessage.
     bool startPngExport(const QString &path, const QRect &canvasRect,
-                        int scale, int downsample, const QColor &background);
+                        int scale, int downsample, const QColor &background,
+                        QString *errorMessage = nullptr);
     void prefetchAround(const QSet<TileKey> &visible);
     void setVisibleTiles(const QSet<TileKey> &visible);
 
@@ -172,16 +175,24 @@ private slots:
 private:
     RenderContextPtr buildContext() const;
     void scheduleRender(const TileKey &key, bool highPriority);
+    void storeTile(const TileKey &key, const QImage &image);
     void cleanupByMemory();
-    qint64 now() const;
 
     CanvasWidget *m_canvas = nullptr;
     RenderContextPtr m_context;
     RenderContextPtr m_exportContext;
     quint64 m_generation = 0;
 
-    QHash<TileKey, QImage> m_tiles;
-    QHash<TileKey, qint64> m_accessTimes;
+    // Кэш тайлов: изображение и «время» последнего обращения (LRU) хранятся
+    // в одной записи. Время — монотонный счётчик обращений, а не системные
+    // часы: дешевле и не зависит от перевода времени.
+    struct CacheEntry {
+        QImage  image;
+        quint64 lastUsed = 0;
+    };
+    QHash<TileKey, CacheEntry> m_tiles;
+    quint64 m_accessCounter = 0;
+    qint64  m_cachedBytes = 0;   // сумма байтов изображений в m_tiles
     QSet<TileKey> m_pending;
     QSet<TileKey> m_visibleTiles;
 

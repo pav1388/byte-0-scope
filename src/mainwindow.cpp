@@ -5,6 +5,7 @@
 
 #include "mainwindow.h"
 #include "aboutdialog.h"
+#include "appversion.h"
 #include "byteinfo.h"
 #include "canvaswidget.h"
 #include "controlspanel.h"
@@ -13,6 +14,7 @@
 #include "palettemanager.h"
 #include "palettesettings.h"
 #include "panoramawidget.h"
+#include "pixelmath.h"
 #include "settingsmanager.h"
 #include "thememanager.h"
 #include "tilemanager.h"
@@ -47,6 +49,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSaveFile>
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QSlider>
@@ -57,6 +60,7 @@
 #include <QVBoxLayout>
 #include <QtMath>
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 #ifdef Q_OS_WIN
@@ -65,10 +69,8 @@
 #  endif
 #  include <windows.h>
 #  include <psapi.h>
-#endif
-
-#ifndef APP_VERSION
-#  define APP_VERSION "er-dev"
+#else
+#  include <unistd.h>
 #endif
 
 // --- Настройки модуля MainWindow (префикс MW_) ---
@@ -85,12 +87,12 @@
 #define MW_RESIZE_DEBOUNCE_MS       50
 #define MW_PERF_DEBOUNCE_MS         1000
 #define MW_SHORTEN_NAME_MAX         30
+#define MW_RECENT_MENU_MAX          8
 #define MW_BYTES_PER_KB             1024LL
 #define MW_BYTES_PER_MB             (1024.0 * 1024.0)
 #define MW_MEMORY_RESERVE_MIN       (512LL * 1024 * 1024)
 #define MW_MEMORY_RESERVE_FRACTION  4
 #define MW_MAX_SCALE                32
-#define MW_BUSY_POLL_MS             2000
 
 static int calcPowerOfTwoWidth(int pixelsCount, int maxWidth = 4096)
 {
@@ -139,60 +141,6 @@ static int largestDivisorLE(int n, int cap)
     return 1;
 }
 
-static quint64 effectiveRegionLength(qint64 fileSize, quint64 offset,
-                                     quint64 requestedLength)
-{
-    if (fileSize <= 0 || offset >= quint64(fileSize))
-        return 0;
-    const quint64 available = quint64(fileSize) - offset;
-    return requestedLength > 0 ? qMin(requestedLength, available) : available;
-}
-
-static int pixelCountForBytes(quint64 byteCount, bool bitpacked,
-                              int bitsPerPixel, int bytesPerPixel)
-{
-    const quint64 intMax = quint64(std::numeric_limits<int>::max());
-    quint64 pixels = 0;
-    if (bitpacked) {
-        const quint64 bpp = quint64(qBound(1, bitsPerPixel, 8));
-        // Saturate before multiplying by eight to avoid overflow on huge files.
-        const quint64 maxBytesWithoutSaturation = (intMax * bpp) / 8;
-        if (byteCount > maxBytesWithoutSaturation)
-            return std::numeric_limits<int>::max();
-        pixels = (byteCount * 8) / bpp;
-    } else {
-        pixels = byteCount / quint64(qMax(1, bytesPerPixel));
-    }
-    return int(qMin(pixels, intMax));
-}
-
-static qint64 imageHeightForBytes(quint64 byteCount, int width,
-                                  bool bitpacked, int bitsPerPixel,
-                                  int rowPaddingBits, int bytesPerPixel)
-{
-    if (byteCount == 0 || width <= 0)
-        return 0;
-
-    quint64 rows = 0;
-    if (bitpacked) {
-        const qint64 rowBits = qint64(width) * qBound(1, bitsPerPixel, 8)
-                             + qMax(0, rowPaddingBits);
-        const qint64 rowBytes = (rowBits + 7) / 8;
-        if (rowBytes <= 0)
-            return 0;
-        const quint64 stride = quint64(rowBytes);
-        rows = byteCount / stride + (byteCount % stride != 0 ? 1 : 0);
-    } else {
-        const quint64 bpp = quint64(qMax(1, bytesPerPixel));
-        const quint64 pixels = byteCount / bpp;
-        const quint64 w = quint64(width);
-        rows = pixels / w + (pixels % w != 0 ? 1 : 0);
-    }
-
-    return rows > quint64(std::numeric_limits<qint64>::max())
-        ? std::numeric_limits<qint64>::max() : qint64(rows);
-}
-
 static QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX)
 {
     if (name.size() <= maxLen)
@@ -201,29 +149,57 @@ static QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX
     const QString ext = QFileInfo(name).suffix();
     if (!ext.isEmpty() && ext.size() + 2 < maxLen) {
         const int headLen = maxLen - ext.size() - 2;
-        return name.left(headLen) + QChar(0x2026) + QLatin1Char('.') + ext;
+        // return name.left(headLen) + QChar(0x2026) + QLatin1Char('.') + ext;
+        return name.left(headLen) + QChar(0x2026) + ext;
     }
     return name.left(maxLen - 1) + QChar(0x2026);
 }
 
-static QString widthModeName(int m)
+// Доля отличающихся байт от всех сравниваемых, в процентах.
+static QString diffPercentText(qint64 diffBytes, qint64 totalBytes)
 {
-    switch (m) {
-    case 0: return QStringLiteral("fixed");
-    case 1: return QStringLiteral("auto");
-    case 2: return QStringLiteral("power");
-    case 3: return QStringLiteral("aspect16_9");
-    case 4: return QStringLiteral("aspect4_3");
-    case 5: return QStringLiteral("bytes");
-    case 6: return QStringLiteral("nice");
-    case 7: return QStringLiteral("divisor");
-    default: return QStringLiteral("unknown");
-    }
+    if (diffBytes <= 0 || totalBytes <= 0)
+        return QStringLiteral("0");
+    const double percent = 100.0 * double(diffBytes) / double(totalBytes);
+    if (percent < 0.01)
+        return QStringLiteral("<0.01");
+    return QString::number(percent, 'f', 2);
 }
 
-static QString widthModeKey(int m)
+// Палитры, которым нужна гистограмма байтов всего файла.
+static bool paletteNeedsHistogram(const QString &id)
 {
-    return widthModeName(m);
+    return id == QLatin1String("byte_frequency")
+        || id == QLatin1String("repeats");
+}
+
+// Читает .b0s (JSON-объект). При ошибке возвращает false и, если error не
+// nullptr, записывает причину.
+static bool readConfigFile(const QString &path, QJsonObject *out,
+                           QString *error)
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) {
+        if (error)
+            *error = f.errorString();
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &parseError);
+    f.close();
+    if (parseError.error != QJsonParseError::NoError) {
+        if (error)
+            *error = parseError.errorString();
+        return false;
+    }
+    if (!doc.isObject()) {
+        if (error)
+            *error = QStringLiteral("not a JSON object");
+        return false;
+    }
+    *out = doc.object();
+    return true;
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -415,36 +391,36 @@ void MainWindow::buildMenus()
     m_themeAction = m_settingsMenu->addAction(
         m_theme->isDark() ? tr("Light theme") : tr("Dark theme"));
     connect(m_themeAction, &QAction::triggered, this, &MainWindow::toggleTheme);
-	m_settingsMenu->addSeparator();
+    m_settingsMenu->addSeparator();
 
-	QMenu *langMenu = m_settingsMenu->addMenu(tr("Language"));
+    QMenu *langMenu = m_settingsMenu->addMenu(tr("Language"));
 
-	auto *langGroup = new QActionGroup(this);
-	langGroup->setExclusive(true);
+    auto *langGroup = new QActionGroup(this);
+    langGroup->setExclusive(true);
 
-	QAction *langEn = langMenu->addAction(tr("English"));
-	langEn->setCheckable(true);
-	langEn->setData(QStringLiteral(MW_LANG_EN));
-	langGroup->addAction(langEn);
+    QAction *langEn = langMenu->addAction(tr("English"));
+    langEn->setCheckable(true);
+    langEn->setData(QStringLiteral(MW_LANG_EN));
+    langGroup->addAction(langEn);
 
-	QAction *langRu = langMenu->addAction(tr("Russian"));
-	langRu->setCheckable(true);
-	langRu->setData(QStringLiteral(MW_LANG_RU));
-	langGroup->addAction(langRu);
+    QAction *langRu = langMenu->addAction(tr("Russian"));
+    langRu->setCheckable(true);
+    langRu->setData(QStringLiteral(MW_LANG_RU));
+    langGroup->addAction(langRu);
 
-	if (m_language == QLatin1String(MW_LANG_RU))
-		langRu->setChecked(true);
-	else
-		langEn->setChecked(true);
+    if (m_language == QLatin1String(MW_LANG_RU))
+        langRu->setChecked(true);
+    else
+        langEn->setChecked(true);
 
-	connect(langGroup, &QActionGroup::triggered,
-			this, &MainWindow::onLanguageChanged);
+    connect(langGroup, &QActionGroup::triggered,
+            this, &MainWindow::onLanguageChanged);
     m_settingsMenu->addSeparator();
 
     m_byteTooltipAct = m_settingsMenu->addAction(tr("Byte tooltip"));
     m_byteTooltipAct->setCheckable(true);
     m_byteTooltipAct->setChecked(
-        m_loadedStartupConfig.value("byte_tooltip", false).toBool());
+        m_loadedStartupConfig.value(QStringLiteral(CFG_BYTE_TOOLTIP), false).toBool());
     connect(m_byteTooltipAct, &QAction::toggled, this, [this](bool checked) {
         if (m_byteInfo)
             m_byteInfo->setPopupEnabled(checked);
@@ -453,7 +429,7 @@ void MainWindow::buildMenus()
     m_settingsMenu->addSeparator();
 
     m_loadIntoMemoryAct = m_settingsMenu->addAction(
-        tr("Load the entire file into memory"));
+        tr("Load the entire file into memory at once"));
     m_loadIntoMemoryAct->setCheckable(true);
     m_loadIntoMemoryAct->setChecked(m_loadIntoMemory);
     m_loadIntoMemoryAct->setToolTip(tr(
@@ -515,7 +491,7 @@ void MainWindow::rebuildRecentMenu()
         empty->setEnabled(false);
         return;
     }
-    for (int i = 0; i < m_recentFiles.size() && i < 8; ++i) {
+    for (int i = 0; i < m_recentFiles.size() && i < MW_RECENT_MENU_MAX; ++i) {
         const QString path = m_recentFiles[i];
         QAction *a = m_recentMenu->addAction(
             QString("%1. %2").arg(i + 1).arg(QFileInfo(path).fileName()));
@@ -722,17 +698,14 @@ void MainWindow::openFileDialog()
 
 void MainWindow::loadFile(const QString &path)
 {
-	m_trainingMode = false;
-	if (m_trainingBtn)
-		m_trainingBtn->setVisible(false);
+    leaveTrainingMode();
+
     // Нормализация: если пришёл .b0s — работаем с парным data-файлом,
     // но конфиг ищем по ИСХОДНОМУ пути (path), а не по «path + .b0s».
     QString actualPath = path;
     QString cfgPath;
-    bool    fromB0s = false;
 
-    if (actualPath.endsWith(".b0s", Qt::CaseInsensitive)) {
-        fromB0s = true;
+    if (actualPath.endsWith(QLatin1String(".b0s"), Qt::CaseInsensitive)) {
         cfgPath = actualPath;
         const QString dataPath = actualPath.left(actualPath.size() - 4);
         if (dataPath.isEmpty() || !QFile::exists(dataPath)) {
@@ -743,9 +716,8 @@ void MainWindow::loadFile(const QString &path)
         }
         actualPath = dataPath;
     } else {
-        cfgPath = actualPath + ".b0s";
+        cfgPath = actualPath + QLatin1String(".b0s");
     }
-    Q_UNUSED(fromB0s);
 
     if (!m_source.open(actualPath, m_loadIntoMemory)) {
         const QString err = m_source.lastError();
@@ -761,31 +733,41 @@ void MainWindow::loadFile(const QString &path)
     m_xorLabel.clear();
     m_lastDir  = QFileInfo(actualPath).absolutePath();
     addRecent(actualPath);
+    // Гистограмма относится к прежнему файлу.
+    invalidateByteHistogram();
 
     bool cfgLoaded = false;
     if (QFile::exists(cfgPath)) {
-        QFile f(cfgPath);
-        if (f.open(QIODevice::ReadOnly)) {
-            QJsonParseError err;
-            const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
-            f.close();
-            if (err.error == QJsonParseError::NoError && doc.isObject())
-                cfgLoaded = applyConfigFromJson(doc.object());
-            else
-                qWarning("b0s: could not parse %s: %s",
-                         qPrintable(cfgPath), qPrintable(err.errorString()));
-        }
+        QJsonObject cfg;
+        QString error;
+        if (readConfigFile(cfgPath, &cfg, &error))
+            cfgLoaded = applyConfigFromJson(cfg);
+        else
+            qWarning("b0s: could not read %s: %s",
+                     qPrintable(cfgPath), qPrintable(error));
     }
     if (!cfgLoaded)
         applyDefaultConfig();
 
-	applySquareWidthHint();
+    finishLoad();
+}
+
+// Общие шаги после смены источника данных.
+void MainWindow::finishLoad()
+{
+    applySquareWidthHint();
+    // recomputeGeometry() сам пересобирает холст и панораму.
     recomputeGeometry();
     refreshTitle();
-    if (m_canvas)
-        m_canvas->rebuild();
     if (m_panorama)
         m_panorama->updatePanorama();
+}
+
+void MainWindow::leaveTrainingMode()
+{
+    m_trainingMode = false;
+    if (m_trainingBtn)
+        m_trainingBtn->setVisible(false);
 }
 
 void MainWindow::addRecent(const QString &path)
@@ -822,9 +804,7 @@ void MainWindow::compareFiles()
 
 bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
 {
-	m_trainingMode = false;
-	if (m_trainingBtn)
-		m_trainingBtn->setVisible(false);
+    leaveTrainingMode();
 
     QFile f1(p1), f2(p2);
     if (!f1.open(QIODevice::ReadOnly) || !f2.open(QIODevice::ReadOnly)) {
@@ -881,46 +861,59 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     const uchar *pa = reinterpret_cast<const uchar *>(a.constData());
     const uchar *pb = reinterpret_cast<const uchar *>(b.constData());
     uchar *po = reinterpret_cast<uchar *>(xorData.data());
-    for (int i = 0; i < n; ++i)
-        po[i] = pa[i] ^ pb[i];
+    qint64 diffBytes = 0;
+    for (int i = 0; i < n; ++i) {
+        const uchar x = uchar(pa[i] ^ pb[i]);
+        po[i] = x;
+        diffBytes += (x != 0) ? 1 : 0;
+    }
 
     m_source.setData(xorData);
     m_fileSize = xorData.size();
     m_offset = 0;
     m_length = 0;
     m_xorLabel = QString("[XOR] %1 ^ %2")
-        .arg(shortenName(QFileInfo(p1).fileName(), 10),
-             shortenName(QFileInfo(p2).fileName(), 10));
+        .arg(shortenName(QFileInfo(p1).fileName(), 22),
+             shortenName(QFileInfo(p2).fileName(), 22));
+    m_xorDiffBytes = diffBytes;
     m_lastDir = QFileInfo(p1).absolutePath();
     invalidateByteHistogram();
 
     bool cfgLoaded = false;
     for (const QString &path : { p1, p2 }) {
-        const QString cfgPath = path + ".b0s";
-        if (!QFile::exists(cfgPath))
+        const QString cfgPath = path + QLatin1String(".b0s");
+        QJsonObject cfg;
+        if (!QFile::exists(cfgPath) || !readConfigFile(cfgPath, &cfg, nullptr))
             continue;
-        QFile f(cfgPath);
-        if (!f.open(QIODevice::ReadOnly))
-            continue;
-        QJsonParseError err;
-        QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
-        f.close();
-        if (err.error != QJsonParseError::NoError || !doc.isObject())
-            continue;
-        cfgLoaded = applyConfigFromJson(doc.object());
+        cfgLoaded = applyConfigFromJson(cfg);
         if (cfgLoaded)
             break;
     }
     if (!cfgLoaded)
         applyDefaultConfig();
 
-	applySquareWidthHint();
-    recomputeGeometry();
-    refreshTitle();
-    if (m_canvas)
-        m_canvas->rebuild();
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    finishLoad();
+
+    if (sizeA != sizeB) {
+        statusBar()->showMessage(
+            tr("File sizes differ (%1 and %2 bytes): only the first %3 bytes are compared.")
+                .arg(sizeA).arg(sizeB).arg(qint64(n)),
+            7000);
+    }
+
+    // Нет различий — сразу говорим об этом, чтобы не искать их сменой палитр.
+    if (diffBytes == 0) {
+        if (sizeA == sizeB) {
+            QMessageBox::information(this, tr("XOR comparison"),
+                tr("The files are identical: there are no differences "
+                   "(%1 bytes compared).").arg(qint64(n)));
+        } else {
+            QMessageBox::information(this, tr("XOR comparison"),
+                tr("The first %1 bytes of the files are identical, but the file "
+                   "sizes differ (%2 and %3 bytes).")
+                    .arg(qint64(n)).arg(sizeA).arg(sizeB));
+        }
+    }
     return true;
 }
 
@@ -933,6 +926,7 @@ void MainWindow::resetToDemo()
 {
     m_source.close();
     initDemo();
+    invalidateByteHistogram();
     m_fileSize = m_source.size();
     m_offset = 0;
     m_length = 0;
@@ -964,13 +958,22 @@ void MainWindow::resetToDemo()
 //  Палитра
 // =========================================================================
 
-void MainWindow::onPaletteChanged(const QString &value)
+void MainWindow::rebuildPalette(const QVariantMap &params)
 {
-    if (!m_paletteManager)
-        return;
+    const bool wantsHistogram = paletteNeedsHistogram(m_currentPaletteId);
+    if (wantsHistogram)
+        ensureByteHistogram();
+    else
+        invalidateByteHistogram();
 
-    const QString &id = value;
-    if (!m_paletteManager->contains(id))
+    m_currentPalette = m_paletteManager->createPalette(
+        m_currentPaletteId, params, m_source.data(),
+        wantsHistogram ? m_byteHistogram : nullptr);
+}
+
+void MainWindow::onPaletteChanged(const QString &id)
+{
+    if (!m_paletteManager || !m_paletteManager->contains(id))
         return;
 
     m_currentPaletteId = id;
@@ -978,26 +981,13 @@ void MainWindow::onPaletteChanged(const QString &value)
     if (!m_paletteParams.contains(id))
         m_paletteParams[id] = m_paletteManager->defaultParams(id);
 
-	if (id == QStringLiteral("from_file")) {
-		QVariantMap p = m_paletteParams.value(id).toMap();
-		p["bpp"] = m_bppMode;
-		m_paletteParams[id] = p;
-	}
+    if (id == QLatin1String("from_file")) {
+        QVariantMap p = m_paletteParams.value(id).toMap();
+        p[QStringLiteral("bpp")] = m_bppMode;
+        m_paletteParams[id] = p;
+    }
 
-    const QVariantMap params = m_paletteParams.value(id).toMap();
-
-    const bool wantsHistogram =
-        (id == QLatin1String("byte_frequency") ||
-         id == QLatin1String("repeats"));
-
-    if (wantsHistogram)
-        ensureByteHistogram();
-    else
-        invalidateByteHistogram();
-
-    m_currentPalette = m_paletteManager->createPalette(
-        id, params, m_source.data(),
-        wantsHistogram ? m_byteHistogram : nullptr);
+    rebuildPalette(m_paletteParams.value(id).toMap());
 
     if (m_paletteSettings)
         m_paletteSettings->buildFor(id);
@@ -1006,12 +996,9 @@ void MainWindow::onPaletteChanged(const QString &value)
     emit paletteChanged();
 }
 
-void MainWindow::setPaletteParams(const QString &value, const QVariantMap &params)
+void MainWindow::setPaletteParams(const QString &id, const QVariantMap &params)
 {
-    if (!m_paletteManager)
-        return;
-    const QString &id = value;
-    if (!m_paletteManager->contains(id))
+    if (!m_paletteManager || !m_paletteManager->contains(id))
         return;
     m_paletteParams[id] = params;
 }
@@ -1025,19 +1012,7 @@ void MainWindow::onPaletteParamsChanged(const QVariantMap &newParams)
     if (!m_autoApplyPalette)
         return;
 
-    const bool wantsHistogram =
-        (m_currentPaletteId == QLatin1String("byte_frequency") ||
-         m_currentPaletteId == QLatin1String("repeats"));
-
-    if (wantsHistogram)
-        ensureByteHistogram();
-    else
-        invalidateByteHistogram();
-
-    m_currentPalette = m_paletteManager->createPalette(
-        m_currentPaletteId, newParams, m_source.data(),
-        wantsHistogram ? m_byteHistogram : nullptr);
-
+    rebuildPalette(newParams);
     if (m_canvas)
         m_canvas->rebuild();
     emit paletteChanged();
@@ -1049,18 +1024,7 @@ void MainWindow::onPaletteAutoApplyToggled(bool enabled)
     if (!enabled)
         return;
 
-    const bool wantsHistogram =
-        m_currentPaletteId == QLatin1String("byte_frequency") ||
-        m_currentPaletteId == QLatin1String("repeats");
-    if (wantsHistogram)
-        ensureByteHistogram();
-    else
-        invalidateByteHistogram();
-
-    const QVariantMap params = m_paletteParams.value(m_currentPaletteId).toMap();
-    m_currentPalette = m_paletteManager->createPalette(
-        m_currentPaletteId, params, m_source.data(),
-        wantsHistogram ? m_byteHistogram : nullptr);
+    rebuildPalette(m_paletteParams.value(m_currentPaletteId).toMap());
     if (m_canvas)
         m_canvas->rebuild();
     emit paletteChanged();
@@ -1079,39 +1043,73 @@ void MainWindow::recomputeGeometry()
         m_panorama->updatePanorama();
 }
 
+quint64 MainWindow::regionByteLength() const
+{
+    return PixelMath::effectiveRegionLength(
+        quint64(qMax<qint64>(0, m_fileSize)), m_offset, m_length);
+}
+
+int MainWindow::regionPixelCount() const
+{
+    return PixelMath::pixelCountForBytes(regionByteLength(), isBitpacked(),
+                                         m_bppMode, bytesPerPixel());
+}
+
+qint64 MainWindow::imageHeightFor(int width) const
+{
+    return PixelMath::imageHeightForBytes(
+        regionByteLength(), width, isBitpacked(), m_bppMode,
+        m_rowPaddingBits, bytesPerPixel());
+}
+
+// Ширина и высота изображения для текущего региона и настроек. Возвращает
+// false, если изображение пусто или не помещается в int.
+bool MainWindow::computeImageSize(int *width, int *height) const
+{
+    const int w = calculateWidth();
+    if (w <= 0)
+        return false;
+
+    // For bit-packed data, each row has its own padding. Derive the number
+    // of rows from the actual byte stride, not from a flat pixel count.
+    const qint64 h = imageHeightFor(w);
+    if (h <= 0 || h > std::numeric_limits<int>::max())
+        return false;
+
+    *width = w;
+    *height = int(h);
+    return true;
+}
+
 int MainWindow::calculateWidth() const
 {
-    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
-    if (actualLen == 0)
+    if (regionByteLength() == 0)
         return 0;
 
-    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
-                                          m_bppMode, bytesPerPixel());
+    const int pixels = regionPixelCount();
     if (pixels <= 0)
         return 0;
 
     const int bp = qMax(1, bytesPerPixel());
     switch (m_widthMode) {
-    case 0: return qMax(1, m_fixedWidth);
-    case 1: return qMax(1, int(qSqrt(double(pixels))));
-    case 2: return calcPowerOfTwoWidth(pixels);
-    case 3: return aspectWidth(pixels, 16, 9);
-    case 4: return aspectWidth(pixels, 4, 3);
-    case 5: return qMax(1, m_bytesPerRow / bp);
-    case 6: return nearestNiceWidth(pixels);
-    case 7: return largestDivisorLE(pixels, m_fixedWidth);
+    case WM_Fixed:        return qMax(1, m_fixedWidth);
+    case WM_Auto:         return qMax(1, int(qSqrt(double(pixels))));
+    case WM_Power:        return calcPowerOfTwoWidth(pixels);
+    case WM_Aspect16x9:   return aspectWidth(pixels, 16, 9);
+    case WM_Aspect4x3:    return aspectWidth(pixels, 4, 3);
+    case WM_BytesPerRow:  return qMax(1, m_bytesPerRow / bp);
+    case WM_Nice:         return nearestNiceWidth(pixels);
+    case WM_Divisor:      return largestDivisorLE(pixels, m_fixedWidth);
     }
     return qMax(1, m_fixedWidth);
 }
 
 void MainWindow::applySquareWidthHint()
 {
-    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
-    if (actualLen == 0)
+    if (regionByteLength() == 0)
         return;
 
-    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
-                                          m_bppMode, bytesPerPixel());
+    const int pixels = regionPixelCount();
     if (pixels <= 0)
         return;
 
@@ -1124,29 +1122,13 @@ void MainWindow::applySquareWidthHint()
 void MainWindow::calculateDimensions()
 {
     m_imageWidth = m_imageHeight = 0;
-    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
-    if (actualLen == 0)
-        return;
 
-    const int pixels = pixelCountForBytes(actualLen, isBitpacked(),
-                                          m_bppMode, bytesPerPixel());
-    if (pixels <= 0)
+    int w = 0;
+    int h = 0;
+    if (!computeImageSize(&w, &h))
         return;
-
-    m_imageWidth = calculateWidth();
-    if (m_imageWidth <= 0)
-        return;
-
-    // For bit-packed data, each row has its own padding. Derive the number
-    // of rows from the actual byte stride, not from a flat pixel count.
-    const qint64 height = imageHeightForBytes(
-        actualLen, m_imageWidth, isBitpacked(), m_bppMode,
-        m_rowPaddingBits, bytesPerPixel());
-    if (height <= 0 || height > std::numeric_limits<int>::max()) {
-        m_imageWidth = m_imageHeight = 0;
-        return;
-    }
-    m_imageHeight = int(height);
+    m_imageWidth = w;
+    m_imageHeight = h;
 
     if (m_centerScroll) {
         const QSize vp = m_centerScroll->viewport()->size();
@@ -1191,15 +1173,15 @@ void MainWindow::onSettingsChanged()
     const int oldBpp = m_bppMode;
     m_bppMode = m_controls->bppMode();
 
-	if (m_paletteParams.contains(QStringLiteral("from_file"))) {
-		QVariantMap p = m_paletteParams.value(QStringLiteral("from_file")).toMap();
-		p["bpp"] = m_bppMode;
-		m_paletteParams[QStringLiteral("from_file")] = p;
-	}
+    if (m_paletteParams.contains(QStringLiteral("from_file"))) {
+        QVariantMap p = m_paletteParams.value(QStringLiteral("from_file")).toMap();
+        p["bpp"] = m_bppMode;
+        m_paletteParams[QStringLiteral("from_file")] = p;
+    }
 
     m_bitOrder = m_controls->bitOrder();
     m_byteOrder = m_controls->byteOrder();
-	m_pixelOrder = m_controls->pixelOrder();
+    m_pixelOrder = m_controls->pixelOrder();
     m_rowPaddingBits = m_controls->rowPaddingBits();
     m_widthMode = m_controls->widthMode();
     m_fixedWidth = m_controls->fixedWidth();
@@ -1245,7 +1227,8 @@ void MainWindow::onSettingsChanged()
 void MainWindow::onHoverChanged(qint64 addr)
 {
     if (m_byteInfo)
-        m_byteInfo->updateInfo(addr);
+        m_byteInfo->updateInfo(
+            addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
     m_hoverAddr = addr;
     if (m_panorama)
         m_panorama->update();
@@ -1254,7 +1237,8 @@ void MainWindow::onHoverChanged(qint64 addr)
 void MainWindow::onLockedChanged(qint64 addr)
 {
     if (m_byteInfo && addr >= 0)
-        m_byteInfo->updateInfo(addr);
+        m_byteInfo->updateInfo(
+            addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
 }
 
 void MainWindow::onScrollRequested(int dx, int dy)
@@ -1296,12 +1280,12 @@ void MainWindow::onWidthStep(int delta)
         return;
     const int step = qMax(1, m_widthStep);
 
-    if (m_widthMode != 0) {
+    if (m_widthMode != WM_Fixed) {
         const int curW = calculateWidth();
         if (curW > 0)
             m_fixedWidth = curW;
-        m_widthMode = 0;
-        m_controls->setWidthModeSilent(0);
+        m_widthMode = WM_Fixed;
+        m_controls->setWidthModeSilent(WM_Fixed);
         m_controls->setWidthSilent(m_fixedWidth);
     }
 
@@ -1490,12 +1474,16 @@ void MainWindow::exportPng(PngExportMode mode)
     // Capture all UI-dependent values on the GUI thread. The worker receives
     // only immutable image parameters and an independent RenderContext.
     const QColor background = m_canvas->palette().window().color();
+    QString exportError;
     if (!m_canvas->tileManager()->startPngExport(
-            path, canvasRect, exportScale, exportDownsample, background)) {
+            path, canvasRect, exportScale, exportDownsample, background,
+            &exportError)) {
         QMessageBox::warning(
             this, tr("Export to PNG"),
-            tr("The requested PNG dimensions are invalid or too large for this Qt build, "
-               "or the export task could not be started."));
+            exportError.isEmpty()
+                ? tr("The requested PNG dimensions are invalid or too large for this Qt build, "
+                     "or the export task could not be started.")
+                : exportError);
         return;
     }
 
@@ -1554,11 +1542,15 @@ void MainWindow::refreshTitle()
             .arg(qint64(m_fileSize), 0, 16)
             .arg(sizeComma)
             .arg(m_imageWidth).arg(m_imageHeight);
+        if (isXor) {
+            t += tr(" [differs: %1%]")
+                     .arg(diffPercentText(m_xorDiffBytes, m_fileSize));
+        }
         setWindowTitle(t);
     }
 
-	if (m_hintContainer)
-		m_hintContainer->setVisible(m_trainingMode || !hasFile);
+    if (m_hintContainer)
+        m_hintContainer->setVisible(m_trainingMode || !hasFile);
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *e)
@@ -1587,21 +1579,25 @@ void MainWindow::dropEvent(QDropEvent *e)
         e->ignore();
         return;
     }
+
+    QStringList paths;
     const QList<QUrl> urls = e->mimeData()->urls();
-    if (urls.isEmpty()) {
+    for (const QUrl &url : urls) {
+        if (url.isLocalFile())
+            paths << url.toLocalFile();
+    }
+
+    if (inputFiles(paths).isEmpty()) {
         e->ignore();
         return;
     }
 
-    const QString path = urls.first().toLocalFile();
-    if (path.isEmpty()) {
-        e->ignore();
-        return;
-    }
-
-    loadFile(path);
     e->setDropAction(Qt::CopyAction);
     e->accept();
+
+    // Открываем после выхода из обработчика: загрузка может показывать
+    // модальные диалоги, а источник перетаскивания (проводник) ждёт ответа.
+    QTimer::singleShot(0, this, [this, paths]() { openFiles(paths); });
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
@@ -1642,57 +1638,62 @@ void MainWindow::loadSettings()
     m_startupNormalGeometry = s.value("window_normal_geometry").toString();
     m_startupMaximized      = s.value("window_maximized", false).toBool();
     m_startupFullscreen     = s.value("window_fullscreen", false).toBool();
-	m_language = s.value("language", QStringLiteral(MW_LANG_EN)).toString();
-	if (m_language.isEmpty())
-		m_language = QStringLiteral(MW_LANG_EN);
+    m_language = s.value("language", QStringLiteral(MW_LANG_EN)).toString();
+    if (m_language.isEmpty())
+        m_language = QStringLiteral(MW_LANG_EN);
 
     const QStringList recents = s.value("recent_files").toStringList();
     m_recentFiles = SettingsManager::filterExisting(recents, MW_RECENT_MAX);
 
-    m_loadedStartupConfig["bpp_mode"]         = s.value("bpp_mode", 8).toInt();
-    m_loadedStartupConfig["bit_order"]        = s.value("bit_order", "msb").toString();
-	m_loadedStartupConfig["byte_order"]       = s.value("byte_order", "big").toString();
-    m_loadedStartupConfig["pixel_order"]      = s.value("pixel_order", "msb").toString();
-    m_loadedStartupConfig["row_padding_bits"] = s.value("row_padding_bits", 0).toInt();
-    m_loadedStartupConfig["scale"]            = s.value("scale", 1).toInt();
-    m_loadedStartupConfig["width_mode"]       = s.value("width_mode", "fixed").toString();
-    m_loadedStartupConfig["fixed_width"]      = s.value("fixed_width", 256).toInt();
-    m_loadedStartupConfig["width_step"]       = s.value("width_step", 8).toInt();
-    m_loadedStartupConfig["auto_scale"]       = s.value("auto_scale", false).toBool();
-    m_loadedStartupConfig["fit_to_window"]    = s.value("fit_to_window", false).toBool();
+    auto cfgSet = [this, &s](const char *key, const QVariant &def) {
+        m_loadedStartupConfig[QString::fromLatin1(key)] =
+            s.value(QString::fromLatin1(key), def);
+    };
+    cfgSet(CFG_BPP_MODE,         CFG_DEF_BPP_MODE);
+    cfgSet(CFG_BIT_ORDER,        QStringLiteral(CFG_DEF_BIT_ORDER));
+    cfgSet(CFG_BYTE_ORDER,       QStringLiteral(CFG_DEF_BYTE_ORDER));
+    cfgSet(CFG_PIXEL_ORDER,      QStringLiteral(CFG_DEF_PIXEL_ORDER));
+    cfgSet(CFG_ROW_PADDING_BITS, CFG_DEF_ROW_PADDING);
+    cfgSet(CFG_SCALE,            CFG_DEF_SCALE);
+    cfgSet(CFG_WIDTH_MODE,       QStringLiteral(CFG_DEF_WIDTH_MODE));
+    cfgSet(CFG_FIXED_WIDTH,      CFG_DEF_FIXED_WIDTH);
+    cfgSet(CFG_WIDTH_STEP,       CFG_DEF_WIDTH_STEP);
+    cfgSet(CFG_AUTO_SCALE,       false);
+    cfgSet(CFG_FIT_TO_WINDOW,    false);
+    cfgSet(CFG_BYTES_PER_ROW,    CFG_DEF_BYTES_PER_ROW);
+    cfgSet(CFG_BYTE_TOOLTIP,     false);
 
-    QString startupPaletteId = s.value("palette", "heat").toString();
+    QString startupPaletteId = s.value(QStringLiteral(CFG_PALETTE),
+        QStringLiteral(CFG_DEF_PALETTE)).toString();
     if (!m_paletteManager->contains(startupPaletteId))
-        startupPaletteId = QStringLiteral("heat");
-    m_loadedStartupConfig["palette"]          = startupPaletteId;
-    m_loadedStartupConfig["byte_tooltip"]     = s.value("byte_tooltip", false).toBool();
-    m_loadedStartupConfig["bytes_per_row"]    = s.value("bytes_per_row", 16).toInt();
+        startupPaletteId = QStringLiteral(CFG_DEF_PALETTE);
+    m_loadedStartupConfig[QStringLiteral(CFG_PALETTE)] = startupPaletteId;
 }
 
 void MainWindow::saveSettings()
 {
     QVariantMap s;
-	s["language"] = m_language;
+    s["language"] = m_language;
     s["theme"]             = (m_theme && m_theme->isDark())
                                  ? QStringLiteral("dark")
                                  : QStringLiteral("light");
-    s["bpp_mode"]          = m_bppMode;
-    s["bit_order"]         = m_bitOrder;
-	s["byte_order"]        = m_byteOrder;
-    s["pixel_order"]       = m_pixelOrder;
-    s["row_padding_bits"]  = m_rowPaddingBits;
-    s["scale"]             = m_scale;
-    s["width_mode"]        = widthModeKey(m_widthMode);
-    s["bytes_per_row"]     = m_bytesPerRow;
-    s["fixed_width"]       = m_fixedWidth;
-    s["width_step"]        = m_widthStep;
-    s["auto_scale"]        = m_autoScale;
-    s["fit_to_window"]     = m_fitToWindow;
-    s["palette"]           = m_currentPaletteId;
+    s[QStringLiteral(CFG_BPP_MODE)]         = m_bppMode;
+    s[QStringLiteral(CFG_BIT_ORDER)]        = m_bitOrder;
+    s[QStringLiteral(CFG_BYTE_ORDER)]       = m_byteOrder;
+    s[QStringLiteral(CFG_PIXEL_ORDER)]      = m_pixelOrder;
+    s[QStringLiteral(CFG_ROW_PADDING_BITS)] = m_rowPaddingBits;
+    s[QStringLiteral(CFG_SCALE)]            = m_scale;
+    s[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(m_widthMode);
+    s[QStringLiteral(CFG_BYTES_PER_ROW)]    = m_bytesPerRow;
+    s[QStringLiteral(CFG_FIXED_WIDTH)]      = m_fixedWidth;
+    s[QStringLiteral(CFG_WIDTH_STEP)]       = m_widthStep;
+    s[QStringLiteral(CFG_AUTO_SCALE)]       = m_autoScale;
+    s[QStringLiteral(CFG_FIT_TO_WINDOW)]    = m_fitToWindow;
+    s[QStringLiteral(CFG_PALETTE)]          = m_currentPaletteId;
     s["perf_slider_value"] = m_perfSliderValue;
     s["load_into_memory"]  = m_loadIntoMemory;
     s["last_directory"]    = m_lastDir;
-    s["byte_tooltip"]      = (m_byteInfo && m_byteInfo->isPopupEnabled());
+    s[QStringLiteral(CFG_BYTE_TOOLTIP)] = (m_byteInfo && m_byteInfo->isPopupEnabled());
     s["show_debug_info"]   = m_showDebugInfo;
     s["recent_files"]      = m_recentFiles;
     s["window_geometry"]   = QString::fromLatin1(saveGeometry().toBase64());
@@ -1717,17 +1718,10 @@ void MainWindow::applyFitToWindow()
     if (m_fileSize <= 0)
         return;
 
-    const int w = calculateWidth();
-    if (w <= 0)
+    int w = 0;
+    int h = 0;
+    if (!computeImageSize(&w, &h))
         return;
-
-    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
-    const qint64 height = imageHeightForBytes(
-        actualLen, w, isBitpacked(), m_bppMode,
-        m_rowPaddingBits, bytesPerPixel());
-    if (height <= 0 || height > std::numeric_limits<int>::max())
-        return;
-    const int h = int(height);
 
     const QSize vp = m_centerScroll->viewport()->size();
     const int availW = qMax(1, vp.width()  - 2);
@@ -1799,17 +1793,10 @@ void MainWindow::autoFitScale()
     if (m_fileSize <= 0)
         return;
 
-    const int w = calculateWidth();
-    if (w <= 0)
+    int w = 0;
+    int h = 0;
+    if (!computeImageSize(&w, &h))
         return;
-
-    const quint64 actualLen = effectiveRegionLength(m_fileSize, m_offset, m_length);
-    const qint64 height = imageHeightForBytes(
-        actualLen, w, isBitpacked(), m_bppMode,
-        m_rowPaddingBits, bytesPerPixel());
-    if (height <= 0 || height > std::numeric_limits<int>::max())
-        return;
-    const int h = int(height);
 
     const QSize vp = m_centerScroll->viewport()->size();
     const int availW = qMax(1, vp.width()  - 20);
@@ -1914,7 +1901,8 @@ void MainWindow::updateMemoryLabel()
         const QList<QByteArray> parts = line.simplified().split(' ');
         if (parts.size() >= 2) {
             const qint64 pages = parts[1].toLongLong();
-            rss = pages * 4096;
+            const long pageSize = sysconf(_SC_PAGESIZE);
+            rss = pages * (pageSize > 0 ? qint64(pageSize) : 4096);
         }
     }
 #endif
@@ -1946,28 +1934,29 @@ void MainWindow::onMirrorChanged()
 {
     if (m_canvas)
         m_canvas->rebuild();
-    if (m_byteInfo && m_hoverAddr >= 0)
-        m_byteInfo->updateInfo(m_hoverAddr);
     if (m_panorama)
         m_panorama->updatePanorama();
 }
 
-void MainWindow::resetMirror()
+void MainWindow::setMirrorState(bool horizontal, bool vertical)
 {
-    m_mirrorH = false;
-    m_mirrorV = false;
+    m_mirrorH = horizontal;
+    m_mirrorV = vertical;
     if (m_mirrorHAct) {
         QSignalBlocker b(m_mirrorHAct);
-        m_mirrorHAct->setChecked(false);
+        m_mirrorHAct->setChecked(m_mirrorH);
     }
     if (m_mirrorVAct) {
         QSignalBlocker b(m_mirrorVAct);
-        m_mirrorVAct->setChecked(false);
+        m_mirrorVAct->setChecked(m_mirrorV);
     }
+}
+
+void MainWindow::resetMirror()
+{
+    setMirrorState(false, false);
     if (m_canvas)
         m_canvas->rebuild();
-    if (m_byteInfo && m_hoverAddr >= 0)
-        m_byteInfo->updateInfo(m_hoverAddr);
 }
 
 // =========================================================================
@@ -1986,24 +1975,24 @@ QString MainWindow::configPathForFile(const QString &filePath) const
 QJsonObject MainWindow::configToJson() const
 {
     QJsonObject c;
-    c["bpp_mode"]           = m_bppMode;
-    c["bit_order"]          = m_bitOrder;
-    c["pixel_order"]        = m_pixelOrder;
-	c["byte_order"]         = m_byteOrder;
-    c["row_padding_bits"]   = m_rowPaddingBits;
-    c["scale"]              = m_scale;
-    c["width_mode"]         = widthModeKey(m_widthMode);
-    c["bytes_per_row"]      = m_bytesPerRow;
-    c["fixed_width"]        = m_fixedWidth;
-    c["width_step"]         = m_widthStep;
-    c["auto_scale"]         = m_autoScale;
-    c["fit_to_window"]      = m_fitToWindow;
-    c["offset"]             = qint64(m_offset);
-    c["length"]             = qint64(m_length);
-    c["length_mode"]        = m_lengthMode;
-    c["mirror_horizontal"]  = m_mirrorH;
-    c["mirror_vertical"]    = m_mirrorV;
-    c["palette"]            = m_currentPaletteId;
+    c[QStringLiteral(CFG_BPP_MODE)]         = m_bppMode;
+    c[QStringLiteral(CFG_BIT_ORDER)]        = m_bitOrder;
+    c[QStringLiteral(CFG_PIXEL_ORDER)]      = m_pixelOrder;
+    c[QStringLiteral(CFG_BYTE_ORDER)]       = m_byteOrder;
+    c[QStringLiteral(CFG_ROW_PADDING_BITS)] = m_rowPaddingBits;
+    c[QStringLiteral(CFG_SCALE)]            = m_scale;
+    c[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(m_widthMode);
+    c[QStringLiteral(CFG_BYTES_PER_ROW)]    = m_bytesPerRow;
+    c[QStringLiteral(CFG_FIXED_WIDTH)]      = m_fixedWidth;
+    c[QStringLiteral(CFG_WIDTH_STEP)]       = m_widthStep;
+    c[QStringLiteral(CFG_AUTO_SCALE)]       = m_autoScale;
+    c[QStringLiteral(CFG_FIT_TO_WINDOW)]    = m_fitToWindow;
+    c[QStringLiteral(CFG_OFFSET)]           = qint64(m_offset);
+    c[QStringLiteral(CFG_LENGTH)]           = qint64(m_length);
+    c[QStringLiteral(CFG_LENGTH_MODE)]      = m_lengthMode;
+    c[QStringLiteral(CFG_MIRROR_H)]         = m_mirrorH;
+    c[QStringLiteral(CFG_MIRROR_V)]         = m_mirrorV;
+    c[QStringLiteral(CFG_PALETTE)]          = m_currentPaletteId;
 
     QJsonObject pp;
     for (auto it = m_paletteParams.constBegin();
@@ -2014,7 +2003,7 @@ QJsonObject MainWindow::configToJson() const
             sub[mi.key()] = QJsonValue::fromVariant(mi.value());
         pp[it.key()] = sub;
     }
-    c["palette_params"] = pp;
+    c[QStringLiteral(CFG_PALETTE_PARAMS)] = pp;
     return c;
 }
 
@@ -2025,18 +2014,11 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
         return false;
     }
 
-    m_mirrorH = c.value("mirror_horizontal").toBool(m_mirrorH);
-    m_mirrorV = c.value("mirror_vertical").toBool(m_mirrorV);
-    if (m_mirrorHAct) {
-        QSignalBlocker b(m_mirrorHAct);
-        m_mirrorHAct->setChecked(m_mirrorH);
-    }
-    if (m_mirrorVAct) {
-        QSignalBlocker b(m_mirrorVAct);
-        m_mirrorVAct->setChecked(m_mirrorV);
-    }
+    setMirrorState(
+        c.value(QStringLiteral(CFG_MIRROR_H)).toBool(m_mirrorH),
+        c.value(QStringLiteral(CFG_MIRROR_V)).toBool(m_mirrorV));
 
-    const QJsonObject pp = c.value("palette_params").toObject();
+    const QJsonObject pp = c.value(QStringLiteral(CFG_PALETTE_PARAMS)).toObject();
     for (auto it = pp.constBegin(); it != pp.constEnd(); ++it) {
         QVariantMap m;
         const QJsonObject sub = it.value().toObject();
@@ -2053,7 +2035,8 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
     if (m_controls)
         m_controls->setConfig(vmap);
 
-    const QString paletteId = c.value("palette").toString(m_currentPaletteId);
+    const QString paletteId = c.value(QStringLiteral(CFG_PALETTE))
+                               .toString(m_currentPaletteId);
     if (m_paletteManager->contains(paletteId))
         onPaletteChanged(paletteId);
 
@@ -2067,11 +2050,20 @@ void MainWindow::saveCurrentConfig()
     const QString cfgPath = configPathForFile(m_source.sourcePath());
     if (cfgPath.isEmpty())
         return;
-    QFile f(cfgPath);
-    if (!f.open(QIODevice::WriteOnly))
+
+    // QSaveFile не оставит обрезанный .b0s, если запись прервётся.
+    QSaveFile f(cfgPath);
+    if (!f.open(QIODevice::WriteOnly)
+            || f.write(QJsonDocument(configToJson())
+                           .toJson(QJsonDocument::Indented)) < 0
+            || !f.commit()) {
+        statusBar()->showMessage(
+            tr("Could not save the .b0s settings: %1").arg(f.errorString()),
+            7000);
         return;
-    f.write(QJsonDocument(configToJson()).toJson(QJsonDocument::Indented));
-    f.close();
+    }
+    statusBar()->showMessage(
+        tr("Settings saved: %1").arg(QFileInfo(cfgPath).fileName()), 4000);
 }
 
 void MainWindow::loadConfigFromFile()
@@ -2079,18 +2071,22 @@ void MainWindow::loadConfigFromFile()
     if (!m_source.isOpen())
         return;
     const QString cfgPath = configPathForFile(m_source.sourcePath());
-    if (cfgPath.isEmpty() || !QFile::exists(cfgPath))
+    if (cfgPath.isEmpty())
         return;
+    if (!QFile::exists(cfgPath)) {
+        statusBar()->showMessage(tr("No .b0s settings file found for this file."),
+                                 5000);
+        return;
+    }
 
-    QFile f(cfgPath);
-    if (!f.open(QIODevice::ReadOnly))
+    QJsonObject cfg;
+    QString error;
+    if (!readConfigFile(cfgPath, &cfg, &error)) {
+        statusBar()->showMessage(
+            tr("Could not read the .b0s settings: %1").arg(error), 7000);
         return;
-    QJsonParseError err;
-    QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &err);
-    f.close();
-    if (err.error != QJsonParseError::NoError || !doc.isObject())
-        return;
-    applyConfigFromJson(doc.object());
+    }
+    applyConfigFromJson(cfg);
 }
 
 void MainWindow::resetConfig()
@@ -2113,49 +2109,68 @@ void MainWindow::resetDisplaySettings()
 
 void MainWindow::applyDefaultConfig()
 {
-    QVariantMap cfg;
-    cfg["palette"]          = "heat";
-    cfg["scale"]            = 1;
-    cfg["auto_scale"]       = false;
-    cfg["fit_to_window"]    = false;
-    cfg["width_mode"]       = "fixed";
-    cfg["bytes_per_row"]    = 16;
-    cfg["fixed_width"]      = 256;
-    cfg["width_step"]       = 8;
-    cfg["offset"]           = 0;
-    cfg["length"]           = 0;
-    cfg["length_mode"]      = false;
-    cfg["bpp_mode"]         = 8;
-    cfg["bit_order"]        = "msb";
-    cfg["pixel_order"]      = "msb";
-	cfg["byte_order"]       = "big";
-    cfg["row_padding_bits"] = 0;
-
-    m_mirrorH = false;
-    m_mirrorV = false;
-    if (m_mirrorHAct) {
-        QSignalBlocker b(m_mirrorHAct);
-        m_mirrorHAct->setChecked(false);
-    }
-    if (m_mirrorVAct) {
-        QSignalBlocker b(m_mirrorVAct);
-        m_mirrorVAct->setChecked(false);
-    }
+    setMirrorState(false, false);
 
     if (m_controls)
-        m_controls->setConfig(cfg);
+        m_controls->setConfig(defaultDisplayConfig());
 
     const QString paletteId = m_controls
         ? m_controls->currentPaletteId()
-        : QStringLiteral("heat");
-    onPaletteChanged(paletteId.isEmpty() ? QStringLiteral("heat") : paletteId);
+        : QStringLiteral(CFG_DEF_PALETTE);
+    onPaletteChanged(paletteId.isEmpty() ? QStringLiteral(CFG_DEF_PALETTE)
+                                         : paletteId);
 }
 
-void MainWindow::openFileFromCommandLine(const QString &path)
+// Файлы, годные для открытия: существующие, без повторов и без .b0s-конфига,
+// если рядом передан и его data-файл (иначе выделение «файл + его .b0s» в
+// проводнике превратилось бы в XOR файла с его настройками).
+QStringList MainWindow::inputFiles(const QStringList &paths)
 {
-    if (path.isEmpty())
+    QStringList files;
+    QStringList canonical;
+    for (const QString &path : paths) {
+        const QFileInfo info(path);
+        if (path.isEmpty() || !info.isFile())
+            continue;
+        const QString key = info.canonicalFilePath();
+        if (canonical.contains(key))
+            continue;
+        canonical << key;
+        files << path;
+    }
+
+    QStringList result;
+    for (const QString &path : files) {
+        if (path.endsWith(QLatin1String(".b0s"), Qt::CaseInsensitive)) {
+            const QString dataPath = path.left(path.size() - 4);
+            const QString dataKey = QFileInfo(dataPath).canonicalFilePath();
+            if (!dataKey.isEmpty() && canonical.contains(dataKey))
+                continue;
+        }
+        result << path;
+    }
+    return result;
+}
+
+// Единая точка входа для командной строки, ярлыка и drag-and-drop:
+// один файл — просто открыть, два и более — сравнение XOR первых двух.
+void MainWindow::openFiles(const QStringList &paths)
+{
+    const QStringList files = inputFiles(paths);
+    if (files.isEmpty())
         return;
-    loadFile(path);
+
+    if (files.size() == 1) {
+        loadFile(files.first());
+        return;
+    }
+
+    if (loadFileXor(files.at(0), files.at(1)) && files.size() > 2) {
+        statusBar()->showMessage(
+            tr("%1 files were given: only the first two are compared (XOR).")
+                .arg(files.size()),
+            7000);
+    }
 }
 
 void MainWindow::ensureByteHistogram()
@@ -2211,7 +2226,7 @@ void MainWindow::updateDebugInfo()
     else
         mode = "demo";
 
-    const QString widthModeStr = widthModeName(m_widthMode);
+    const QString widthModeStr = widthModeKey(m_widthMode);
 
     qint64 cacheB     = 0;
     int    activeT    = 0;
@@ -2244,7 +2259,7 @@ void MainWindow::updateDebugInfo()
     L << "is_bitpacked = " + QString(isBitpacked() ? "true" : "false");
     L << "bytes_per_pixel = " + QString::number(bytesPerPixel());
     L << "bit_order = " + m_bitOrder;
-	L << "byte_order = " + m_byteOrder;
+    L << "byte_order = " + m_byteOrder;
     L << "pixel_order = " + m_pixelOrder;
     L << "row_padding_bits = " + QString::number(m_rowPaddingBits);
 
@@ -2371,45 +2386,16 @@ void MainWindow::startTraining()
     m_lengthMode = false;
     invalidateByteHistogram();
 
-    // 2. Ставим заведомо неправильный конфиг
+    // 2. Ставим заведомо неправильный конфиг. Конфигурация по умолчанию
+    // (8 bpp, MSB, палитра heat, ширина 256, без региона и зеркал) для
+    // обучающего файла как раз «неправильная»: изображение нужно подобрать.
     applyDefaultConfig();
-
-    if (m_controls) {
-        QVariantMap cfg = m_controls->currentConfig();
-        cfg["bpp_mode"]         = 8;
-        cfg["bit_order"]        = "msb";
-        cfg["pixel_order"]      = "msb";
-        cfg["row_padding_bits"] = 0;
-        cfg["palette"]          = "heat";
-        cfg["width_mode"]       = "fixed";
-        cfg["fixed_width"]      = 256;
-        cfg["scale"]            = 1;
-        cfg["auto_scale"]       = false;
-        cfg["fit_to_window"]    = false;
-        cfg["offset"]           = 0;
-        cfg["length"]           = 0;
-        cfg["length_mode"]      = false;
-        m_controls->setConfig(cfg);
-    }
-
-    m_mirrorH = false;
-    m_mirrorV = false;
-    if (m_mirrorHAct) {
-        QSignalBlocker b(m_mirrorHAct);
-        m_mirrorHAct->setChecked(false);
-    }
-    if (m_mirrorVAct) {
-        QSignalBlocker b(m_mirrorVAct);
-        m_mirrorVAct->setChecked(false);
-    }
 
     // 3. Перестраиваем
     if (m_canvas)
         m_canvas->clearHover();
     recomputeGeometry();
     refreshTitle();
-    if (m_canvas)
-        m_canvas->rebuild();
     if (m_panorama)
         m_panorama->updatePanorama();
 

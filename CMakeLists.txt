@@ -119,7 +119,7 @@ set(BS_SOURCES
     "${BS_SRC_DIR}/palettesettings.cpp"
     "${BS_SRC_DIR}/panoramawidget.cpp"
     "${BS_SRC_DIR}/pixeldecoder.cpp"
-    "${BS_SRC_DIR}/pngwriter.cpp"
+    # "${BS_SRC_DIR}/pngwriter.cpp"
     "${BS_SRC_DIR}/settingsmanager.cpp"
     "${BS_SRC_DIR}/thememanager.cpp"
     "${BS_SRC_DIR}/tilemanager.cpp"

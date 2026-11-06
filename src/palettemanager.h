@@ -35,6 +35,7 @@ public:
                                   const quint64 *byteHistogram = nullptr) const;
 
     static QVariantList defaultCustomRules();
+    static QString defaultRuleColor(int index);
     static QVariantList samplePalette(const QVariantList &source, int n);
 
 private:

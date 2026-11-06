@@ -14,6 +14,7 @@
 #include <QPoint>
 
 #include "bytesource.h"
+#include "configkeys.h"
 
 class QLabel;
 class QScrollArea;
@@ -42,10 +43,12 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    void openFileFromCommandLine(const QString &path);
+    // Командная строка, ярлык и drag-and-drop: один файл — открыть, два и
+    // более — сравнение XOR первых двух.
+    void openFiles(const QStringList &paths);
     bool showDebugInfo() const { return m_showDebugInfo; }
-	void startTraining();
-	
+    void startTraining();
+
     // --- Состояние ---
     bool    isBitpacked() const;
     int     bppMode() const         { return m_bppMode; }
@@ -57,7 +60,7 @@ public:
     bool    lengthMode() const      { return m_lengthMode; }
     quint64 fileSize() const        { return quint64(m_fileSize); }
     QString bitOrder() const        { return m_bitOrder; }
-	QString byteOrder() const       { return m_byteOrder; }
+    QString byteOrder() const       { return m_byteOrder; }
     QString pixelOrder() const      { return m_pixelOrder; }
     int     rowPaddingBits() const  { return m_rowPaddingBits; }
     bool    mirrorHorizontal() const{ return m_mirrorH; }
@@ -106,7 +109,7 @@ protected:
     void resizeEvent(QResizeEvent *e) override;
 
 private slots:
-	void onLanguageChanged(QAction *action);
+    void onLanguageChanged(QAction *action);
     void openFileDialog();
     void compareFiles();
     void closeCurrentFile();
@@ -135,7 +138,7 @@ private slots:
     void onPngExportFinished(const QString &path, bool success,
                              const QString &errorMessage);
     void onDebugInfoToggled(bool enabled);
-	void onTrainingButtonClicked();
+    void onTrainingButtonClicked();
 
 private:
     void buildUi();
@@ -144,6 +147,7 @@ private:
     void updateDebugInfo();
     void loadFile(const QString &path);
     bool loadFileXor(const QString &p1, const QString &p2);
+    static QStringList inputFiles(const QStringList &paths);
     void applyDefaultConfig();
     void recomputeGeometry();
     void refreshTitle();
@@ -151,7 +155,7 @@ private:
     void loadSettings();
     void saveSettings();
     int  calculateWidth() const;
-	void  applySquareWidthHint();
+    void  applySquareWidthHint();
     void calculateDimensions();
     void applyFitToWindow();
     void autoFitScale();
@@ -167,13 +171,27 @@ private:
     void exportPng(PngExportMode mode);
     void invalidateByteHistogram() { m_byteHistogramValid = false; }
 
+    // Палитра: единая точка пересоздания m_currentPalette.
+    void rebuildPalette(const QVariantMap &params);
+
+    // Геометрия региона и изображения.
+    quint64 regionByteLength() const;
+    int     regionPixelCount() const;
+    qint64  imageHeightFor(int width) const;
+    bool    computeImageSize(int *width, int *height) const;
+
+    // Общие шаги загрузки источника.
+    void leaveTrainingMode();
+    void finishLoad();
+    void setMirrorState(bool horizontal, bool vertical);
+
     QString     configPathForFile(const QString &filePath) const;
     QJsonObject configToJson() const;
     bool        applyConfigFromJson(const QJsonObject &cfg);
     void        restoreWindowGeometry();
 
     // --- Стартовые настройки ---
-	QString m_language;
+    QString m_language;
     QVariantMap m_loadedStartupConfig;
     QString     m_startupGeometryB64;
     QString     m_startupNormalGeometry;
@@ -185,22 +203,22 @@ private:
     // --- Источник / формат ---
     BytesSource m_source;
     qint64      m_fileSize       = 0;
-    int         m_bppMode        = 8;
-    QString     m_bitOrder       = "msb";
-    QString     m_pixelOrder     = "msb";
-	QString 	m_byteOrder  	 = "big";
+    int         m_bppMode        = CFG_DEF_BPP_MODE;
+    QString     m_bitOrder       = QStringLiteral(CFG_DEF_BIT_ORDER);
+    QString     m_pixelOrder     = QStringLiteral(CFG_DEF_PIXEL_ORDER);
+    QString     m_byteOrder      = QStringLiteral(CFG_DEF_BYTE_ORDER);
     int         m_rowPaddingBits = 0;
     quint64     m_offset         = 0;
     quint64     m_length         = 0;
     bool        m_lengthMode     = false;
 
     // --- Отображение ---
-    int  m_scale        = 1;
+    int  m_scale        = CFG_DEF_SCALE;
     int  m_downsample   = 1;
-    int  m_widthMode    = 0;
-    int  m_bytesPerRow  = 16;
-    int  m_fixedWidth   = 256;
-    int  m_widthStep    = 8;
+    int  m_widthMode    = WM_Fixed;
+    int  m_bytesPerRow  = CFG_DEF_BYTES_PER_ROW;
+    int  m_fixedWidth   = CFG_DEF_FIXED_WIDTH;
+    int  m_widthStep    = CFG_DEF_WIDTH_STEP;
     bool m_autoScale    = false;
     bool m_fitToWindow  = false;
     bool m_mirrorH      = false;
@@ -221,6 +239,7 @@ private:
     QString     m_lastDir;
     QStringList m_recentFiles;
     QString     m_xorLabel;
+    qint64      m_xorDiffBytes = 0;
 
     // --- Производительность ---
     int  m_tileSize           = 256;
@@ -271,6 +290,6 @@ private:
     QTimer *m_perfDebounceTimer = nullptr;
 
     bool m_showDebugInfo = false;
-	QPushButton *m_trainingBtn = nullptr;
+    QPushButton *m_trainingBtn = nullptr;
     bool         m_trainingMode = false;
 };

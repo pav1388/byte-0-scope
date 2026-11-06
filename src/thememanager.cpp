@@ -149,17 +149,48 @@ QMenuBar::item:selected { background-color: #3c7fb1; color: #ffffff; }
 QMenu { background-color: #2b2b2b; color: #dcdcdc; border: 1px solid #555; }
 QMenu::item:selected { background-color: #3c7fb1; color: #ffffff; }
 QStatusBar { background-color: #2b2b2b; color: #dcdcdc; }
-QScrollBar:vertical, QScrollBar:horizontal {
+QScrollBar:vertical {
     background: #2b2b2b;
-    border: 1px solid #444;
+    width: 12px;
+    margin: 0;
+    border: none;
 }
-QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
+QScrollBar:horizontal {
+    background: #2b2b2b;
+    height: 12px;
+    margin: 0;
+    border: none;
+}
+QScrollBar::handle:vertical {
     background: #555;
-    border-radius: 3px;
-    min-height: 20px; min-width: 20px;
+    min-height: 24px;
+    margin: 2px;
+    border-radius: 4px;
 }
-QScrollBar::handle:hover { background: #666; }
-QScrollBar::add-line, QScrollBar::sub-line { background: #2b2b2b; }
+QScrollBar::handle:horizontal {
+    background: #555;
+    min-width: 24px;
+    margin: 2px;
+    border-radius: 4px;
+}
+QScrollBar::handle:hover   { background: #6a6a6a; }
+QScrollBar::handle:pressed { background: #7a7a7a; }
+/* Arrow buttons are unused: zero size, otherwise light stubs remain. */
+QScrollBar::add-line:vertical {
+    height: 0px; subcontrol-position: bottom; subcontrol-origin: margin;
+}
+QScrollBar::sub-line:vertical {
+    height: 0px; subcontrol-position: top; subcontrol-origin: margin;
+}
+QScrollBar::add-line:horizontal {
+    width: 0px; subcontrol-position: right; subcontrol-origin: margin;
+}
+QScrollBar::sub-line:horizontal {
+    width: 0px; subcontrol-position: left; subcontrol-origin: margin;
+}
+QScrollBar::add-page, QScrollBar::sub-page { background: none; }
+/* Square where the horizontal and vertical scrollbars meet. */
+QAbstractScrollArea::corner { background: #2b2b2b; border: none; }
 QSlider::groove:horizontal {
     background: #444; height: 6px; border-radius: 3px;
 }

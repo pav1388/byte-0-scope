@@ -80,59 +80,51 @@ QRect PanoramaWidget::computeViewportRect() const
     if (!sa)
         return QRect();
 
+    if (m_dw <= 0 || m_dh <= 0)
+        return QRect();
+
     const int imgW = m_main->imageWidth();
     const int imgH = m_main->imageHeight();
     const double canvasScale = qMax(1, m_main->scale());
     const double downsample = qMax(1, m_main->downsample());
 
-    // Scrollbar coordinates are in downsampled canvas pixels; panorama
-    // coordinates are in source-image pixels. Convert through both factors.
-    const double viewX = sa->horizontalScrollBar()->value()
-                       / canvasScale * downsample;
-    const double viewY = sa->verticalScrollBar()->value()
-                       / canvasScale * downsample;
-    const double viewW = sa->viewport()->width()
-                       / canvasScale * downsample;
-    const double viewH = sa->viewport()->height()
-                       / canvasScale * downsample;
-
-    const double left = qBound(0.0, viewX, double(imgW));
-    const double top = qBound(0.0, viewY, double(imgH));
-    const double right = qBound(left, viewX + viewW, double(imgW));
-    const double bottom = qBound(top, viewY + viewH, double(imgH));
-    const double w = qMax(0.0, right - left);
-    const double h = qMax(0.0, bottom - top);
-
-    if (w <= 0.0 || h <= 0.0 || m_dw <= 0 || m_dh <= 0)
+    // Размер области просмотра в пикселях исходного изображения: координаты
+    // viewport — в пикселях downsampled-холста, панорамы — в исходных.
+    const double viewW = sa->viewport()->width()  / canvasScale * downsample;
+    const double viewH = sa->viewport()->height() / canvasScale * downsample;
+    if (viewW <= 0.0 || viewH <= 0.0)
         return QRect();
 
-    int sx = m_dx + int(std::floor(left * m_scale));
-    int sy = m_dy + int(std::floor(top * m_scale));
-    int ex = m_dx + int(std::ceil(right * m_scale));
-    int ey = m_dy + int(std::ceil(bottom * m_scale));
-
-    // Keep all edges inside the miniature. The explicit full-image case is
-    // handled above; these clamps protect fractional and edge coordinates.
-    const int imageRight = m_dx + m_dw;
-    const int imageBottom = m_dy + m_dh;
-    sx = qBound(m_dx, sx, imageRight);
-    sy = qBound(m_dy, sy, imageBottom);
-    ex = qBound(sx, ex, imageRight);
-    ey = qBound(sy, ey, imageBottom);
-
-    int sw = ex - sx;
-    int sh = ey - sy;
-    const int minW = qMin(PW_MIN_VIEWPORT_PX, m_dw);
-    const int minH = qMin(PW_MIN_VIEWPORT_PX, m_dh);
-    if (sw < minW) {
-        sw = minW;
-        sx = qBound(m_dx, sx - (sw - (ex - sx)) / 2, imageRight - sw);
-    }
-    if (sh < minH) {
-        sh = minH;
-        sy = qBound(m_dy, sy - (sh - (ey - sy)) / 2, imageBottom - sh);
-    }
+    int sx = 0, sw = 0, sy = 0, sh = 0;
+    axisRect(sa->horizontalScrollBar(), viewW, imgW, m_dx, m_dw, &sx, &sw);
+    axisRect(sa->verticalScrollBar(),   viewH, imgH, m_dy, m_dh, &sy, &sh);
     return QRect(sx, sy, sw, sh);
+}
+
+// Положение и длина рамки по одной оси.
+//
+// Длина — доля видимой части изображения (но не меньше PW_MIN_VIEWPORT_PX).
+// Положение — пропорционально значению скролла: value == 0 прижимает рамку к
+// началу, value == maximum — к концу миниатюры, и обратное преобразование в
+// mouseReleaseEvent() использует ту же пропорцию. Раньше положение считалось по
+// абсолютной координате, а рамка из-за округления и минимального размера была
+// шире «честной», поэтому у правого/нижнего края скролл не доходил до максимума
+// и рамка после отпускания мыши отскакивала назад.
+void PanoramaWidget::axisRect(const QScrollBar *bar, double viewLenImg,
+                              int imgLen, int dispStart, int dispLen,
+                              int *outPos, int *outLen) const
+{
+    const double frac = imgLen > 0
+        ? qBound(0.0, viewLenImg / imgLen, 1.0) : 1.0;
+    const int minLen = qMin(PW_MIN_VIEWPORT_PX, dispLen);
+    const int len = qBound(minLen, int(std::ceil(frac * dispLen)), dispLen);
+
+    const int maximum = bar ? bar->maximum() : 0;
+    const double t = maximum > 0
+        ? qBound(0.0, double(bar->value()) / maximum, 1.0) : 0.0;
+
+    *outLen = len;
+    *outPos = dispStart + int(std::lround(t * (dispLen - len)));
 }
 
 void PanoramaWidget::paintEvent(QPaintEvent *)
@@ -236,18 +228,23 @@ void PanoramaWidget::mouseReleaseEvent(QMouseEvent *e)
     if (e->button() == Qt::LeftButton && m_dragging) {
         m_dragging = false;
 
-        if (m_scale > 0 && m_main) {
-            const double imgX = (m_currentViewport.x() - m_dx) / m_scale;
-            const double imgY = (m_currentViewport.y() - m_dy) / m_scale;
-            const double downsample = qMax(1, m_main->downsample());
-            const qint64 sx64 = qRound64(
-                imgX * qMax(1, m_main->scale()) / downsample);
-            const qint64 sy64 = qRound64(
-                imgY * qMax(1, m_main->scale()) / downsample);
-            const int sx = int(qBound<qint64>(0, sx64,
-                std::numeric_limits<int>::max()));
-            const int sy = int(qBound<qint64>(0, sy64,
-                std::numeric_limits<int>::max()));
+        QScrollArea *sa = m_main ? m_main->scrollArea() : nullptr;
+        if (sa) {
+            // Доля пути рамки от начала до конца миниатюры -> значение скролла
+            // (обратная операция к axisRect()).
+            auto toScroll = [](int pos, int dispStart, int dispLen, int len,
+                               int maximum) -> int {
+                const int range = dispLen - len;
+                const double t = range > 0
+                    ? qBound(0.0, double(pos - dispStart) / range, 1.0) : 0.0;
+                return int(qBound<qint64>(0, qRound64(t * maximum), maximum));
+            };
+            const int sx = toScroll(m_currentViewport.x(), m_dx, m_dw,
+                                    m_currentViewport.width(),
+                                    sa->horizontalScrollBar()->maximum());
+            const int sy = toScroll(m_currentViewport.y(), m_dy, m_dh,
+                                    m_currentViewport.height(),
+                                    sa->verticalScrollBar()->maximum());
             emit scrollToRequested(sx, sy);
         }
 

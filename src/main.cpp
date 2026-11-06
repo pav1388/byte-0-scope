@@ -9,9 +9,6 @@
 #include <QIcon>
 #include <QTimer>
 #include <QDir>
-#include <QFileInfo>
-#include <QSettings>
-#include <QStandardPaths>
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QLocale>
@@ -26,7 +23,9 @@
 #  endif
 #endif
 
+#include "appversion.h"
 #include "mainwindow.h"
+#include "settingsmanager.h"
 
 // --- Настройки приложения (префикс MAIN_) ---
 #define MAIN_APP_STYLE          "Fusion"
@@ -37,32 +36,11 @@
 #define MAIN_APP_CMD_DELAY_MS   0
 
 // --- Локализация ---
-#define MAIN_SETTINGS_FILE      "byte0scope-settings.ini"
 #define MAIN_TRANSLATIONS_DIR   "translations"
 #define MAIN_TR_APP_PREFIX      "byte0scope_"
 #define MAIN_TR_QT_PREFIX       "qtbase_"
 #define MAIN_TR_RES_PREFIX      ":/translations/"
 #define MAIN_LANG_DEFAULT       "en"
-
-#ifndef APP_VERSION
-#  define APP_VERSION           "er-dev"
-#endif
-
-static QString settingsFilePath()
-{
-    QString iniPath = QDir(QCoreApplication::applicationDirPath())
-                          .filePath(QStringLiteral(MAIN_SETTINGS_FILE));
-    QFileInfo fi(iniPath);
-    const bool writable = fi.exists() ? fi.isWritable()
-                                      : QFileInfo(QCoreApplication::applicationDirPath()).isWritable();
-    if (!writable) {
-        const QString fallbackDir =
-            QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-        QDir().mkpath(fallbackDir);
-        iniPath = fallbackDir + QLatin1Char('/') + QStringLiteral(MAIN_SETTINGS_FILE);
-    }
-    return iniPath;
-}
 
 // Пытается загрузить <prefix><lang> из каталога рядом с exe, затем из ресурсов.
 // Возвращает установленный QTranslator или nullptr.
@@ -106,15 +84,12 @@ static QTranslator *loadTranslator(QApplication &app,
 
 static void installTranslators(QApplication &app)
 {
-    QSettings settings(settingsFilePath(), QSettings::IniFormat);
-
-    QString language;
-    if (settings.contains(QStringLiteral("language")))
-        language = settings.value(QStringLiteral("language")).toString();
-    if (language.isEmpty())
-        language = QStringLiteral(MAIN_LANG_DEFAULT);
-
-    if (language == QLatin1String(MAIN_LANG_DEFAULT))
+    // Путь и кодировка INI — те же, что у MainWindow (SettingsManager); раньше
+    // логика выбора файла настроек была продублирована здесь.
+    const QString language = SettingsManager().load()
+        .value(QStringLiteral("language")).toString();
+    // Язык по умолчанию — встроенные строки, переводчики не нужны.
+    if (language.isEmpty() || language == QLatin1String(MAIN_LANG_DEFAULT))
         return;
 
     const QString appTrDir = QDir(QCoreApplication::applicationDirPath())
@@ -145,14 +120,18 @@ int main(int argc, char *argv[])
     MainWindow w;
     w.show();
 
+    // Все аргументы-файлы (кроме опций «-...»). Один файл открывается, два и
+    // более — первые два загружаются в режим сравнения XOR.
+    QStringList files;
     const QStringList args = QCoreApplication::arguments();
-    if (args.size() > 1) {
-        const QString path = args.at(1);
-        if (!path.startsWith('-')) {
-            QTimer::singleShot(MAIN_APP_CMD_DELAY_MS, &w, [&w, path]() {
-                w.openFileFromCommandLine(path);
-            });
-        }
+    for (int i = 1; i < args.size(); ++i) {
+        if (!args.at(i).startsWith(QLatin1Char('-')))
+            files << args.at(i);
+    }
+    if (!files.isEmpty()) {
+        QTimer::singleShot(MAIN_APP_CMD_DELAY_MS, &w, [&w, files]() {
+            w.openFiles(files);
+        });
     }
 
     return app.exec();

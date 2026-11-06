@@ -70,6 +70,9 @@ private:
 
     QVariantMap collectCurrentParams() const;
     void        notifyChanged();
+    bool        isDarkTheme() const;
+    void        watch(QSpinBox *spin);
+    void        watch(QComboBox *combo);
 
     MainWindow *m_main = nullptr;
     QString     m_currentPaletteId;

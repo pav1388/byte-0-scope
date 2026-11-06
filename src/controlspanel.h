@@ -8,8 +8,6 @@
 #include <QWidget>
 #include <QVariantMap>
 
-#define CP_KEY_BYTE_ORDER "byte_order"
-
 class QComboBox;
 class QSpinBox;
 class QCheckBox;
@@ -42,9 +40,9 @@ public:
     quint64 length() const;
     bool    lengthMode() const;
     int     bytesPerRow() const;
-	
-	QString byteOrder() const;
-	bool    regionIsValid() const;
+
+    QString byteOrder() const;
+    bool    regionIsValid() const;
     QVariantMap currentConfig() const;
     void setConfig(const QVariantMap &cfg);
 
@@ -71,23 +69,31 @@ private slots:
 private:
     void buildUi();
     void refillPaletteList(int bpp);
-	void updateDisplayControlsEnabled();
+    void fillPaletteCombo(int bpp);
+    void updateDisplayControlsEnabled();
     void updateBitSettingsEnabled(int bpp);
     void applyHexModeToSpins(bool useHex);
-	void clampRegionBounds(int changedSpin);
-	
+    void clampRegionBounds(bool startChanged);
+
+    // Сообщает об изменении настроек, если панель не в режиме setConfig().
+    void notifyChanged();
+    void watch(QSpinBox *spin);
+    void watch(QComboBox *combo);
+
+    enum RegionPickTarget { PickNone, PickStart, PickEnd };
+
     MainWindow *m_main = nullptr;
 
     // Формат пикселей
-	QComboBox *m_bppCombo = nullptr;
-	QLabel    *m_bitOrderLabel = nullptr;
-	QComboBox *m_bitOrderCombo = nullptr;
-	QLabel    *m_byteOrderLabel = nullptr;
-	QComboBox *m_byteOrderCombo = nullptr;
-	QLabel    *m_pixelOrderLabel = nullptr;
-	QComboBox *m_pixelOrderCombo = nullptr;
-	QLabel    *m_rowPadLabel = nullptr;
-	QSpinBox  *m_rowPadSpin = nullptr;
+    QComboBox *m_bppCombo = nullptr;
+    QLabel    *m_bitOrderLabel = nullptr;
+    QComboBox *m_bitOrderCombo = nullptr;
+    QLabel    *m_byteOrderLabel = nullptr;
+    QComboBox *m_byteOrderCombo = nullptr;
+    QLabel    *m_pixelOrderLabel = nullptr;
+    QComboBox *m_pixelOrderCombo = nullptr;
+    QLabel    *m_rowPadLabel = nullptr;
+    QSpinBox  *m_rowPadSpin = nullptr;
 
     // Палитра
     QComboBox *m_paletteCombo = nullptr;
@@ -101,7 +107,7 @@ private:
     QPushButton *m_pickEndBtn = nullptr;
     QCheckBox   *m_lengthModeCheck = nullptr;
     QCheckBox   *m_hexModeCheck = nullptr;
-    int          m_regionPickTarget = 0;  // 0=none, 1=start, 2=end
+    RegionPickTarget m_regionPickTarget = PickNone;
 
     // Отображение
     QComboBox   *m_widthModeCombo = nullptr;

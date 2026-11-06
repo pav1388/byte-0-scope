@@ -11,10 +11,12 @@
 #include <QtMath>
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 // --- Настройки модуля PaletteManager (префикс PM_) ---
 
 #define PM_DEFAULT_PALETTE_SIZE     256
+#define PM_FROM_FILE_COUNT_MAX      (1 << 20)
 #define PM_GRAY_FALLBACK_ID         "gray"
 
 #define PM_THRESHOLD_DEFAULT        64
@@ -27,7 +29,7 @@
 
 
 namespace {
-	
+
 inline QString tr(const char *s)
 {
     return QCoreApplication::translate("PaletteManager", s);
@@ -614,17 +616,9 @@ QVector<QColor> createFromFile(const QVariantMap &params)
                                    : qMax(1, data.size() / recSize);
     }
 
+    count = qMin(count, PM_FROM_FILE_COUNT_MAX);
     auto fallback = [count]() -> QVector<QColor> {
-        const int n = qMax(1, count);
-        if (n <= 1)
-            return { QColor(0, 0, 0) };
-        QVector<QColor> o;
-        o.reserve(n);
-        for (int i = 0; i < n; ++i) {
-            const int v = int(i * 255 / (n - 1));
-            o.append(QColor(v, v, v));
-        }
-        return o;
+        return grayPalette(qMax(1, count));
     };
 
     if (data.isEmpty())
@@ -633,10 +627,10 @@ QVector<QColor> createFromFile(const QVariantMap &params)
     QVector<QColor> out;
     out.reserve(count);
     for (int i = 0; i < count; ++i) {
-        const int start = i * recSize;
+        const qint64 start = qint64(i) * recSize;
         if (start + recSize > data.size())
             break;
-        QByteArray rec = data.mid(start, recSize);
+        const QByteArray rec = data.mid(int(start), recSize);
         out.append(PixelDecoder::interpretPaletteRecord(rec, fmt, recSize, end));
     }
     return out.isEmpty() ? fallback() : out;
@@ -767,8 +761,13 @@ QVariantMap prepareFromFile(const QVariantMap &params, const QByteArray &fileDat
     else
         count = qMax(1, length / recordSize);
 
-    const int endPos = address + count * recordSize;
-    QByteArray slice = fileData.mid(address, endPos - address);
+    count = qMin(count, PM_FROM_FILE_COUNT_MAX);
+
+    // 64-битная арифметика: count и record_size приходят из пользовательского
+    // .b0s и могут быть произвольными.
+    const qint64 sliceLength = qMin<qint64>(qint64(count) * recordSize,
+                                            std::numeric_limits<int>::max());
+    QByteArray slice = fileData.mid(address, int(sliceLength));
 
     QVariantMap out;
     out["data"] = slice;
@@ -780,51 +779,30 @@ QVariantMap prepareFromFile(const QVariantMap &params, const QByteArray &fileDat
     return out;
 }
 
-// --- Мультибайтовые integer (с зашитым signed/unsigned) ---
-
-QVector<QColor> createInteger16Unsigned(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-QVector<QColor> createInteger16Signed(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-QVector<QColor> createInteger32Unsigned(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-QVector<QColor> createInteger32Signed(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-QVector<QColor> createInteger64Unsigned(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-QVector<QColor> createInteger64Signed(const QVariantMap &)
-{
-    return grayPalette(PM_DEFAULT_PALETTE_SIZE);
-}
-
 } // namespace
 
 // =========================================================================
 //  Публичные статические
 // =========================================================================
 
-QVariantList PaletteManager::defaultCustomRules()
+QString PaletteManager::defaultRuleColor(int index)
 {
-    static const char *colors[] = {
+    static const char *const colors[] = {
         "#FF0000", "#00FF00", "#0000FF", "#FF0080",
         "#80FF00", "#0080FF", "#FF8000", "#8000FF"
     };
+    const int count = int(sizeof(colors) / sizeof(colors[0]));
+    return QString::fromLatin1(colors[((index % count) + count) % count]);
+}
+
+QVariantList PaletteManager::defaultCustomRules()
+{
     QVariantList rules;
     for (int i = 0; i < 8; ++i) {
         QVariantMap r;
         r["start"] = i * 32;
         r["end"]   = i * 32 + 31;
-        r["color"] = QString(colors[i]);
+        r["color"] = defaultRuleColor(i);
         rules.append(r);
     }
     return rules;
@@ -1112,7 +1090,7 @@ void PaletteManager::registerBaseConfigs()
     asciiParams["printable_color"] = "#5ad296";
     asciiParams["nonprintable_color"] = "#e65555";
     asciiParams["control_color"] = "#aa78e6";
-    asciiParams["whitespace_color"] = "#5abedc";
+    asciiParams["whitespace_color"] = "#cecece";
     asciiParams["digit_color"] = "#ffcd56";
     asciiParams["uppercase_color"] = "#5ad296";
     asciiParams["lowercase_color"] = "#5ad296";

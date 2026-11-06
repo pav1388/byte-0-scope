@@ -11,6 +11,7 @@
 #include <QPoint>
 
 class MainWindow;
+class QScrollBar;
 
 class PanoramaWidget : public QWidget {
     Q_OBJECT
@@ -35,6 +36,8 @@ protected:
 private:
     void  refreshColors();
     QRect computeViewportRect() const;
+    void  axisRect(const QScrollBar *bar, double viewLenImg, int imgLen,
+                   int dispStart, int dispLen, int *outPos, int *outLen) const;
 
     MainWindow *m_main = nullptr;
 

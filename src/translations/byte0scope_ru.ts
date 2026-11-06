@@ -3,10 +3,11 @@
 <TS version="2.1" language="ru_RU">
 <context>
     <name>AboutDialog</name>
+    
     <message>
-        <location filename="../aboutdialog.cpp" line="+33"/>
-        <source>Byte-0-scope v%1 by pav13</source>
-        <translation>Байт-0-скоп v%1, автор pav13</translation>
+        <location filename="../aboutdialog.cpp" line="+30"/>
+        <source>Byte-0-scope v%1 by pav13 (2026)</source>
+        <translation>Байт-0-скоп v%1, автор pav13 (2026)</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -205,7 +206,7 @@ Read %1 of %2 bytes.
 <context>
     <name>ControlsPanel</name>
     <message>
-        <location filename="../controlspanel.cpp" line="+76"/>
+        <location filename="../controlspanel.cpp" line="+36"/>
         <source>End:</source>
         <translation>Конец:</translation>
     </message>
@@ -215,7 +216,7 @@ Read %1 of %2 bytes.
         <translation>Длина:</translation>
     </message>
     <message>
-        <location line="+106"/>
+        <location line="+72"/>
         <source>Pixel format</source>
         <translation>Формат пикселей</translation>
     </message>
@@ -225,17 +226,17 @@ Read %1 of %2 bytes.
         <translation>Бит на пиксель:</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+12"/>
         <source>Bit order:</source>
         <translation>Порядок битов:</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+9"/>
         <source>Byte order:</source>
         <translation>Порядок байтов:</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+6"/>
         <source>Byte order within multi-byte pixel values (16/24/32/64 bpp).
 For RGB/RGBA palettes it also reverses the channel order
 (e.g. RGB + little = BGR).</source>
@@ -244,7 +245,7 @@ For RGB/RGBA palettes it also reverses the channel order
 (например, RGB + little-endian = BGR).</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+7"/>
         <source>Padding (bits):</source>
         <translation>Паддинг (бит):</translation>
     </message>
@@ -260,12 +261,12 @@ For RGB/RGBA palettes it also reverses the channel order
 32 — кратны 4 байтам.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+7"/>
         <source>Pixel order:</source>
         <translation>Порядок пикселей:</translation>
     </message>
     <message>
-        <location line="+19"/>
+        <location line="+12"/>
         <source>Palettes</source>
         <translation>Палитры</translation>
     </message>
@@ -384,13 +385,13 @@ Click again or press Esc to cancel.</source>
         <translation>Делитель ≤ N</translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+21"/>
         <source>Width / N:</source>
         <translation>Ширина / N:</translation>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+354"/>
+        <location line="+349"/>
         <source>For &quot;Manual&quot; — width in pixels.
 For &quot;Divisor ≤ N&quot; — upper width limit.</source>
         <translation>Для «Ручной» — ширина в пикселях.
@@ -410,7 +411,7 @@ Used in manual mode.</source>
 Используется в ручном режиме.</translation>
     </message>
     <message>
-        <location line="-388"/>
+        <location line="-378"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
@@ -422,12 +423,12 @@ Pixels per row = bytes / bytesPerPixel.</source>
 Пикселей в строке = байт / bytesPerPixel.</translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+29"/>
         <source>Zoom:</source>
         <translation>Масштаб:</translation>
     </message>
     <message>
-        <location line="+17"/>
+        <location line="+12"/>
         <source>Auto zoom</source>
         <translation>Автомасштаб</translation>
     </message>
@@ -465,7 +466,7 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
         <translation>Восстановить параметры отображения по умолчанию</translation>
     </message>
     <message>
-        <location line="+212"/>
+        <location line="+225"/>
         <source>Bit extraction order for bit-packed pixels.
 MSB-first: highest bit of byte first.
 LSB-first: lowest bit of byte first.</source>
@@ -483,7 +484,7 @@ MSB-first: обычный байт.
 LSB-first: биты в байте расположены в обратном порядке.</translation>
     </message>
     <message>
-        <location line="+57"/>
+        <location line="+54"/>
         <source>Controlled by the current width mode.</source>
         <translation>Управляется текущим режимом ширины.</translation>
     </message>
@@ -506,7 +507,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>DemoBuilder</name>
     <message>
-        <location filename="../demobuilder.cpp" line="+324"/>
+        <location filename="../demobuilder.cpp" line="+325"/>
         <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;View&lt;/b&gt; -&gt; &lt;code&gt;Flip horizontally&lt;/code&gt;&lt;br&gt;</source>
         <translation>&lt;b&gt;Обучение: восстановите изображение&lt;/b&gt;&lt;br&gt;&lt;br&gt;Файл загружен, но текущие настройки отображения неверны — вы видите шум. Приведите параметры к правильным значениям, и появятся заголовок «BYTE», текст и графика.&lt;br&gt;&lt;br&gt;&lt;b&gt;Правильные параметры:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Бит на пиксель&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Порядок битов&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Порядок пикселей&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Палитра&lt;/b&gt; -&gt; &lt;code&gt;Любая&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Режим ширины&lt;/b&gt; -&gt; &lt;code&gt;Ручной&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Ширина&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Паддинг (бит)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;Вид&lt;/b&gt; -&gt; &lt;code&gt;Отразить по горизонтали&lt;/code&gt;&lt;br&gt;</translation>
     </message>
@@ -514,13 +515,13 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>FileAssoc</name>
     <message>
-        <location filename="../fileassoc.cpp" line="+77"/>
-        <location line="+69"/>
+        <location filename="../fileassoc.cpp" line="+80"/>
+        <location line="+79"/>
         <source>Executable path not found.</source>
         <translation>Не найден путь к exe.</translation>
     </message>
     <message>
-        <location line="-47"/>
+        <location line="-57"/>
         <source>Failed to write to the registry.</source>
         <translation>Не удалось записать в реестр.</translation>
     </message>
@@ -530,19 +531,29 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Не удалось очистить реестр.</translation>
     </message>
     <message>
-        <location line="+40"/>
+        <location line="+50"/>
         <source>Failed to create MIME XML.</source>
         <translation>Не удалось создать MIME XML.</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+30"/>
         <source>Failed to create .desktop file.</source>
         <translation>Не удалось создать .desktop файл.</translation>
     </message>
     <message>
-        <location line="+23"/>
+        <location line="+24"/>
+        <source>xdg-mime could not be started.</source>
+        <translation>Не удалось запустить xdg-mime.</translation>
+    </message>
+    <message>
+        <location line="+9"/>
         <source>xdg-mime did not respond within the timeout.</source>
         <translation>xdg-mime не ответил за отведённое время.</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>xdg-mime failed to set the default application.</source>
+        <translation>Утилите xdg-mime не удалось задать приложение по умолчанию.</translation>
     </message>
     <message>
         <location line="+48"/>
@@ -594,7 +605,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../mainwindow.cpp" line="+332"/>
+        <location filename="../mainwindow.cpp" line="+308"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -630,16 +641,16 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1073"/>
+        <location line="+1081"/>
         <location line="+17"/>
         <location line="+32"/>
-        <location line="+12"/>
-        <location line="+28"/>
+        <location line="+14"/>
+        <location line="+30"/>
         <source>Export to PNG</source>
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1160"/>
+        <location line="-1172"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -690,46 +701,42 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+903"/>
+        <location line="+911"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-903"/>
-        <location line="+903"/>
+        <location line="-911"/>
+        <location line="+911"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-899"/>
-        <location line="+931"/>
+        <location line="-907"/>
+        <location line="+939"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-926"/>
-        <location line="+922"/>
+        <location line="-934"/>
+        <location line="+930"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-917"/>
-        <location line="+917"/>
+        <location line="-925"/>
+        <location line="+925"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-903"/>
+        <location line="-911"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
+    
     <message>
-        <location line="+12"/>
-        <source>Load the entire file into memory</source>
-        <translation>Загружать файл целиком в память</translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="+15"/>
         <source>Off (default) — the file is mapped into memory via mmap.
 Suitable for large files: the OS loads pages on demand,
 RAM is not allocated in full.
@@ -796,12 +803,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+371"/>
+        <location line="+389"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-363"/>
+        <location line="-381"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -895,7 +902,7 @@ from eviction, so momentarily the cache may exceed the limit.</source>
         <translation>Все файлы (*.*)</translation>
     </message>
     <message>
-        <location line="+21"/>
+        <location line="+18"/>
         <source>.b0s config</source>
         <translation>Конфиг .b0s</translation>
     </message>
@@ -911,7 +918,7 @@ Expected: %2</source>
 Ожидался: %2</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+11"/>
         <source>Failed to open file</source>
         <translation>Не удалось открыть файл</translation>
     </message>
@@ -921,7 +928,7 @@ Expected: %2</source>
         <translation>Причина неизвестна.</translation>
     </message>
     <message>
-        <location line="+54"/>
+        <location line="+64"/>
         <source>File 1</source>
         <translation>Файл 1</translation>
     </message>
@@ -931,7 +938,7 @@ Expected: %2</source>
         <translation>Файл 2</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+13"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
@@ -973,7 +980,28 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Не удалось прочитать файлы полностью.</translation>
     </message>
     <message>
-        <location line="+477"/>
+        <location line="+44"/>
+        <source>File sizes differ (%1 and %2 bytes): only the first %3 bytes are compared.</source>
+        <translation>Размеры файлов различаются (%1 и %2 байт): сравниваются только первые %3 байт.</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <location line="+4"/>
+        <source>XOR comparison</source>
+        <translation>XOR сравнение</translation>
+    </message>
+    <message>
+        <location line="-3"/>
+        <source>The files are identical: there are no differences (%1 bytes compared).</source>
+        <translation>Файлы идентичны: различий нет (сравнено байтов: %1).</translation>
+    </message>
+    <message>
+        <location line="+4"/>
+        <source>The first %1 bytes of the files are identical, but the file sizes differ (%2 and %3 bytes).</source>
+        <translation>Первые %1 байтов файлов идентичны, но размеры файлов различаются (%2 и %3 байта).</translation>
+    </message>
+    <message>
+        <location line="+424"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -1017,12 +1045,12 @@ Restart the application to apply the change.</source>
         <translation>Файл назначения PNG не должен быть тем же самым файлом, который открыт в данный момент.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+15"/>
         <source>The requested PNG dimensions are invalid or too large for this Qt build, or the export task could not be started.</source>
         <translation>Запрошенные размеры PNG-изображения недопустимы или слишком велики для данной сборки Qt, либо не удалось запустить задачу экспорта.</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+10"/>
         <source>PNG export started…</source>
         <translation>Начат экспорт в PNG…</translation>
     </message>
@@ -1039,12 +1067,17 @@ Restart the application to apply the change.</source>
 %1</translation>
     </message>
     <message>
-        <location line="-82"/>
+        <location line="-86"/>
         <source>PNG (*.png)</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="+96"/>
+        <location line="-995"/>
+        <source>Load the entire file into memory at once</source>
+        <translation>Загружать файл сразу целиком в память</translation>
+    </message>
+    <message>
+        <location line="+1095"/>
         <source>Byte-0-scope v%1</source>
         <translation>Байт-0-скоп v%1</translation>
     </message>
@@ -1054,7 +1087,12 @@ Restart the application to apply the change.</source>
         <translation>%1: [%2] [0x%3 / %4 байт] [%5×%6]</translation>
     </message>
     <message>
-        <location line="+336"/>
+        <location line="+6"/>
+        <source> [differs: %1%]</source>
+        <translation> [различие: %1%]</translation>
+    </message>
+    <message>
+        <location line="+329"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1064,7 +1102,7 @@ Restart the application to apply the change.</source>
         <translation>[ Рендеринг...]</translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+44"/>
         <source>· Process memory: %1 MB</source>
         <translation>· Память процесса: %1 МБ</translation>
     </message>
@@ -1079,12 +1117,37 @@ Restart the application to apply the change.</source>
         <translation>· Кэш тайлов: %1 МБ / %2 МБ</translation>
     </message>
     <message>
-        <location line="+88"/>
+        <location line="+89"/>
         <source>The .b0s settings file is empty.</source>
         <translation>Файл настроек .b0s пуст.</translation>
     </message>
     <message>
-        <location line="+170"/>
+        <location line="+48"/>
+        <source>Could not save the .b0s settings: %1</source>
+        <translation>Не удалось сохранить настройки .b0s: %1</translation>
+    </message>
+    <message>
+        <location line="+5"/>
+        <source>Settings saved: %1</source>
+        <translation>Настройки сохранены: %1</translation>
+    </message>
+    <message>
+        <location line="+11"/>
+        <source>No .b0s settings file found for this file.</source>
+        <translation>Для этого файла не найден файл настроек .b0s.</translation>
+    </message>
+    <message>
+        <location line="+9"/>
+        <source>Could not read the .b0s settings: %1</source>
+        <translation>Не удалось прочитать настройки .b0s: %1</translation>
+    </message>
+    <message>
+        <location line="+84"/>
+        <source>%1 files were given: only the first two are compared (XOR).</source>
+        <translation>Было передано %1 файлов: сравниваются только первые два (XOR).</translation>
+    </message>
+    <message>
+        <location line="+39"/>
         <source>GB</source>
         <translation>ГБ</translation>
     </message>
@@ -1104,7 +1167,7 @@ Restart the application to apply the change.</source>
         <translation>Б</translation>
     </message>
     <message>
-        <location line="+222"/>
+        <location line="+193"/>
         <source>Tutorial: adjust the display settings to reveal the image.</source>
         <translation>Обучение: настройте параметры отображения, чтобы увидеть изображение.</translation>
     </message>
@@ -1112,7 +1175,7 @@ Restart the application to apply the change.</source>
 <context>
     <name>PaletteManager</name>
     <message>
-        <location filename="../palettemanager.cpp" line="+981"/>
+        <location filename="../palettemanager.cpp" line="+959"/>
         <source>Grayscale</source>
         <translation>Оттенки серого</translation>
     </message>
@@ -1561,17 +1624,17 @@ Restart the application to apply the change.</source>
         <translation>Расширенные (80-FF)</translation>
     </message>
     <message>
-        <location line="+67"/>
+        <location line="+65"/>
         <source>Step (bands):</source>
         <translation>Шаг (полосы):</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+10"/>
         <source>Bit plane (0–7):</source>
         <translation>Битовая плоскость (0–7):</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+10"/>
         <source>Threshold (0–255):</source>
         <translation>Порог (0–255):</translation>
     </message>
@@ -1583,24 +1646,24 @@ are highlighted in red.</source>
 подсвечиваются красным.</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+4"/>
         <source>Min. repeat count:</source>
         <translation>Мин. число повторов:</translation>
     </message>
     <message>
-        <location line="+53"/>
+        <location line="+43"/>
         <source>Byte order:</source>
         <translation>Порядок байтов:</translation>
     </message>
     <message>
-        <location line="-90"/>
+        <location line="-74"/>
         <source>High values - fewer bands,
 low values - more.</source>
         <translation>Высокие значения — меньше полос,
 низкие значения — больше.</translation>
     </message>
     <message>
-        <location line="-90"/>
+        <location line="-88"/>
         <source>Other:</source>
         <translation>Другие:</translation>
     </message>
@@ -1615,12 +1678,12 @@ low values - more.</source>
         <translation>Выберите цвет (%1)</translation>
     </message>
     <message>
-        <location line="+42"/>
+        <location line="+38"/>
         <source>Select bit plane.</source>
         <translation>Выберите битовую плоскость.</translation>
     </message>
     <message>
-        <location line="+26"/>
+        <location line="+22"/>
         <source>Byte values that occur at least N times in the file
 are highlighted in red. The rest — grayscale.
 Counted over the whole file, not the visible region.</source>
@@ -1629,17 +1692,17 @@ Counted over the whole file, not the visible region.</source>
 Подсчет ведется по всему файлу, а не только по видимой области.</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+12"/>
         <source>Start address:</source>
         <translation>Начальный адрес:</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+10"/>
         <source>Max length (bytes):</source>
         <translation>Макс. длина (байт):</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+6"/>
         <source>Color format:</source>
         <translation>Цветовой формат:</translation>
     </message>
@@ -1651,19 +1714,19 @@ RGB — 3, RGB565 — 2, RGBA — 4.</source>
 Для RGB — 3, для RGB565 — 2, для RGBA — 4.</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+3"/>
         <source>Entry size (bytes):</source>
         <translation>Размер записи (байт):</translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+11"/>
         <source>Number of palette records.
 0 = auto: 1&lt;&lt;bpp for bpp&lt;=4, otherwise 256.</source>
         <translation>Количество записей палитры.
 0 = авто: 1&lt;&lt;bpp для bpp&lt;=4, иначе 256.</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+3"/>
         <source>Entries (0=auto):</source>
         <translation>Записи (0=авто):</translation>
     </message>
@@ -1704,7 +1767,7 @@ Auto-count: %1.</source>
         <translation>+ Добавить правило</translation>
     </message>
     <message>
-        <location line="+203"/>
+        <location line="+191"/>
         <source>Color: %1</source>
         <translation>Цвет: %1</translation>
     </message>
@@ -1712,9 +1775,54 @@ Auto-count: %1.</source>
 <context>
     <name>PanoramaWidget</name>
     <message>
-        <location filename="../panoramawidget.cpp" line="+146"/>
+        <location filename="../panoramawidget.cpp" line="+138"/>
         <source>No image</source>
         <translation>Нет изображения</translation>
+    </message>
+</context>
+<context>
+    <name>TileManager</name>
+    <message>
+        <location filename="../tilemanager.cpp" line="+587"/>
+        <source>Invalid export dimensions.</source>
+        <translation>Недопустимые размеры экспорта.</translation>
+    </message>
+    <message>
+        <location line="+16"/>
+        <source>The requested export area is outside the image.</source>
+        <translation>Запрашиваемая область экспорта находится за пределами изображения.</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>The PNG is too large for this Qt build.</source>
+        <translation>Файл PNG слишком велик для данной сборки Qt.</translation>
+    </message>
+    <message>
+        <location line="+13"/>
+        <source>The PNG would require more memory than is safely available.</source>
+        <translation>Для этого PNG-файла потребовалось бы больше памяти, чем имеется в наличии без риска для системы.</translation>
+    </message>
+    <message>
+        <location line="+110"/>
+        <source>The image could not be rendered. Check its dimensions and available memory.</source>
+        <translation>Не удалось отобразить изображение. Проверьте его размеры и доступный объем памяти.</translation>
+    </message>
+    <message>
+        <location line="+15"/>
+        <location line="+10"/>
+        <source>PNG export was cancelled.</source>
+        <translation>Экспорт в PNG отменён.</translation>
+    </message>
+    <message>
+        <location line="+35"/>
+        <location line="+6"/>
+        <source>The export task could not be started.</source>
+        <translation>Не удалось запустить задачу экспорта.</translation>
+    </message>
+    <message>
+        <location line="-4"/>
+        <source>A PNG export is already running.</source>
+        <translation>Экспорт в PNG уже выполняется.</translation>
     </message>
 </context>
 </TS>
