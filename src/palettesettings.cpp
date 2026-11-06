@@ -37,7 +37,7 @@
 #define PS_RECORD_SIZE_MAX          16
 #define PS_COUNT_MAX                65536
 #define PS_MIN_COUNT_MIN            2
-#define PS_MIN_COUNT_MAX            65536
+#define PS_MIN_COUNT_MAX            100000000
 #define PS_STEP_MIN                 1
 #define PS_STEP_MAX                 256
 
@@ -346,7 +346,16 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
 {
     m_minCountSpin = new QSpinBox();
     m_minCountSpin->setRange(PS_MIN_COUNT_MIN, PS_MIN_COUNT_MAX);
-    m_minCountSpin->setValue(params.value("min_count", 50).toInt());
+
+    int value = params.value("min_count", 0).toInt();
+    if (value <= 0 && m_main)
+        value = m_main->averageByteRepeatCount();
+    if (value < PS_MIN_COUNT_MIN)
+        value = PS_MIN_COUNT_MIN;
+    if (value > PS_MIN_COUNT_MAX)
+        value = PS_MIN_COUNT_MAX;
+    m_minCountSpin->setValue(value);
+
     m_minCountSpin->setToolTip(tr("Bytes appearing at least N times\n"
                                   "are highlighted in red."));
     watch(m_minCountSpin);
@@ -354,7 +363,9 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
     addRow(tr("Min. repeat count:"), m_minCountSpin);
     addInfoLabel(tr("Byte values that occur at least N times in the file\n"
                     "are highlighted in red. The rest — grayscale.\n"
-                    "Counted over the whole file, not the visible region."));
+                    "Counted over the whole file, not the visible region.\n"
+                    "Default = average count of distinct byte values\n"
+                    "in the current file."));
 }
 
 void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
@@ -710,6 +721,14 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
         p["endianness"]  = m_endianCombo->currentText();
         p["count"]       = m_countSpin->value();
         p["bpp"]         = m_main ? m_main->bppMode() : 8;
+    } else if (m_currentPaletteId == "repeats" && m_minCountSpin) {
+        int v = m_minCountSpin->value();
+        if (m_main) {
+            const int avg = m_main->averageByteRepeatCount();
+            if (avg > 0 && v == avg)
+                v = 0;
+        }
+        p["min_count"] = v;
     }
 
     return p;

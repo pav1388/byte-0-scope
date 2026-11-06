@@ -96,6 +96,7 @@ public:
     void changeDownsample(int ds);
     void setPaletteParams(const QString &id, const QVariantMap &params);
     void updateBusyLabel();
+	int averageByteRepeatCount();
 
 signals:
     void paletteChanged();

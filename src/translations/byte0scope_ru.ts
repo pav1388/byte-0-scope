@@ -3,7 +3,6 @@
 <TS version="2.1" language="ru_RU">
 <context>
     <name>AboutDialog</name>
-    
     <message>
         <location filename="../aboutdialog.cpp" line="+30"/>
         <source>Byte-0-scope v%1 by pav13 (2026)</source>
@@ -641,7 +640,7 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1081"/>
+        <location line="+1083"/>
         <location line="+17"/>
         <location line="+32"/>
         <location line="+14"/>
@@ -650,7 +649,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1172"/>
+        <location line="-1174"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -701,40 +700,39 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+911"/>
+        <location line="+913"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-911"/>
-        <location line="+911"/>
+        <location line="-913"/>
+        <location line="+913"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-907"/>
-        <location line="+939"/>
+        <location line="-909"/>
+        <location line="+941"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-934"/>
-        <location line="+930"/>
+        <location line="-936"/>
+        <location line="+932"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-925"/>
-        <location line="+925"/>
+        <location line="-927"/>
+        <location line="+927"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-911"/>
+        <location line="-913"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
-    
     <message>
         <location line="+15"/>
         <source>Off (default) — the file is mapped into memory via mmap.
@@ -803,12 +801,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+55"/>
-        <location line="+389"/>
+        <location line="+391"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-381"/>
+        <location line="-383"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -980,7 +978,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Не удалось прочитать файлы полностью.</translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+45"/>
         <source>File sizes differ (%1 and %2 bytes): only the first %3 bytes are compared.</source>
         <translation>Размеры файлов различаются (%1 и %2 байт): сравниваются только первые %3 байт.</translation>
     </message>
@@ -1001,7 +999,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Первые %1 байтов файлов идентичны, но размеры файлов различаются (%2 и %3 байта).</translation>
     </message>
     <message>
-        <location line="+424"/>
+        <location line="+425"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -1072,12 +1070,12 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-995"/>
+        <location line="-997"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+1095"/>
+        <location line="+1097"/>
         <source>Byte-0-scope v%1</source>
         <translation>Байт-0-скоп v%1</translation>
     </message>
@@ -1142,12 +1140,12 @@ Restart the application to apply the change.</source>
         <translation>Не удалось прочитать настройки .b0s: %1</translation>
     </message>
     <message>
-        <location line="+84"/>
+        <location line="+85"/>
         <source>%1 files were given: only the first two are compared (XOR).</source>
         <translation>Было передано %1 файлов: сравниваются только первые два (XOR).</translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+45"/>
         <source>GB</source>
         <translation>ГБ</translation>
     </message>
@@ -1175,7 +1173,7 @@ Restart the application to apply the change.</source>
 <context>
     <name>PaletteManager</name>
     <message>
-        <location filename="../palettemanager.cpp" line="+959"/>
+        <location filename="../palettemanager.cpp" line="+988"/>
         <source>Grayscale</source>
         <translation>Оттенки серого</translation>
     </message>
@@ -1639,7 +1637,7 @@ Restart the application to apply the change.</source>
         <translation>Порог (0–255):</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+17"/>
         <source>Bytes appearing at least N times
 are highlighted in red.</source>
         <translation>Байты, встречающиеся не меньше N раз,
@@ -1651,12 +1649,25 @@ are highlighted in red.</source>
         <translation>Мин. число повторов:</translation>
     </message>
     <message>
-        <location line="+43"/>
+        <location line="+1"/>
+        <source>Byte values that occur at least N times in the file
+are highlighted in red. The rest — grayscale.
+Counted over the whole file, not the visible region.
+Default = average count of distinct byte values
+in the current file.</source>
+        <translation>Значения байтов, встречающиеся в файле не менее N раз,
+выделены красным цветом. Остальные — оттенками серого.
+Подсчет ведется по всему файлу, а не только по видимой области.
+По умолчанию — среднее количество вхождений различных значений байтов
+в текущем файле.</translation>
+    </message>
+    <message>
+        <location line="+44"/>
         <source>Byte order:</source>
         <translation>Порядок байтов:</translation>
     </message>
     <message>
-        <location line="-74"/>
+        <location line="-85"/>
         <source>High values - fewer bands,
 low values - more.</source>
         <translation>Высокие значения — меньше полос,
@@ -1682,17 +1693,9 @@ low values - more.</source>
         <source>Select bit plane.</source>
         <translation>Выберите битовую плоскость.</translation>
     </message>
+    
     <message>
-        <location line="+22"/>
-        <source>Byte values that occur at least N times in the file
-are highlighted in red. The rest — grayscale.
-Counted over the whole file, not the visible region.</source>
-        <translation>Значения байтов, встречающиеся в файле не менее N раз,
-выделены красным цветом. Остальные — оттенками серого.
-Подсчет ведется по всему файлу, а не только по видимой области.</translation>
-    </message>
-    <message>
-        <location line="+12"/>
+        <location line="+45"/>
         <source>Start address:</source>
         <translation>Начальный адрес:</translation>
     </message>

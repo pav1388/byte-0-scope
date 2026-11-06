@@ -733,8 +733,8 @@ void MainWindow::loadFile(const QString &path)
     m_xorLabel.clear();
     m_lastDir  = QFileInfo(actualPath).absolutePath();
     addRecent(actualPath);
-    // Гистограмма относится к прежнему файлу.
     invalidateByteHistogram();
+	m_paletteParams.remove(QStringLiteral("repeats"));
 
     bool cfgLoaded = false;
     if (QFile::exists(cfgPath)) {
@@ -878,6 +878,7 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     m_xorDiffBytes = diffBytes;
     m_lastDir = QFileInfo(p1).absolutePath();
     invalidateByteHistogram();
+	m_paletteParams.remove(QStringLiteral("repeats"));
 
     bool cfgLoaded = false;
     for (const QString &path : { p1, p2 }) {
@@ -927,6 +928,7 @@ void MainWindow::resetToDemo()
     m_source.close();
     initDemo();
     invalidateByteHistogram();
+	m_paletteParams.remove(QStringLiteral("repeats"));
     m_fileSize = m_source.size();
     m_offset = 0;
     m_length = 0;
@@ -2109,6 +2111,7 @@ void MainWindow::resetDisplaySettings()
 
 void MainWindow::applyDefaultConfig()
 {
+	m_paletteParams.remove(QStringLiteral("repeats"));
     setMirrorState(false, false);
 
     if (m_controls)
@@ -2171,6 +2174,12 @@ void MainWindow::openFiles(const QStringList &paths)
                 .arg(files.size()),
             7000);
     }
+}
+
+int MainWindow::averageByteRepeatCount()
+{
+    ensureByteHistogram();
+    return PaletteManager::averageRepeatCount(m_byteHistogram);
 }
 
 void MainWindow::ensureByteHistogram()

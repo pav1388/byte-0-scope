@@ -22,7 +22,9 @@
 #define PM_THRESHOLD_DEFAULT        64
 #define PM_ENTROPY_STEP_DEFAULT     16
 #define PM_BITPLANE_DEFAULT         0
-#define PM_MIN_COUNT_DEFAULT        50
+#define PM_MIN_COUNT_DEFAULT        0
+#define PM_MIN_COUNT_FALLBACK       50
+#define PM_MIN_COUNT_MAX_VALUE      100000000
 #define PM_FROM_FILE_LENGTH_DEFAULT 256
 
 #define PM_SAMPLED_BPPS             { 2, 3, 4 }
@@ -707,28 +709,34 @@ QVariantMap prepareRepeats(const QVariantMap &params,
                            const QByteArray &fileData,
                            const quint64 *byteHistogram)
 {
-    const int minCount = params.value("min_count", PM_MIN_COUNT_DEFAULT).toInt();
-    QVariantList list;
+    quint64 localCounts[PM_DEFAULT_PALETTE_SIZE] = {0};
+    const quint64 *hist = byteHistogram;
 
-    if (byteHistogram) {
-        for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-            if (byteHistogram[i] >= quint64(minCount))
-                list.append(i);
-    } else if (!fileData.isEmpty()) {
-        quint64 counts[PM_DEFAULT_PALETTE_SIZE] = {0};
+    if (!hist && !fileData.isEmpty()) {
         const uchar *p = reinterpret_cast<const uchar *>(fileData.constData());
         const int n = fileData.size();
         for (int i = 0; i < n; ++i)
-            ++counts[p[i]];
-        for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-            if (counts[i] >= quint64(minCount))
-                list.append(i);
-    } else {
-        return params;
+            ++localCounts[p[i]];
+        hist = localCounts;
     }
+
+    if (!hist)
+        return params;
+
+    int minCount = params.value("min_count", PM_MIN_COUNT_DEFAULT).toInt();
+    if (minCount <= 0) {
+        const int avg = PaletteManager::averageRepeatCount(hist);
+        minCount = (avg > 0) ? avg : PM_MIN_COUNT_FALLBACK;
+    }
+
+    QVariantList list;
+    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
+        if (hist[i] >= quint64(minCount))
+            list.append(i);
 
     QVariantMap out;
     out["repeats"] = list;
+    out["min_count"] = minCount;
     return out;
 }
 
@@ -829,6 +837,27 @@ QVariantList PaletteManager::samplePalette(const QVariantList &source, int n)
         out.append(source.value(qBound(0, idx, len - 1)));
     }
     return out;
+}
+
+int PaletteManager::averageRepeatCount(const quint64 *histogram)
+{
+    if (!histogram)
+        return 0;
+
+    quint64 total = 0;
+    int distinct = 0;
+    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+        if (histogram[i] > 0) {
+            total += histogram[i];
+            ++distinct;
+        }
+    }
+    if (distinct == 0)
+        return 0;
+
+    const quint64 avg = total / quint64(distinct);
+    return int(qMin<quint64>(quint64(PM_MIN_COUNT_MAX_VALUE),
+                             qMax<quint64>(1, avg)));
 }
 
 // =========================================================================

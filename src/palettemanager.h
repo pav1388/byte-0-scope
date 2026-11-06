@@ -37,6 +37,7 @@ public:
     static QVariantList defaultCustomRules();
     static QString defaultRuleColor(int index);
     static QVariantList samplePalette(const QVariantList &source, int n);
+    static int averageRepeatCount(const quint64 *histogram);
 
 private:
     typedef std::function<QVector<QColor>(const QVariantMap &)> GenFn;
