@@ -299,6 +299,9 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
         statusBar()->showMessage(tr("The .b0s settings file is empty."), 7000);
         return false;
     }
+	
+	m_widthFromConfig = c.contains(QLatin1String(CFG_WIDTH_MODE))
+						|| c.contains(QLatin1String(CFG_FIXED_WIDTH));
 
     setMirrorState(
         c.value(QStringLiteral(CFG_MIRROR_H)).toBool(m_mirrorH),

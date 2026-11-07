@@ -1054,6 +1054,9 @@ int MainWindow::calculateWidth() const
 
 void MainWindow::applySquareWidthHint()
 {
+    if (m_widthFromConfig)
+        return;
+
     if (regionByteLength() == 0)
         return;
 

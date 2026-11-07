@@ -225,23 +225,23 @@ private:
     bool m_fitToWindow  = false;
     bool m_mirrorH      = false;
     bool m_mirrorV      = false;
-
-    int   m_imageWidth  = 0;
-    int   m_imageHeight = 0;
+	bool m_widthFromConfig = false;
+    int m_imageWidth  = 0;
+    int m_imageHeight = 0;
     QRect m_viewportRect;
     qint64 m_hoverAddr  = -1;
 
     // --- Palette ---
-    QString         m_currentPaletteId;
+    QString m_currentPaletteId;
     QVector<QColor> m_currentPalette;
-    QVariantMap     m_paletteParams;
-    bool            m_autoApplyPalette = true;
+    QVariantMap m_paletteParams;
+    bool m_autoApplyPalette = true;
 
     // --- Files ---
-    QString     m_lastDir;
+    QString m_lastDir;
     QStringList m_recentFiles;
-    QString     m_xorLabel;
-    qint64      m_xorDiffBytes = 0;
+    QString m_xorLabel;
+    qint64 m_xorDiffBytes = 0;
 
     // --- Performance ---
     int  m_tileSize           = 256;
