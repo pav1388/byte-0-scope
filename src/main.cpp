@@ -23,9 +23,9 @@
 #  endif
 #endif
 
-#include "appversion.h"
-#include "mainwindow.h"
-#include "settingsmanager.h"
+#include "definitions.h"
+#include "ui_mainwindow.h"
+#include "app_settingsmanager.h"
 
 // --- Настройки приложения (префикс MAIN_) ---
 #define MAIN_APP_STYLE          "Fusion"
@@ -51,7 +51,7 @@ static QTranslator *loadTranslator(QApplication &app,
 {
     const QStringList candidates = {
         prefix + lang,
-        prefix + lang.left(2)   // откат "ru_RU" -> "ru"
+        prefix + lang.left(2)
     };
 
     for (const QString &name : candidates) {
@@ -84,11 +84,8 @@ static QTranslator *loadTranslator(QApplication &app,
 
 static void installTranslators(QApplication &app)
 {
-    // Путь и кодировка INI — те же, что у MainWindow (SettingsManager); раньше
-    // логика выбора файла настроек была продублирована здесь.
     const QString language = SettingsManager().load()
         .value(QStringLiteral("language")).toString();
-    // Язык по умолчанию — встроенные строки, переводчики не нужны.
     if (language.isEmpty() || language == QLatin1String(MAIN_LANG_DEFAULT))
         return;
 
