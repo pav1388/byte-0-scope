@@ -1,9 +1,9 @@
 // Byte-0-scope - binary data visualizer
-// File: render_panoramawidget.cpp
+// File: ui_panorama.cpp
 // Copyright (C) 2026 pav13
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "render_panoramawidget.h"
+#include "ui_panorama.h"
 #include "ui_mainwindow.h"
 #include "app_thememanager.h"
 
@@ -17,7 +17,7 @@
 
 // --- Настройки модуля PanoramaWidget (префикс PW_) ---
 
-#define PW_FIXED_HEIGHT             130
+#define PW_FIXED_HEIGHT             128
 #define PW_CONTENT_MARGIN           10
 #define PW_MIN_VIEWPORT_PX          16
 #define PW_HOVER_COLOR_DELTA        30

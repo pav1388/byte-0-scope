@@ -124,6 +124,19 @@ using AI.</source>
     </message>
 </context>
 <context>
+    <name>ByteConverterWidget</name>
+    <message>
+        <location filename="../ui_byteconverter.cpp" line="+61"/>
+        <source>Dec:</source>
+        <translation>Dec:</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Hex:</source>
+        <translation>Hex:</translation>
+    </message>
+</context>
+<context>
     <name>BytesSource</name>
     <message>
         <location filename="../core_bytesource.cpp" line="+78"/>
@@ -304,7 +317,7 @@ Click again or press Esc to cancel.</source>
 Повторное нажатие или Esc — отмена.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+17"/>
         <source>Length mode</source>
         <translation>Режим длины</translation>
     </message>
@@ -314,7 +327,14 @@ Click again or press Esc to cancel.</source>
         <translation>Если включено, поле «Конец» трактуется как «Длина»</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+117"/>
+        <source>[X] Reset display
+settings</source>
+        <translation>[X] Сбросить настройки
+отображения</translation>
+    </message>
+    <message>
+        <location line="-127"/>
         <source>hex</source>
         <translation>hex</translation>
     </message>
@@ -324,7 +344,7 @@ Click again or press Esc to cancel.</source>
         <translation>Использовать шестнадцатеричный ввод (0x…)</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+13"/>
         <source>X</source>
         <translation>X</translation>
     </message>
@@ -390,27 +410,27 @@ Click again or press Esc to cancel.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+349"/>
+        <location line="+343"/>
         <source>For &quot;Manual&quot; — width in pixels.
 For &quot;Divisor ≤ N&quot; — upper width limit.</source>
         <translation>Для «Ручной» — ширина в пикселях.
 Для «Делитель ≤ N» — верхний предел ширины.</translation>
     </message>
     <message>
-        <location line="-344"/>
+        <location line="-338"/>
         <source>Width step:</source>
         <translation>Шаг ширины:</translation>
     </message>
     <message>
         <location line="+6"/>
-        <location line="+349"/>
+        <location line="+343"/>
         <source>Width change step with Ctrl+mouse wheel.
 Used in manual mode.</source>
         <translation>Шаг изменения ширины колесом мыши с Ctrl.
 Используется в ручном режиме.</translation>
     </message>
     <message>
-        <location line="-378"/>
+        <location line="-372"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
@@ -427,7 +447,7 @@ Pixels per row = bytes / bytesPerPixel.</source>
         <translation>Масштаб:</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+8"/>
         <source>Auto zoom</source>
         <translation>Автомасштаб</translation>
     </message>
@@ -454,13 +474,9 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
 при необходимости уменьшая.
 Взаимоисключающе с «Автомасштаб».</translation>
     </message>
+    
     <message>
-        <location line="+19"/>
-        <source>X Reset display settings</source>
-        <translation>X Сбросить настройки отображения</translation>
-    </message>
-    <message>
-        <location line="+3"/>
+        <location line="+20"/>
         <source>Restore display parameters to default values</source>
         <translation>Восстановить параметры отображения по умолчанию</translation>
     </message>
@@ -505,10 +521,12 @@ LSB-first: биты в байте расположены в обратном п�
 </context>
 <context>
     <name>DemoBuilder</name>
+    
     <message>
         <location filename="../core_demobuilder.cpp" line="+269"/>
-        <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;View&lt;/b&gt; -&gt; &lt;code&gt;Flip horizontally&lt;/code&gt;&lt;br&gt;</source>
-        <translation>&lt;b&gt;Обучение: восстановите изображение&lt;/b&gt;&lt;br&gt;&lt;br&gt;Файл загружен, но текущие настройки отображения неверны — вы видите шум. Приведите параметры к правильным значениям, и появятся заголовок «BYTE», текст и графика.&lt;br&gt;&lt;br&gt;&lt;b&gt;Правильные параметры:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Бит на пиксель&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Порядок битов&lt;/b&gt; -&gt; &lt;code&gt;LSB-first (LE)&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Порядок пикселей&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Палитра&lt;/b&gt; -&gt; &lt;code&gt;Любая&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Режим ширины&lt;/b&gt; -&gt; &lt;code&gt;Ручной&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Ширина&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Паддинг (бит)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;Вид&lt;/b&gt; -&gt; &lt;code&gt;Отразить по горизонтали&lt;/code&gt;&lt;br&gt;</translation>
+        <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;View&lt;/b&gt; -&gt; &lt;code&gt;Flip horizontally&lt;/code&gt;&lt;br&gt;</source>
+        <translation>&lt;b&gt;Обучение: восстановите изображение&lt;/b&gt;&lt;br&gt;&lt;br&gt;Файл загружен, но текущие настройки отображения неверны — вы видите шум. Приведите параметры к правильным значениям, и появятся заголовок «BYTE», текст и графика.&lt;br&gt;&lt;br&gt;&lt;b&gt;Правильные параметры:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Бит на пиксель&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Порядок битов&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Порядок пикселей&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Палитра&lt;/b&gt; -&gt; &lt;code&gt;Любая&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Режим ширины&lt;/b&gt; -&gt; &lt;code&gt;Ручной&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Ширина&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Паддинг (бит)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;Вид&lt;/b&gt; -&gt; &lt;code&gt;Отразить по горизонтали&lt;/code&gt;&lt;br&gt;
+</translation>
     </message>
 </context>
 <context>
@@ -602,9 +620,37 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
 </context>
 <context>
+    <name>HexViewWidget</name>
+    <message>
+        <location filename="../ui_hexviewwidget.cpp" line="+383"/>
+        <source>Decrease bytes per line by 8</source>
+        <translation>Уменьшить количество байтов в строке на 8</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Increase bytes per line by 8</source>
+        <translation>Увеличить количество байтов в строке на 8</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Go to selection</source>
+        <translation>Перейти к выделенному</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Decrease font size</source>
+        <translation>Уменьшить размер шрифта</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Increase font size</source>
+        <translation>Увеличить размер шрифта</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui_mainwindow.cpp" line="+274"/>
+        <location filename="../ui_mainwindow.cpp" line="+275"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -640,7 +686,7 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+4"/>
-        <location line="+1048"/>
+        <location line="+1122"/>
         <location line="+17"/>
         <location line="+31"/>
         <location line="+12"/>
@@ -649,7 +695,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1136"/>
+        <location line="-1210"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -679,57 +725,62 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Вид</translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+1"/>
         <source>Flip horizontally</source>
         <translation>Отразить по горизонтали</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>Flip vertically</source>
         <translation>Отразить по вертикали</translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+7"/>
         <source>Reset flips</source>
         <translation>Сбросить отражения</translation>
     </message>
     <message>
         <location line="+2"/>
+        <source>Hex view</source>
+        <translation>Hex вид</translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>Settings</source>
         <translation>Настройки</translation>
     </message>
     <message>
         <location line="+3"/>
-        <location line="+886"/>
+        <location line="+937"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-886"/>
-        <location line="+886"/>
+        <location line="-937"/>
+        <location line="+937"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-882"/>
-        <location line="+914"/>
+        <location line="-933"/>
+        <location line="+967"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-909"/>
-        <location line="+905"/>
+        <location line="-962"/>
+        <location line="+958"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-900"/>
-        <location line="+900"/>
+        <location line="-953"/>
+        <location line="+953"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-886"/>
+        <location line="-939"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -795,18 +846,18 @@ Applied the next time a file is opened.</source>
         <translation>(нет недавних файлов)</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+13"/>
         <source>Clear list</source>
         <translation>Очистить список</translation>
     </message>
     <message>
-        <location line="+53"/>
-        <location line="+386"/>
+        <location line="+76"/>
+        <location line="+401"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-378"/>
+        <location line="-393"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -817,11 +868,16 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+8"/>
+        <source>Byte converter</source>
+        <translation>Конвертер байтов</translation>
+    </message>
+    <message>
+        <location line="+7"/>
         <source>RAM usage</source>
         <translation>Использование ОЗУ</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+3"/>
         <source>· Process memory: — MB
 · Tile cache: — MB</source>
         <translation>· Память процесса: — МБ
@@ -880,12 +936,12 @@ from eviction, so momentarily the cache may exceed the limit.</source>
         <translation>Отладка</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+10"/>
         <source>(enable in Settings -&gt; Debug information)</source>
         <translation>(включается в Настройки -&gt; Отладочная информация)</translation>
     </message>
     <message>
-        <location line="+33"/>
+        <location line="+37"/>
         <source>Ready</source>
         <translation>Готово</translation>
     </message>
@@ -926,7 +982,7 @@ Expected: %2</source>
         <translation>Причина неизвестна.</translation>
     </message>
     <message>
-        <location line="+63"/>
+        <location line="+65"/>
         <source>File 1</source>
         <translation>Файл 1</translation>
     </message>
@@ -999,7 +1055,7 @@ Build a 64-bit version or reduce the file sizes.</source>
         <translation>Первые %1 байтов файлов идентичны, но размеры файлов различаются (%2 и %3 байта).</translation>
     </message>
     <message>
-        <location line="+406"/>
+        <location line="+420"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -1008,7 +1064,7 @@ Restart the application to apply the change.</source>
 Перезапустите приложение, чтобы применить изменение.</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+28"/>
         <source>A PNG export is already running.</source>
         <translation>Экспорт в формат PNG уже выполняется.</translation>
     </message>
@@ -1070,12 +1126,12 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-963"/>
+        <location line="-1036"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+1055"/>
+        <location line="+1128"/>
         <source>Byte-0-scope v%1</source>
         <translation>Байт-0-скоп v%1</translation>
     </message>
@@ -1090,7 +1146,7 @@ Restart the application to apply the change.</source>
         <translation> [различие: %1%]</translation>
     </message>
     <message>
-        <location line="+216"/>
+        <location line="+219"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1115,12 +1171,12 @@ Restart the application to apply the change.</source>
         <translation>· Кэш тайлов: %1 МБ / %2 МБ</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindowconfig.cpp" line="+299"/>
+        <location filename="../ui_mainwindowconfig.cpp" line="+308"/>
         <source>The .b0s settings file is empty.</source>
         <translation>Файл настроек .b0s пуст.</translation>
     </message>
     <message>
-        <location line="+47"/>
+        <location line="+50"/>
         <source>Could not save the .b0s settings: %1</source>
         <translation>Не удалось сохранить настройки .b0s: %1</translation>
     </message>
@@ -1145,7 +1201,7 @@ Restart the application to apply the change.</source>
         <translation>Было передано %1 файлов: сравниваются только первые два (XOR).</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindowdebug.cpp" line="+33"/>
+        <location filename="../ui_mainwindowdebug.cpp" line="+34"/>
         <source>GB</source>
         <translation>ГБ</translation>
     </message>
@@ -1165,7 +1221,7 @@ Restart the application to apply the change.</source>
         <translation>Б</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindow.cpp" line="+60"/>
+        <location filename="../ui_mainwindow.cpp" line="+62"/>
         <source>Tutorial: adjust the display settings to reveal the image.</source>
         <translation>Обучение: настройте параметры отображения, чтобы увидеть изображение.</translation>
     </message>
@@ -1777,7 +1833,7 @@ Auto-count: %1.</source>
 <context>
     <name>PanoramaWidget</name>
     <message>
-        <location filename="../render_panoramawidget.cpp" line="+127"/>
+        <location filename="../ui_panorama.cpp" line="+127"/>
         <source>No image</source>
         <translation>Нет изображения</translation>
     </message>

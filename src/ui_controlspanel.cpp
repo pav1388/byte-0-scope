@@ -25,11 +25,11 @@
 
 // --- Настройки модуля ControlsPanel (префикс CP_) ---
 
-#define CP_PANEL_FIXED_WIDTH        300
-#define CP_LAYOUT_MARGIN            4
-#define CP_LAYOUT_SPACING           6
+#define CP_PANEL_FIXED_WIDTH        258
+#define CP_LAYOUT_MARGIN            2
+#define CP_LAYOUT_SPACING           4
 #define CP_LAYOUT_COL_MIN_WIDTH     150
-#define CP_BUTTON_COMPACT_WIDTH     30
+#define CP_BUTTON_COMPACT_WIDTH     32
 #define CP_LABEL_END                QT_TRANSLATE_NOOP("ControlsPanel", "End:")
 #define CP_LABEL_LENGTH             QT_TRANSLATE_NOOP("ControlsPanel", "Length:")
 
@@ -122,8 +122,8 @@ void ControlsPanel::buildUi()
     fmtLay->addWidget(m_bitOrderLabel, row, 0);
     m_bitOrderCombo = new QComboBox(this);
     m_bitOrderCombo->setObjectName("bitOrderCombo");
-    m_bitOrderCombo->addItem(QStringLiteral("MSB-first (BE)"), QStringLiteral("msb"));
-    m_bitOrderCombo->addItem(QStringLiteral("LSB-first (LE)"), QStringLiteral("lsb"));
+    m_bitOrderCombo->addItem(QStringLiteral("MSB-first"), QStringLiteral("msb"));
+    m_bitOrderCombo->addItem(QStringLiteral("LSB-first"), QStringLiteral("lsb"));
     watch(m_bitOrderCombo);
     fmtLay->addWidget(m_bitOrderCombo, row++, 1);
 
@@ -131,8 +131,8 @@ void ControlsPanel::buildUi()
     fmtLay->addWidget(m_byteOrderLabel, row, 0);
     m_byteOrderCombo = new QComboBox(this);
     m_byteOrderCombo->setObjectName("byteOrderCombo");
-    m_byteOrderCombo->addItem(QStringLiteral("Big-endian (BE)"), QStringLiteral("big"));
-    m_byteOrderCombo->addItem(QStringLiteral("Little-endian (LE)"), QStringLiteral("little"));
+    m_byteOrderCombo->addItem(QStringLiteral("Big-endian"), QStringLiteral("big"));
+    m_byteOrderCombo->addItem(QStringLiteral("Little-endian"), QStringLiteral("little"));
     m_byteOrderCombo->setToolTip(tr(
         "Byte order within multi-byte pixel values (16/24/32/64 bpp).\n"
         "For RGB/RGBA palettes it also reverses the channel order\n"
@@ -213,7 +213,7 @@ void ControlsPanel::buildUi()
         else
             startRegionPick(true);
     });
-    regLay->addWidget(m_pickStartBtn, 0, 3);
+    regLay->addWidget(m_pickStartBtn, 0, 2);
 
     m_endLabel = new QLabel(tr(CP_LABEL_END), this);
     regLay->addWidget(m_endLabel, 1, 0);
@@ -247,22 +247,22 @@ void ControlsPanel::buildUi()
         else
             startRegionPick(false);
     });
-    regLay->addWidget(m_pickEndBtn, 1, 3);
-
-    m_lengthModeCheck = new QCheckBox(tr("Length mode"), this);
-    m_lengthModeCheck->setObjectName("lengthModeCheck");
-    m_lengthModeCheck->setToolTip(
-        tr("If checked, the 'End' field is interpreted as 'Length'"));
-    connect(m_lengthModeCheck, &QCheckBox::toggled,
-            this, &ControlsPanel::onLengthModeChanged);
-    regLay->addWidget(m_lengthModeCheck, 2, 0, 1, 2);
+    regLay->addWidget(m_pickEndBtn, 1, 2);
 
     m_hexModeCheck = new QCheckBox(tr("hex"), this);
     m_hexModeCheck->setObjectName("hexModeCheck");
     m_hexModeCheck->setToolTip(tr("Use hexadecimal input (0x…)"));
     connect(m_hexModeCheck, &QCheckBox::toggled,
             this, &ControlsPanel::onHexModeChanged);
-    regLay->addWidget(m_hexModeCheck, 2, 2, 1, 1);
+	regLay->addWidget(m_hexModeCheck, 2, 0, 1, 1);
+    
+	m_lengthModeCheck = new QCheckBox(tr("Length mode"), this);
+    m_lengthModeCheck->setObjectName("lengthModeCheck");
+    m_lengthModeCheck->setToolTip(
+        tr("If checked, the 'End' field is interpreted as 'Length'"));
+    connect(m_lengthModeCheck, &QCheckBox::toggled,
+            this, &ControlsPanel::onLengthModeChanged);
+    regLay->addWidget(m_lengthModeCheck, 2, 1, 1, 1);
 
     m_resetRegionBtn = new QPushButton(tr("X"), this);
     m_resetRegionBtn->setObjectName("resetRegionBtn");
@@ -271,7 +271,7 @@ void ControlsPanel::buildUi()
     m_resetRegionBtn->setToolTip(tr("Reset region: display all data"));
     connect(m_resetRegionBtn, &QPushButton::clicked,
             this, &ControlsPanel::resetRegionToDefault);
-    regLay->addWidget(m_resetRegionBtn, 2, 3, 1, 1);
+    regLay->addWidget(m_resetRegionBtn, 2, 2, 1, 1);
 
     layout->addWidget(regGroup);
 
@@ -340,10 +340,6 @@ void ControlsPanel::buildUi()
     watch(m_scaleSpin);
     dispLay->addWidget(m_scaleSpin, dr++, 1);
 
-    auto *checkboxRow = new QHBoxLayout();
-    checkboxRow->setContentsMargins(0, 0, 0, 0);
-    checkboxRow->setSpacing(10);
-
     m_autoScaleCheck = new QCheckBox(tr("Auto zoom"), this);
     m_autoScaleCheck->setObjectName("autoScaleCheck");
     m_autoScaleCheck->setToolTip(tr("Pick a zoom so the image takes up\n"
@@ -359,7 +355,7 @@ void ControlsPanel::buildUi()
         updateDisplayControlsEnabled();
         emit settingsChanged();
     });
-    checkboxRow->addWidget(m_autoScaleCheck);
+    dispLay->addWidget(m_autoScaleCheck, dr++, 0, 1, 2);
 
     m_fitCheck = new QCheckBox(tr("Fit to window"), this);
     m_fitCheck->setObjectName("fitCheck");
@@ -376,13 +372,11 @@ void ControlsPanel::buildUi()
         updateDisplayControlsEnabled();
         emit settingsChanged();
     });
-    checkboxRow->addWidget(m_fitCheck);
-    checkboxRow->addStretch();
-    dispLay->addLayout(checkboxRow, dr++, 0, 1, 2);
+    dispLay->addWidget(m_fitCheck, dr++, 0, 1, 2);
 
     layout->addWidget(dispGroup);
 
-    m_resetDisplayBtn = new QPushButton(tr("X Reset display settings"), this);
+    m_resetDisplayBtn = new QPushButton(tr("[X] Reset display\nsettings"), this);
     m_resetDisplayBtn->setObjectName("resetDisplayBtn");
     m_resetDisplayBtn->setAutoDefault(false);
     m_resetDisplayBtn->setToolTip(tr("Restore display parameters to default values"));

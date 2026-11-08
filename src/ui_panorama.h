@@ -1,5 +1,5 @@
 // Byte-0-scope - binary data visualizer
-// File: render_panoramawidget.h
+// File: ui_panorama.h
 // Copyright (C) 2026 pav13
 // SPDX-License-Identifier: GPL-3.0-or-later
 

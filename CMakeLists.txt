@@ -117,15 +117,16 @@ set(BS_SOURCES
     "${BS_SRC_DIR}/pal_palettemanager.cpp"
     "${BS_SRC_DIR}/pal_palettesettings.cpp"
     "${BS_SRC_DIR}/render_canvaswidget.cpp"
-    "${BS_SRC_DIR}/render_panoramawidget.cpp"
     "${BS_SRC_DIR}/render_tilemanager.cpp"
     "${BS_SRC_DIR}/ui_aboutdialog.cpp"
+    "${BS_SRC_DIR}/ui_byteconverter.cpp"
     "${BS_SRC_DIR}/ui_byteinfo.cpp"
     "${BS_SRC_DIR}/ui_controlspanel.cpp"
     "${BS_SRC_DIR}/ui_hexviewwidget.cpp"
     "${BS_SRC_DIR}/ui_mainwindow.cpp"
     "${BS_SRC_DIR}/ui_mainwindowconfig.cpp"
     "${BS_SRC_DIR}/ui_mainwindowdebug.cpp"
+    "${BS_SRC_DIR}/ui_panorama.cpp"
     "${BS_SRC_DIR}/resources/resources.qrc"
 )
 

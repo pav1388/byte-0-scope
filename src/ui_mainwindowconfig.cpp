@@ -270,6 +270,7 @@ QString MainWindow::configPathForFile(const QString &filePath) const
 QJsonObject MainWindow::configToJson() const
 {
     QJsonObject c;
+    c[QStringLiteral(CFG_VERSION)]          = m_version;
     c[QStringLiteral(CFG_BPP_MODE)]         = m_bppMode;
     c[QStringLiteral(CFG_BIT_ORDER)]        = m_bitOrder;
     c[QStringLiteral(CFG_PIXEL_ORDER)]      = m_pixelOrder;

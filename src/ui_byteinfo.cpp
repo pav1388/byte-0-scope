@@ -185,7 +185,7 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
             value = PixelDecoder::reverseBits8(value);
     }
 
-    lines << QString("&nbsp;&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
+    lines << QString("&nbsp;&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
                  .arg(byteToBin(value))
                  .arg(value);
 
@@ -238,8 +238,10 @@ QString ByteInfoWidget::formatBitpacked(qint64 addr, int bitOffset)
 
     if (spans) {
         const quint8 next = interpret(quint8(bytes[1]));
-        lines << QString("Next:&nbsp;<b>0x%1</b>&nbsp;Bin:&nbsp;<b>%2</b>")
-                     .arg(hexU(addr + 1, 8))
+        // lines << QString("Next:&nbsp;<b>0x%1</b>&nbsp;Bin:&nbsp;<b>%2</b>")
+                     // .arg(hexU(addr + 1, 8))
+                     // .arg(binMarked(next, 0, lastBit - 8));
+        lines << QString("Next:&nbsp;<b>%1</b>")
                      .arg(binMarked(next, 0, lastBit - 8));
     }
 

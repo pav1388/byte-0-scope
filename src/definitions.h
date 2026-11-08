@@ -13,6 +13,7 @@
 #endif
 
 //  Configuration keys (shared by INI settings and per-file .b0s JSON)
+#define CFG_VERSION             "version"
 #define CFG_BPP_MODE            "bpp_mode"
 #define CFG_PALETTE             "palette"
 #define CFG_BIT_ORDER           "bit_order"
@@ -46,6 +47,7 @@
 #define CFG_DEF_WIDTH_STEP      8
 #define CFG_DEF_SCALE           1
 #define CFG_DEF_BYTES_PER_ROW   16
+#define CFG_DEF_VERSION         1
 
 //  Width mode enum
 enum WidthMode {

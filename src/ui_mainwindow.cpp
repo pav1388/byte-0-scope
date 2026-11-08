@@ -13,13 +13,14 @@
 #include "pal_palettemanager.h"
 #include "pal_palettesettings.h"
 #include "render_canvaswidget.h"
-#include "render_panoramawidget.h"
 #include "render_tilemanager.h"
 #include "ui_aboutdialog.h"
+#include "ui_byteconverter.h"
 #include "ui_byteinfo.h"
 #include "ui_controlspanel.h"
 #include "ui_hexviewwidget.h"
 #include "ui_mainwindowconfig.h"
+#include "ui_panorama.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -77,7 +78,7 @@
 
 // --- Module settings (prefix MW_) ---
 
-#define MW_PANEL_WIDTH              300
+#define MW_PANEL_WIDTH              262
 #define MW_LAYOUT_SPACING           2
 #define MW_DEFAULT_WINDOW_W         1000
 #define MW_DEFAULT_WINDOW_H         720
@@ -297,10 +298,6 @@ void MainWindow::buildMenus()
     loadCfgAct->setShortcut(QKeySequence("Ctrl+L"));
     connect(loadCfgAct, &QAction::triggered, this, &MainWindow::loadConfigFromFile);
 
-    QAction *resetCfgAct = fileMenu->addAction(tr("Reset display settings"));
-    resetCfgAct->setShortcut(QKeySequence("Ctrl+R"));
-    connect(resetCfgAct, &QAction::triggered, this, &MainWindow::resetConfig);
-
     m_exportMenu = fileMenu->addMenu(tr("Export to PNG"));
     QAction *exportVisibleAct = m_exportMenu->addAction(
         tr("Current visible area…"));
@@ -332,6 +329,12 @@ void MainWindow::buildMenus()
     connect(quitAct, &QAction::triggered, this, &QWidget::close);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("View"));
+	
+    QAction *resetCfgAct = viewMenu->addAction(tr("Reset display settings"));
+    resetCfgAct->setShortcut(QKeySequence("Ctrl+R"));
+    connect(resetCfgAct, &QAction::triggered, this, &MainWindow::applyDefaultConfig);
+	viewMenu->addSeparator();
+	
     m_mirrorHAct = viewMenu->addAction(tr("Flip horizontally"));
     m_mirrorHAct->setCheckable(true);
     m_mirrorHAct->setChecked(m_mirrorH);
@@ -589,10 +592,16 @@ void MainWindow::buildUi()
             this, &MainWindow::onScrollTo);
     panLay->addWidget(m_panorama);
     rightLay->addWidget(panGroup);
+	
+    auto *convGroup = new QGroupBox(tr("Byte converter"), this);
+    auto *convLay = new QVBoxLayout(convGroup);
+    convLay->setContentsMargins(6, 6, 6, 6);
+    m_byteConverter = new ByteConverterWidget(this);
+    convLay->addWidget(m_byteConverter);
+    rightLay->addWidget(convGroup);
 
     auto *perfGroup = new QGroupBox(tr("RAM usage"), this);
     auto *perfLay = new QVBoxLayout(perfGroup);
-
     m_memoryLabel = new QLabel(
         tr("· Process memory: — MB\n· Tile cache: — MB"), this);
     perfLay->addWidget(m_memoryLabel);
@@ -635,7 +644,10 @@ void MainWindow::buildUi()
     m_debugGroup = new QGroupBox(tr("Debug"), this);
     auto *dbgLay = new QVBoxLayout(m_debugGroup);
     m_debugLabel = new QLabel(this);
-    m_debugLabel->setStyleSheet("font-family: monospace; font-size: 8pt;");
+    QFont debugFont(QStringLiteral("Monospace"));
+	debugFont.setStyleHint(QFont::TypeWriter);
+	debugFont.setPointSize(8);
+	m_debugLabel->setFont(debugFont);
     m_debugLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_debugLabel->setWordWrap(true);
     m_debugLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -1837,20 +1849,6 @@ void MainWindow::resetMirror()
     setMirrorState(false, false);
     if (m_canvas)
         m_canvas->rebuild();
-}
-
-// -------------------------------------------------------------------------
-//  Per-file config save/load: bodies now live in mainwindowconfig.cpp.
-//  The declarations in mainwindow.h stay so moc keeps them as slots.
-// -------------------------------------------------------------------------
-
-void MainWindow::resetConfig()
-{
-    if (!m_source.isOpen())
-        return;
-    if (m_source.sourcePath().isEmpty())
-        return;
-    applyDefaultConfig();
 }
 
 void MainWindow::resetDisplaySettings()

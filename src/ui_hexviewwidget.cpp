@@ -26,17 +26,16 @@
 #define HV_ROW_HEIGHT_EXTRA        2
 #define HV_SIDEBAR_CHARS           3
 #define HV_SIDEBAR_MARGIN          2
-#define HV_MIN_HEIGHT              160
+#define HV_MIN_HEIGHT              64
 #define HV_MAX_HEIGHT_RESERVE      100
-#define HV_ADDR_CHARS              10
 #define HV_GROUP_SIZE              8
-#define HV_SCROLL_STEP_ROWS        3
+#define HV_SCROLL_STEP_ROWS        2
 #define HV_ASCII_GAP               2
 #define HV_BPL_MIN                 8
 #define HV_BPL_MAX                 256
 #define HV_BPL_STEP                8
-#define HV_FONT_PT_MIN             6
-#define HV_FONT_PT_MAX             20
+#define HV_FONT_PT_MIN             5
+#define HV_FONT_PT_MAX             22
 #define HV_FONT_PT			       9
 
 HexViewWidget::HexViewWidget(MainWindow *parent)
@@ -154,8 +153,9 @@ QRect HexViewWidget::sidebarRect() const
 
 int HexViewWidget::visibleRows() const
 {
-    const int avail = height() - textTop() - HV_TEXT_TOP_MARGIN;
-    return qMax(1, avail / m_rowHeight);
+    if (!m_viewRect.isValid())
+        return 1;
+    return qMax(1, m_viewRect.height() / m_rowHeight);
 }
 
 int HexViewWidget::hexCharCount() const
@@ -165,12 +165,12 @@ int HexViewWidget::hexCharCount() const
 
 int HexViewWidget::asciiStartChar() const
 {
-    return HV_ADDR_CHARS + hexCharCount() + HV_ASCII_GAP;
+    return addrChars() + hexCharCount() + HV_ASCII_GAP;
 }
 
 int HexViewWidget::byteHexChar(int n) const
 {
-    return HV_ADDR_CHARS + n * 3 + n / HV_GROUP_SIZE;
+    return addrChars() + n * 3 + n / HV_GROUP_SIZE;
 }
 
 int HexViewWidget::byteAsciiChar(int n) const
@@ -180,7 +180,7 @@ int HexViewWidget::byteAsciiChar(int n) const
 
 int HexViewWidget::byteForCharColumn(int col) const
 {
-    if (col < HV_ADDR_CHARS)
+    if (col < addrChars())
         return -1;
     for (int n = 0; n < m_bytesPerLine; ++n) {
         const int start = byteHexChar(n);
@@ -260,6 +260,8 @@ void HexViewWidget::clearSelection()
 void HexViewWidget::applyFontMetrics()
 {
     m_mono.setPointSize(m_fontPt);
+	m_monoBold = m_mono;
+    m_monoBold.setBold(true);
     const QFontMetrics fm(m_mono);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     m_charWidth = qMax(4, fm.horizontalAdvance(QLatin1Char('0')));
@@ -404,23 +406,12 @@ void HexViewWidget::buildSidebar()
 		setFontPt(m_fontPt + 1);
 	});
 
-    // Заглушки на будущее
-    auto *phOptions1  = makeBtn(QStringLiteral("?"),
-                              tr("More options (coming soon)"));
-    auto *phOptions2 = makeBtn(QStringLiteral("?"),
-                              tr("More options (coming soon)"));
-    phOptions1->setEnabled(false);
-    phOptions2->setEnabled(false);
-
 	m_sidebarLayout->addWidget(m_bplMinusBtn);
 	m_sidebarLayout->addWidget(m_bplPlusBtn);
 	m_sidebarLayout->addWidget(gotoBtn);
 	m_sidebarLayout->addSpacing(6);
 	m_sidebarLayout->addWidget(m_fontMinusBtn);
 	m_sidebarLayout->addWidget(m_fontPlusBtn);
-	m_sidebarLayout->addSpacing(6);
-	m_sidebarLayout->addWidget(phOptions1);
-	m_sidebarLayout->addWidget(phOptions2);
 	m_sidebarLayout->addStretch();
 
     updateSidebarTheme();
@@ -440,16 +431,17 @@ void HexViewWidget::layoutChildren()
     const int textW = qMax(0, width() - sa.width() - textX);
     const int textH = qMax(0, height() - textY);
 
-    m_viewRect = QRect(textX, textY,
+    m_viewRect = QRect(textX,
+                       textY + m_rowHeight,
                        qMax(0, textW - sbW),
-                       qMax(0, textH - sbH));
+                       qMax(0, textH - sbH - m_rowHeight));
 
     if (m_vScroll)
-        m_vScroll->setGeometry(textX + textW - sbW, textY, sbW, textH);
+        m_vScroll->setGeometry(textX + textW - sbW, textY + m_rowHeight,
+                               sbW, qMax(0, textH - sbH - m_rowHeight));
     if (m_hScroll)
         m_hScroll->setGeometry(textX, textY + textH - sbH, textW - sbW, sbH);
 }
-
 int HexViewWidget::contentPixels() const
 {
     return (asciiStartChar() + m_bytesPerLine + 1) * m_charWidth;
@@ -516,6 +508,7 @@ void HexViewWidget::paintEvent(QPaintEvent *e)
     p.drawRect(rect().adjusted(0, 0, -1, -1));
 
     drawDragHandle(p);
+	drawHeaderRow(p);
     drawHexArea(p);
 }
 
@@ -536,19 +529,16 @@ void HexViewWidget::drawHexArea(QPainter &p)
     p.setFont(m_mono);
     p.setClipRect(m_viewRect);
 
-    const qint64 fs = fileSize();
-    const qint64 lastAddr = qMax<qint64>(0, fs - 1);
-    const int addrDigits = qMax(2, QString::number(lastAddr, 16).size());
-
+    const int digits = addrDigits();
     const int rows = visibleRows();
     const int baseX = m_viewRect.left() - m_hScrollOffset;
     const int baseY = m_viewRect.top();
 
     for (int row = 0; row < rows; ++row) {
         const qint64 baseAddr = m_scrollTopAddr + qint64(row) * m_bytesPerLine;
-        if (baseAddr >= fs)
+        if (baseAddr >= fileSize())
             break;
-        drawRow(p, row, baseAddr, addrDigits, baseX, baseY);
+        drawRow(p, row, baseAddr, digits, baseX, baseY);
     }
     p.setClipping(false);
 }
@@ -563,8 +553,10 @@ void HexViewWidget::drawRow(QPainter &p, int row, qint64 baseAddr,
     QStringLiteral("%1:")
         .arg(baseAddr, addrDigits, 16, QLatin1Char('0'))
         .toUpper();
+    p.setFont(m_monoBold);
     p.setPen(m_addr);
     p.drawText(baseX, baseline, addrText);
+    p.setFont(m_mono);
 
     const qint64 fs = fileSize();
     for (int n = 0; n < m_bytesPerLine; ++n) {
@@ -689,4 +681,50 @@ void HexViewWidget::leaveEvent(QEvent *e)
         update();
     }
     QWidget::leaveEvent(e);
+}
+
+void HexViewWidget::drawHeaderRow(QPainter &p)
+{
+    if (!m_viewRect.isValid())
+        return;
+
+    const QRect hr(m_viewRect.left(),
+                   m_viewRect.top() - m_rowHeight,
+                   m_viewRect.width(),
+                   m_rowHeight);
+
+    p.save();
+    p.setClipRect(hr);
+    p.fillRect(hr, m_bgAlt);
+    p.setFont(m_monoBold);
+    p.setPen(m_addr);
+
+    const int baseX    = m_viewRect.left() - m_hScrollOffset;
+    const int baseline = hr.top() + (m_rowHeight + m_ascent) / 2 - 2;
+
+    p.drawText(baseX + asciiStartChar() * m_charWidth, baseline,
+               QStringLiteral("ASCII"));
+
+    for (int n = 0; n < m_bytesPerLine; ++n) {
+        const int x = baseX + byteHexChar(n) * m_charWidth;
+        const QString label = QStringLiteral("%1")
+            .arg(n, 2, 16, QLatin1Char('0'))
+            .toUpper();
+        p.drawText(x, baseline, label);
+    }
+    p.setPen(m_border);
+    p.drawLine(hr.bottomLeft(), hr.bottomRight());
+    p.restore();
+}
+
+int HexViewWidget::addrDigits() const
+{
+    const qint64 fs = fileSize();
+    const qint64 lastAddr = qMax<qint64>(0, fs - 1);
+    return qMax(2, QString::number(lastAddr, 16).size());
+}
+
+int HexViewWidget::addrChars() const
+{
+    return addrDigits() + 2;   // +': '
 }

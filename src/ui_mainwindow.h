@@ -30,6 +30,7 @@ class QGroupBox;
 class QJsonObject;
 class CanvasWidget;
 class ControlsPanel;
+class ByteConverterWidget;
 class ByteInfoWidget;
 class PanoramaWidget;
 class PaletteSettingsPanel;
@@ -116,7 +117,6 @@ private slots:
     void closeCurrentFile();
     void saveCurrentConfig();
     void loadConfigFromFile();
-    void resetConfig();
     void toggleTheme();
     void clearRecent();
     void onSettingsChanged();
@@ -208,6 +208,7 @@ private:
     BytesSource m_source;
     qint64 m_fileSize = 0;
     int m_bppMode = CFG_DEF_BPP_MODE;
+    int m_version = CFG_DEF_VERSION;
     QString m_bitOrder = QStringLiteral(CFG_DEF_BIT_ORDER);
     QString m_pixelOrder = QStringLiteral(CFG_DEF_PIXEL_ORDER);
     QString m_byteOrder = QStringLiteral(CFG_DEF_BYTE_ORDER);
@@ -303,4 +304,6 @@ private:
     int m_hexBytesPerLine = 16;
     int m_hexFontPt = 9;
     bool m_hexViewVisible = false;
+	
+	ByteConverterWidget *m_byteConverter = nullptr;
 };

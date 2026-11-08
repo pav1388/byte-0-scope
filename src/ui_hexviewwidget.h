@@ -20,8 +20,6 @@ class QMouseEvent;
 class QResizeEvent;
 class QPaintEvent;
 
-// Классический hex-просмотрщик с обратной связью по выделенному байту.
-// Верхняя граница виджета (6 px) — draggable ручка изменения высоты.
 class HexViewWidget : public QWidget {
     Q_OBJECT
     Q_DISABLE_COPY(HexViewWidget)
@@ -81,9 +79,12 @@ private:
 
     // Отрисовка
     void drawHexArea(QPainter &p);
+	void drawHeaderRow(QPainter &p);
     void drawRow(QPainter &p, int row, qint64 baseAddr, int addrDigits,
                  int baseX, int baseY);
     void drawDragHandle(QPainter &p);
+	int addrDigits() const;
+    int addrChars() const;
 
     // Sidebar
     void buildSidebar();
@@ -110,6 +111,7 @@ private:
     int      m_dragStartHeight = 0;
 
     QFont m_mono;
+    QFont m_monoBold;
     int   m_charWidth  = 8;
     int   m_rowHeight  = 14;
     int   m_ascent     = 10;

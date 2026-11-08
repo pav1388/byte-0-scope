@@ -273,7 +273,7 @@ QString trainingHintHtml()
         "and the 'BYTE' heading, text, and graphics will appear.<br><br>"
         "<b>Correct parameters:</b><br>"
         "&nbsp;&nbsp;1. <b>Bits per pixel</b> -> <code>4 bpp</code><br>"
-        "&nbsp;&nbsp;2. <b>Bit order</b> -> <code>LSB-first (LE)</code><br>"
+        "&nbsp;&nbsp;2. <b>Bit order</b> -> <code>LSB-first</code><br>"
         "&nbsp;&nbsp;3. <b>Pixel order</b> -> <code>LSB-first</code><br>"
         "&nbsp;&nbsp;4. <b>Palette</b> -> <code>Any</code><br>"
         "&nbsp;&nbsp;5. <b>Width mode</b> -> <code>Manual</code><br>"
