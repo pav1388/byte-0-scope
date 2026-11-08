@@ -11,24 +11,24 @@
 
 //  MainWindow configuration layer
 struct StartupDisplayDefaults {
-    bool        hasAny          = false;
+    bool hasAny = false;
 
-    int         bppMode         = 8;
-    QString     paletteId;
-    QString     bitOrder;
-    QString     byteOrder;
-    QString     pixelOrder;
-    int         rowPaddingBits  = 0;
+    int bppMode = 8;
+    QString paletteId;
+    QString bitOrder;
+    QString byteOrder;
+    QString pixelOrder;
+    int rowPaddingBits = 0;
 
-    int         scale           = 1;
-    QString     widthModeKey;
-    int         fixedWidth      = 256;
-    int         widthStep       = 8;
-    int         bytesPerRow     = 16;
+    int scale = 1;
+    QString widthModeKey;
+    int fixedWidth = 256;
+    int widthStep = 8;
+    int bytesPerRow = 16;
 
-    bool        autoScale       = false;
-    bool        fitToWindow     = false;
-    bool        byteTooltip     = false;
+    bool autoScale = false;
+    bool fitToWindow = false;
+    bool byteTooltip = false;
 };
 
 bool loadStartupDisplayDefaults(const QVariantMap &ini,

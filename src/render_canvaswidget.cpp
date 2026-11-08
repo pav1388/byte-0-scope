@@ -666,3 +666,25 @@ QImage CanvasWidget::renderToImage(const QSize &targetSize)
         return QImage();
     return m_tiles->renderImage(targetSize, m_scale, m_downsample);
 }
+
+void CanvasWidget::setLockedAddress(qint64 addr, int bitOffset)
+{
+    if (addr < 0) {
+        clearLock();
+        return;
+    }
+    int x = -1, y = -1;
+    if (!pixelForAddress(addr, bitOffset, &x, &y)) {
+        clearLock();
+        return;
+    }
+    m_locked = true;
+    m_lockedAddr = addr;
+    m_lockedBitOffset = qBound(0, bitOffset, 7);
+    m_lockedSourcePixel = QPoint(x, y);
+    m_lockedSourcePixelValid = true;
+    m_hoverAddr = addr;
+    m_hoverBitOffset = m_lockedBitOffset;
+    emit lockedChanged(addr);
+    update();
+}

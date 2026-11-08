@@ -15,6 +15,7 @@
 
 #include "core_bytesource.h"
 #include "definitions.h"
+#include "ui_hexviewwidget.h"
 #include "ui_mainwindowconfig.h"
 
 class QLabel;
@@ -139,6 +140,7 @@ private slots:
                              const QString &errorMessage);
     void onDebugInfoToggled(bool enabled);
     void onTrainingButtonClicked();
+	void onHexViewToggled(bool enabled);
 
 private:
     void buildUi();
@@ -193,43 +195,43 @@ private:
     void        restoreWindowGeometry();
 
     // --- Startup state ---
-    QString                m_language;
+    QString m_language;
     StartupDisplayDefaults m_startupDefaults;
-    QString     m_startupGeometryB64;
-    QString     m_startupNormalGeometry;
-    bool        m_startupMaximized  = false;
-    bool        m_startupFullscreen = false;
-    bool        m_loadIntoMemory    = false;
-    QAction    *m_loadIntoMemoryAct = nullptr;
+    QString m_startupGeometryB64;
+    QString m_startupNormalGeometry;
+    bool m_startupMaximized = false;
+    bool m_startupFullscreen = false;
+    bool m_loadIntoMemory = false;
+    QAction *m_loadIntoMemoryAct = nullptr;
 
     // --- Source / format ---
     BytesSource m_source;
-    qint64      m_fileSize       = 0;
-    int         m_bppMode        = CFG_DEF_BPP_MODE;
-    QString     m_bitOrder       = QStringLiteral(CFG_DEF_BIT_ORDER);
-    QString     m_pixelOrder     = QStringLiteral(CFG_DEF_PIXEL_ORDER);
-    QString     m_byteOrder      = QStringLiteral(CFG_DEF_BYTE_ORDER);
-    int         m_rowPaddingBits = 0;
-    quint64     m_offset         = 0;
-    quint64     m_length         = 0;
-    bool        m_lengthMode     = false;
+    qint64 m_fileSize = 0;
+    int m_bppMode = CFG_DEF_BPP_MODE;
+    QString m_bitOrder = QStringLiteral(CFG_DEF_BIT_ORDER);
+    QString m_pixelOrder = QStringLiteral(CFG_DEF_PIXEL_ORDER);
+    QString m_byteOrder = QStringLiteral(CFG_DEF_BYTE_ORDER);
+    int m_rowPaddingBits = 0;
+    quint64 m_offset = 0;
+    quint64 m_length = 0;
+    bool m_lengthMode = false;
 
     // --- Display ---
-    int  m_scale        = CFG_DEF_SCALE;
-    int  m_downsample   = 1;
-    int  m_widthMode    = WM_Fixed;
-    int  m_bytesPerRow  = CFG_DEF_BYTES_PER_ROW;
-    int  m_fixedWidth   = CFG_DEF_FIXED_WIDTH;
-    int  m_widthStep    = CFG_DEF_WIDTH_STEP;
-    bool m_autoScale    = false;
+    int m_scale = CFG_DEF_SCALE;
+    int m_downsample = 1;
+    int m_widthMode = WM_Fixed;
+    int m_bytesPerRow  = CFG_DEF_BYTES_PER_ROW;
+    int m_fixedWidth = CFG_DEF_FIXED_WIDTH;
+    int m_widthStep = CFG_DEF_WIDTH_STEP;
+    bool m_autoScale = false;
     bool m_fitToWindow  = false;
-    bool m_mirrorH      = false;
-    bool m_mirrorV      = false;
+    bool m_mirrorH = false;
+    bool m_mirrorV = false;
 	bool m_widthFromConfig = false;
-    int m_imageWidth  = 0;
+    int m_imageWidth = 0;
     int m_imageHeight = 0;
     QRect m_viewportRect;
-    qint64 m_hoverAddr  = -1;
+    qint64 m_hoverAddr = -1;
 
     // --- Palette ---
     QString m_currentPaletteId;
@@ -244,29 +246,29 @@ private:
     qint64 m_xorDiffBytes = 0;
 
     // --- Performance ---
-    int  m_tileSize           = 256;
-    int  m_tilePrefetchMargin = 3;
-    int  m_perfSliderValue    = 10;
-    int  m_pendingPerfValue   = -1;
-    int  m_activeTileTasks    = 0;
-    bool m_busyPngExport      = false;
+    int m_tileSize = 256;
+    int m_tilePrefetchMargin = 3;
+    int m_perfSliderValue = 10;
+    int m_pendingPerfValue = -1;
+    int m_activeTileTasks = 0;
+    bool m_busyPngExport = false;
 
     // --- Histogram ---
     quint64 m_byteHistogram[256] = {0};
     bool    m_byteHistogramValid = false;
 
     // --- Managers ---
-    ThemeManager    *m_theme          = nullptr;
-    PaletteManager  *m_paletteManager = nullptr;
-    SettingsManager *m_settings       = nullptr;
+    ThemeManager *m_theme = nullptr;
+    PaletteManager *m_paletteManager = nullptr;
+    SettingsManager *m_settings = nullptr;
 
     // --- Widgets ---
-    ControlsPanel        *m_controls        = nullptr;
-    CanvasWidget         *m_canvas          = nullptr;
-    ByteInfoWidget       *m_byteInfo        = nullptr;
-    PanoramaWidget       *m_panorama        = nullptr;
+    ControlsPanel *m_controls = nullptr;
+    CanvasWidget *m_canvas = nullptr;
+    ByteInfoWidget *m_byteInfo = nullptr;
+    PanoramaWidget *m_panorama = nullptr;
     PaletteSettingsPanel *m_paletteSettings = nullptr;
-    QScrollArea          *m_centerScroll    = nullptr;
+    QScrollArea *m_centerScroll = nullptr;
 
     // --- Menus / actions ---
     QAction *m_themeAction     = nullptr;
@@ -279,19 +281,26 @@ private:
     QMenu   *m_exportMenu      = nullptr;
 
     // --- Status / debug panels ---
-    QSlider    *m_perfSlider   = nullptr;
-    QLabel     *m_memoryLabel  = nullptr;
-    QLabel     *m_busyLabel    = nullptr;
-    QLabel     *m_hintLabel    = nullptr;
-    QWidget    *m_hintContainer = nullptr;
-    QGroupBox  *m_debugGroup   = nullptr;
-    QLabel     *m_debugLabel   = nullptr;
+    QSlider *m_perfSlider = nullptr;
+    QLabel *m_memoryLabel = nullptr;
+    QLabel *m_busyLabel = nullptr;
+    QLabel *m_hintLabel = nullptr;
+    QWidget *m_hintContainer = nullptr;
+    QGroupBox *m_debugGroup = nullptr;
+    QLabel *m_debugLabel = nullptr;
 
-    QTimer *m_memoryTimer       = nullptr;
-    QTimer *m_resizeTimer       = nullptr;
+    QTimer *m_memoryTimer = nullptr;
+    QTimer *m_resizeTimer = nullptr;
     QTimer *m_perfDebounceTimer = nullptr;
 
     bool m_showDebugInfo = false;
     QPushButton *m_trainingBtn = nullptr;
-    bool         m_trainingMode = false;
+    bool m_trainingMode = false;
+	
+	HexViewWidget *m_hexView = nullptr;
+    QAction *m_hexViewAct = nullptr;
+	int m_hexViewHeight = 0;
+    int m_hexBytesPerLine = 16;
+    int m_hexFontPt = 9;
+    bool m_hexViewVisible = false;
 };

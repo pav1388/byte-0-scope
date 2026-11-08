@@ -122,6 +122,7 @@ set(BS_SOURCES
     "${BS_SRC_DIR}/ui_aboutdialog.cpp"
     "${BS_SRC_DIR}/ui_byteinfo.cpp"
     "${BS_SRC_DIR}/ui_controlspanel.cpp"
+    "${BS_SRC_DIR}/ui_hexviewwidget.cpp"
     "${BS_SRC_DIR}/ui_mainwindow.cpp"
     "${BS_SRC_DIR}/ui_mainwindowconfig.cpp"
     "${BS_SRC_DIR}/ui_mainwindowdebug.cpp"

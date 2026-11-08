@@ -55,6 +55,7 @@ public:
     QSize  scaledSize() const;
 
     TileManager *tileManager() const { return m_tiles; }
+	void setLockedAddress(qint64 addr, int bitOffset = 0);
 
 signals:
     void hoverChanged(qint64 addr);  // -1 = вне картинки

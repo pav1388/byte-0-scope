@@ -12,6 +12,7 @@
 #include "render_tilemanager.h"
 #include "ui_byteinfo.h"
 
+#include <QAction>
 #include <QGroupBox>
 #include <QString>
 #include <QStringList>
@@ -85,7 +86,7 @@ void MainWindow::updateDebugInfo()
     }
 
     QStringList L;
-    L.reserve(48);
+    L.reserve(64);
 
     // ────── Source ──────
     L << QStringLiteral("SOURCE:");
@@ -119,6 +120,7 @@ void MainWindow::updateDebugInfo()
     L << QStringLiteral("width_mode = ") + widthModeStr;
     L << QStringLiteral("fixed_width = ") + QString::number(m_fixedWidth);
     L << QStringLiteral("width_step = ") + QString::number(m_widthStep);
+    L << QStringLiteral("width_from_config = ") + formatBool(m_widthFromConfig);
     L << QStringLiteral("bytes_per_row = ") + QString::number(m_bytesPerRow);
     L << QStringLiteral("image_size = ") + QString::number(m_imageWidth)
          + QStringLiteral(" × ") + QString::number(m_imageHeight);
@@ -167,6 +169,25 @@ void MainWindow::updateDebugInfo()
     L << QStringLiteral("histogram_valid = ") + formatBool(m_byteHistogramValid);
     L << QStringLiteral("auto_apply_palette = ")
          + formatBool(m_autoApplyPalette);
+
+    // ────── Hex view ──────
+    L << QString();
+    L << QStringLiteral("HEX_VIEW:");
+    const bool hexActChecked = m_hexViewAct && m_hexViewAct->isChecked();
+    L << QStringLiteral("menu_checked = ") + formatBool(hexActChecked);
+    L << QStringLiteral("widget_visible = ")
+         + formatBool(m_hexView && m_hexView->isVisible());
+    L << QStringLiteral("widget_height = ")
+         + (m_hexView ? QString::number(m_hexView->height())
+                       : QStringLiteral("(none)"));
+    L << QStringLiteral("saved_height = ")
+         + QString::number(m_hexViewHeight);
+    L << QStringLiteral("bytes_per_line = ")
+         + QString::number(m_hexView ? m_hexView->bytesPerLine()
+                                     : m_hexBytesPerLine);
+    L << QStringLiteral("font_pt = ")
+         + QString::number(m_hexView ? m_hexView->fontPt()
+                                     : m_hexFontPt);
 
     // ────── Other ──────
     L << QString();

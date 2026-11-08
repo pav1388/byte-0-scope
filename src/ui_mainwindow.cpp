@@ -18,6 +18,7 @@
 #include "ui_aboutdialog.h"
 #include "ui_byteinfo.h"
 #include "ui_controlspanel.h"
+#include "ui_hexviewwidget.h"
 #include "ui_mainwindowconfig.h"
 
 #include <QAction>
@@ -331,7 +332,6 @@ void MainWindow::buildMenus()
     connect(quitAct, &QAction::triggered, this, &QWidget::close);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("View"));
-
     m_mirrorHAct = viewMenu->addAction(tr("Flip horizontally"));
     m_mirrorHAct->setCheckable(true);
     m_mirrorHAct->setChecked(m_mirrorH);
@@ -339,7 +339,6 @@ void MainWindow::buildMenus()
         m_mirrorH = checked;
         onMirrorChanged();
     });
-
     m_mirrorVAct = viewMenu->addAction(tr("Flip vertically"));
     m_mirrorVAct->setCheckable(true);
     m_mirrorVAct->setChecked(m_mirrorV);
@@ -347,9 +346,12 @@ void MainWindow::buildMenus()
         m_mirrorV = checked;
         onMirrorChanged();
     });
-
-    viewMenu->addSeparator();
     viewMenu->addAction(tr("Reset flips"), this, &MainWindow::resetMirror);
+	viewMenu->addSeparator();
+	m_hexViewAct = viewMenu->addAction(tr("Hex view"));
+	m_hexViewAct->setCheckable(true);
+	m_hexViewAct->setChecked(false);
+	connect(m_hexViewAct, &QAction::toggled, this, &MainWindow::onHexViewToggled);
 
     m_settingsMenu = menuBar()->addMenu(tr("Settings"));
 
@@ -511,6 +513,29 @@ void MainWindow::buildUi()
     if (m_controls)
         m_controls->setCanvasWidget(m_canvas);
     centerLay->addWidget(m_centerScroll, 1);
+	
+	m_hexView = new HexViewWidget(this);
+	m_hexView->setVisible(false);
+	if (m_hexBytesPerLine != 16)
+		m_hexView->setBytesPerLine(m_hexBytesPerLine);
+	if (m_hexFontPt != 9)
+		m_hexView->setFontPt(m_hexFontPt);
+	if (m_hexViewHeight > 0)
+		m_hexView->setFixedHeight(m_hexViewHeight);
+
+	connect(m_hexView, &HexViewWidget::heightChanged, this,
+			[this](int h) { m_hexViewHeight = h; });
+
+	connect(m_hexView, &HexViewWidget::byteSelected, this,
+			[this](qint64 addr, int bitOffset) {
+				if (!m_canvas)
+					return;
+				m_canvas->setLockedAddress(addr, bitOffset);
+				if (m_canvas->hasLockedPixel())
+					centerViewportOnSourcePixel(
+						m_canvas->lockedSourcePixelPosition());
+			});
+	centerLay->addWidget(m_hexView, 0);
 
     m_hintContainer = new QWidget(this);
     auto *hintLay = new QVBoxLayout(m_hintContainer);
@@ -647,6 +672,10 @@ void MainWindow::buildUi()
         connect(v, &QScrollBar::rangeChanged, this,
                 [refreshPanorama](int, int) { refreshPanorama(); });
     }
+	
+	if (m_hexViewAct)
+		m_hexViewAct->setChecked(m_hexViewVisible);
+	
     statusBar()->showMessage(tr("Ready"));
 }
 
@@ -719,6 +748,8 @@ void MainWindow::finishLoad()
     refreshTitle();
     if (m_panorama)
         m_panorama->updatePanorama();
+    if (m_hexView)
+        m_hexView->refresh();
 }
 
 void MainWindow::leaveTrainingMode()
@@ -910,6 +941,8 @@ void MainWindow::resetToDemo()
         m_canvas->clearHover();
     if (m_byteInfo)
         m_byteInfo->updateInfo(-1);
+	if (m_hexView)
+        m_hexView->refresh();
 
     applyDefaultConfig();
 }
@@ -1183,6 +1216,13 @@ void MainWindow::onLockedChanged(qint64 addr)
     if (m_byteInfo && addr >= 0)
         m_byteInfo->updateInfo(
             addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
+    if (m_hexView) {
+        if (addr >= 0)
+            m_hexView->setSelectedAddress(
+                addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
+        else
+            m_hexView->clearSelection();
+    }
 }
 
 void MainWindow::onScrollRequested(int dx, int dy)
@@ -1253,6 +1293,8 @@ void MainWindow::toggleTheme()
         m_byteInfo->updateTheme();
     if (m_paletteSettings && !m_currentPaletteId.isEmpty())
         m_paletteSettings->buildFor(m_currentPaletteId);
+    if (m_hexView)
+        m_hexView->updateTheme();
 }
 
 void MainWindow::onLanguageChanged(QAction *action)
@@ -1280,6 +1322,26 @@ void MainWindow::onLanguageChanged(QAction *action)
         tr("Language set to %1.\n\n"
            "Restart the application to apply the change.")
             .arg(langName));
+}
+
+void MainWindow::onHexViewToggled(bool enabled)
+{
+    if (!m_hexView)
+        return;
+
+    if (enabled) {
+        if (m_hexViewHeight > 0) {
+            m_hexView->setFixedHeight(m_hexViewHeight);
+        } else {
+            const int vh = m_centerScroll
+                ? m_centerScroll->viewport()->height() : 600;
+            m_hexView->setFixedHeight(qMax(160, vh / 3));
+            m_hexViewHeight = m_hexView->height();
+        }
+        m_hexView->refresh();
+    }
+    m_hexView->setVisible(enabled);
+    refreshTitle();
 }
 
 void MainWindow::exportPng(PngExportMode mode)
@@ -1477,8 +1539,11 @@ void MainWindow::refreshTitle()
         setWindowTitle(t);
     }
 
-    if (m_hintContainer)
-        m_hintContainer->setVisible(m_trainingMode || !hasFile);
+    if (m_hintContainer) {
+        const bool hexViewVisible = m_hexViewAct && m_hexViewAct->isChecked();
+        m_hintContainer->setVisible(!hexViewVisible
+                                    && (m_trainingMode || !hasFile));
+    }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *e)
@@ -1907,8 +1972,10 @@ void MainWindow::startTraining()
         m_trainingBtn->setVisible(false);
     if (m_hintLabel)
         m_hintLabel->setText(DemoBuilder::trainingHintHtml());
-
-    statusBar()->showMessage(
+	if (m_hexView)
+        m_hexView->refresh();
+    
+	statusBar()->showMessage(
         tr("Tutorial: adjust the display settings to reveal the image."),
         8000);
 }

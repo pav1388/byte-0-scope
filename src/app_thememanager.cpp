@@ -107,7 +107,7 @@ QPushButton {
     color: #dcdcdc;
     border: 1px solid #555;
     border-radius: 3px;
-    padding: 4px 8px;
+    padding: 2px 4px;
 }
 QPushButton:hover   { background-color: #4a4a4a; }
 QPushButton:pressed { background-color: #2a2a2a; }
@@ -151,27 +151,27 @@ QMenu::item:selected { background-color: #3c7fb1; color: #ffffff; }
 QStatusBar { background-color: #2b2b2b; color: #dcdcdc; }
 QScrollBar:vertical {
     background: #2b2b2b;
-    width: 12px;
+    width: 16px;
     margin: 0;
     border: none;
 }
 QScrollBar:horizontal {
     background: #2b2b2b;
-    height: 12px;
+    height: 16px;
     margin: 0;
     border: none;
 }
 QScrollBar::handle:vertical {
     background: #555;
-    min-height: 24px;
+    min-height: 28px;
     margin: 2px;
-    border-radius: 4px;
+    border-radius: 5px;
 }
 QScrollBar::handle:horizontal {
     background: #555;
-    min-width: 24px;
+    min-width: 28px;
     margin: 2px;
-    border-radius: 4px;
+    border-radius: 5px;
 }
 QScrollBar::handle:hover   { background: #6a6a6a; }
 QScrollBar::handle:pressed { background: #7a7a7a; }

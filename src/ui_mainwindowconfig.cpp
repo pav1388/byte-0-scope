@@ -12,6 +12,7 @@
 #include "ui_controlspanel.h"
 #include "ui_mainwindow.h"
 
+#include <QAction>
 #include <QByteArray>
 #include <QFile>
 #include <QFileInfo>
@@ -149,6 +150,10 @@ void MainWindow::loadSettings()
     m_startupNormalGeometry = s.value("window_normal_geometry").toString();
     m_startupMaximized      = s.value("window_maximized", false).toBool();
     m_startupFullscreen     = s.value("window_fullscreen", false).toBool();
+	m_hexViewHeight         = s.value("hex_view_height", 0).toInt();
+	m_hexBytesPerLine       = s.value("hex_bytes_per_line", 16).toInt();
+	m_hexFontPt             = s.value("hex_font_pt", 9).toInt();
+	m_hexViewVisible        = s.value("hex_view_visible", false).toBool();
     m_language = s.value("language",
                          QString::fromLatin1(AppLimits::LangEn)).toString();
     if (m_language.isEmpty())
@@ -193,6 +198,10 @@ void MainWindow::saveSettings()
     s["show_debug_info"]   = m_showDebugInfo;
     s["recent_files"]      = m_recentFiles;
     s["window_geometry"]   = QString::fromLatin1(saveGeometry().toBase64());
+	s["hex_view_height"]    = m_hexViewHeight;
+	s["hex_bytes_per_line"] = m_hexView ? m_hexView->bytesPerLine() : 16;
+	s["hex_font_pt"]        = m_hexView ? m_hexView->fontPt() : 9;
+	s["hex_view_visible"]   = m_hexViewAct && m_hexViewAct->isChecked();
 
     const QRect ng = normalGeometry();
     s["window_normal_geometry"] = QString("%1,%2,%3,%4")
