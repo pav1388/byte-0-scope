@@ -40,34 +40,43 @@ static const char *kAboutFeatures = QT_TRANSLATE_NOOP("AboutDialog",
     "  * Palettes for 1/2/3/4/8/16/24/32/64 bits per pixel\n"
     "  * Multi-byte formats: RGB, RGBA, ABGR, RGB565/555, integers, float\n"
     "  * Zooming and panning, panorama overview\n"
+    "  * Hex view (bytes + ASCII) with configurable layout\n"
     "  * Info panel with byte and pixel details\n"
-    "  * PNG export\n"
+    "  * Optional byte tooltip that follows the cursor\n"
+    "  * Dec / Hex byte converter\n"
+    "  * Debug info panel\n"
+    "  * PNG export (visible area / 1:1 / current scale)\n"
     "  * Compare two files via XOR\n"
     "  * Save/load display settings to .b0s next to the file\n"
     "  * Dark and light themes\n"
     "  * Horizontal and vertical mirroring\n"
-    "  * Configurable tile size and cache limit");
+    "  * Configurable tile size and cache limit\n"
+    "  * Built-in tutorial demo (\"Training\" mode)");
 
 static const char *kAboutControls = QT_TRANSLATE_NOOP("AboutDialog",
     "Controls:\n"
     "  * Left-click a pixel — lock the byte\n"
     "  * Right-click + drag — pan\n"
     "  * Wheel — zoom\n"
-    "  * Ctrl + wheel — row width (in manual mode)\n"
+    "  * Ctrl + wheel — row width (switches to manual width mode)\n"
+    "  * Left-click in the hex view — select a byte (synced with canvas)\n"
+    "  * Drag the top edge of the hex view — resize it\n"
+    "  * \"|+|\" / \"+|\" buttons — pick region start / end by click\n"
     "  * Ctrl+O — open file\n"
     "  * Ctrl+S — save .b0s next to the file\n"
     "  * Ctrl+L — load .b0s\n"
     "  * Ctrl+R — reset display settings\n"
-    "  * Ctrl+E — export to PNG\n"
+    "  * Ctrl+E — export to PNG (full image, 1:1)\n"
     "  * Ctrl+X — compare two files (XOR)\n"
     "  * Ctrl+W — close current file\n"
-    "  * Drag & drop — open a file by dragging");
+    "  * Drag & drop — open a file (two files -> XOR comparison)");
 
 static const char *kAboutFormats = QT_TRANSLATE_NOOP("AboutDialog",
     "Formats and settings:\n"
-    "  * b0s-settings.ini — global settings (theme, window geometry,\n"
-    "    performance, recent files). Stored next to the\n"
-    "    executable; if writing is not possible —\n"
+    "  * byte0scope-settings.ini — global settings (theme, language,\n"
+    "    window geometry, hex-view state, performance,\n"
+    "    recent files, default display parameters). Stored next\n"
+    "    to the executable; if writing is not possible —\n"
     "    in the user configuration directory.\n"
     "  * *.b0s — display settings for a specific file (JSON).\n"
     "    Stored next to the source file and picked up\n"
@@ -79,7 +88,8 @@ static const char *kAboutPerformance = QT_TRANSLATE_NOOP("AboutDialog",
     "  * Tile rendering of the visible region only\n"
     "  * LRU tile cache with automatic eviction\n"
     "  * Prefetching of neighboring tiles\n"
-    "  * Tile size ***-**** px, cache limit ***-**** MB");
+    "  * Tile size 256–2048 px, cache limit 180–1024 MB\n"
+    "    (up to 400 MB on 32-bit builds)");
 
 static const char *kAboutAi = QT_TRANSLATE_NOOP("AboutDialog",
     "Note: part of the code was generated or refined\n"

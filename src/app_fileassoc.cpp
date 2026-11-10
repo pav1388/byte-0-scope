@@ -208,7 +208,7 @@ bool registerLinux(const QString &ext, QString *err)
         out << "[Desktop Entry]\n"
             << "Type=Application\n"
             << "Name=" << FA_APP_NAME << "\n"
-            << "Comment=Binary file visualizer\n"
+            << "Comment=Binary data visualizer\n"
             << "Exec=\"" << exePath << "\" \"%f\"\n"
             << "Terminal=false\n"
             << "MimeType=" << mimeType << ";\n"

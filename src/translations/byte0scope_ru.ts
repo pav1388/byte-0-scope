@@ -15,6 +15,10 @@ License: GPL-3.0-or-later</source>
         <translation>Интерактивный визуализатор бинарных данных.
 Лицензия: GPL-3.0-or-later</translation>
     </message>
+    
+    
+    
+    
     <message>
         <location line="+4"/>
         <source>Key features:
@@ -22,91 +26,111 @@ License: GPL-3.0-or-later</source>
   * Palettes for 1/2/3/4/8/16/24/32/64 bits per pixel
   * Multi-byte formats: RGB, RGBA, ABGR, RGB565/555, integers, float
   * Zooming and panning, panorama overview
+  * Hex view (bytes + ASCII) with configurable layout
   * Info panel with byte and pixel details
-  * PNG export
+  * Optional byte tooltip that follows the cursor
+  * Dec / Hex byte converter
+  * Debug info panel
+  * PNG export (visible area / 1:1 / current scale)
   * Compare two files via XOR
   * Save/load display settings to .b0s next to the file
   * Dark and light themes
   * Horizontal and vertical mirroring
-  * Configurable tile size and cache limit</source>
-        <translation>Основные возможности:
+  * Configurable tile size and cache limit
+  * Built-in tutorial demo (&quot;Training&quot; mode)</source>
+        <translation>Ключевые возможности:
   * Визуализация файлов любого размера (КБ – ГБ)
   * Палитры для 1/2/3/4/8/16/24/32/64 бит на пиксель
-  * Многобайтовые форматы: RGB, RGBA, ABGR, RGB565/555, целые, float
+  * Многобайтовые форматы: RGB, RGBA, ABGR, RGB565/555, целые числа, float
   * Масштабирование и панорамирование, панорамный обзор
+  * Hex-просмотр (байты + ASCII) с настраиваемым расположением
   * Информационная панель с детализацией байта и пикселя
-  * Экспорт в PNG
+  * Опциональная всплывающая подсказка с деталями байта, следующая за курсором
+  * Конвертер байтов Dec / Hex
+  * Панель отладочной информации
+  * Экспорт в PNG (видимая область / 1:1 / текущий масштаб)
   * Сравнение двух файлов через XOR
   * Сохранение/загрузка настроек отображения в .b0s рядом с файлом
   * Тёмная и светлая темы
   * Зеркальное отражение по горизонтали и вертикали
-  * Настройка размера тайлов и лимита кэша</translation>
+  * Настраиваемый размер тайла и лимит кэша
+  * Встроенный обучающий демо-файл (режим «Обучение»)</translation>
     </message>
     <message>
-        <location line="+14"/>
+        <location line="+19"/>
         <source>Controls:
   * Left-click a pixel — lock the byte
   * Right-click + drag — pan
   * Wheel — zoom
-  * Ctrl + wheel — row width (in manual mode)
+  * Ctrl + wheel — row width (switches to manual width mode)
+  * Left-click in the hex view — select a byte (synced with canvas)
+  * Drag the top edge of the hex view — resize it
+  * &quot;|+|&quot; / &quot;+|&quot; buttons — pick region start / end by click
   * Ctrl+O — open file
   * Ctrl+S — save .b0s next to the file
   * Ctrl+L — load .b0s
   * Ctrl+R — reset display settings
-  * Ctrl+E — export to PNG
+  * Ctrl+E — export to PNG (full image, 1:1)
   * Ctrl+X — compare two files (XOR)
   * Ctrl+W — close current file
-  * Drag &amp; drop — open a file by dragging</source>
+  * Drag &amp; drop — open a file (two files -&gt; XOR comparison)</source>
         <translation>Управление:
   * ЛКМ по пикселю — закрепить байт
   * ПКМ + перемещение — панорамирование
   * Колесо — масштаб
-  * Ctrl + колесо — ширина строки (в ручном режиме)
+  * Ctrl + колесо — ширина строки (переключает в ручной режим ширины)
+  * ЛКМ в hex-просмотре — выбрать байт (синхронизируется с холстом)
+  * Перетаскивание верхнего края hex-просмотра — изменение высоты
+  * Кнопки &quot;|+|&quot; / &quot;+|&quot; — выбор начала / конца региона кликом
   * Ctrl+O — открыть файл
   * Ctrl+S — сохранить .b0s рядом с файлом
   * Ctrl+L — загрузить .b0s
   * Ctrl+R — сбросить настройки отображения
-  * Ctrl+E — экспорт в PNG
+  * Ctrl+E — экспорт в PNG (всё изображение, 1:1)
   * Ctrl+X — сравнить два файла (XOR)
   * Ctrl+W — закрыть текущий файл
-  * Drag &amp; drop — открыть файл перетаскиванием</translation>
+  * Drag &amp; drop — открыть файл (два файла -&gt; XOR-сравнение)</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+18"/>
         <source>Formats and settings:
-  * b0s-settings.ini — global settings (theme, window geometry,
-    performance, recent files). Stored next to the
-    executable; if writing is not possible —
+  * byte0scope-settings.ini — global settings (theme, language,
+    window geometry, hex-view state, performance,
+    recent files, default display parameters). Stored next
+    to the executable; if writing is not possible —
     in the user configuration directory.
   * *.b0s — display settings for a specific file (JSON).
     Stored next to the source file and picked up
     automatically on open.</source>
         <translation>Форматы и настройки:
-  * b0s-settings.ini — глобальные настройки (тема, геометрия окна,
-    производительность, последние файлы). Хранится рядом
+  * byte0scope-settings.ini — глобальные настройки (тема, язык,
+    геометрия окна, состояние hex-просмотра, производительность,
+    недавние файлы, параметры отображения по умолчанию). Хранится рядом
     с исполняемым файлом; если запись невозможна —
     в пользовательском каталоге конфигурации.
-  * *.b0s — настройки отображения конкретного файла (JSON).
+  * *.b0s — настройки отображения для конкретного файла (JSON).
     Хранится рядом с исходным файлом и подхватывается
     автоматически при открытии.</translation>
     </message>
     <message>
-        <location line="+10"/>
+        <location line="+11"/>
         <source>Performance:
   * Memory-mapping (mmap) for large files
   * Tile rendering of the visible region only
   * LRU tile cache with automatic eviction
   * Prefetching of neighboring tiles
-  * Tile size ***-**** px, cache limit ***-**** MB</source>
+  * Tile size 256–2048 px, cache limit 180–1024 MB
+    (up to 400 MB on 32-bit builds)</source>
         <translation>Производительность:
-  * Отображение файлов в память (mmap) для работы с крупными файлами
-  * Потайловый рендеринг (отрисовка только видимой области)
-  * LRU кэш тайлов
-  * Предварительная загрузка соседних тайлов
-  * Размер тайла: ***–**** пикселей, лимит кэша: ***–**** МБ</translation>
+  * Отображение в память (mmap) для больших файлов
+  * Тайловый рендеринг только видимой области
+  * LRU-кэш тайлов с автоматическим вытеснением
+  * Prefetching соседних тайлов
+  * Размер тайла 256–2048 px, лимит кэша 180–1024 MB
+    (до 400 MB в 32-битных сборках)</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+9"/>
         <source>Note: part of the code was generated or refined
 using AI.</source>
         <translation>Примечание: часть кода была сгенерирована или доработана
@@ -139,21 +163,21 @@ using AI.</source>
 <context>
     <name>BytesSource</name>
     <message>
-        <location filename="../core_bytesource.cpp" line="+78"/>
-        <location line="+50"/>
+        <location filename="../core_bytesource.cpp" line="+83"/>
+        <location line="+52"/>
         <source>Failed to open file:
 %1</source>
         <translation>Не удалось открыть файл:
 %1</translation>
     </message>
     <message>
-        <location line="-42"/>
-        <location line="+50"/>
+        <location line="-44"/>
+        <location line="+52"/>
         <source>Failed to determine file size.</source>
         <translation>Не удалось определить размер файла.</translation>
     </message>
     <message>
-        <location line="-38"/>
+        <location line="-40"/>
         <source>Failed to map the file into memory.
 
 File size: %1 MB
@@ -174,7 +198,16 @@ Possible solutions:
 • Проверьте свободное место в файле подкачки</translation>
     </message>
     <message>
-        <location line="+44"/>
+        <location line="+12"/>
+        <source>
+
+This is a 32-bit build: it can address only 2-4 GB of memory in total. Use the 64-bit build to open large files.</source>
+        <translation>
+
+Это 32-разрядная сборка: она может адресовать в общей сложности лишь 2–4 ГБ памяти. Для открытия больших файлов используйте 64-разрядную сборку.</translation>
+    </message>
+    <message>
+        <location line="+34"/>
         <source>The file is too large to load into memory.
 
 File size:    %1 MB (%2 bytes)
@@ -218,7 +251,7 @@ Read %1 of %2 bytes.
 <context>
     <name>ControlsPanel</name>
     <message>
-        <location filename="../ui_controlspanel.cpp" line="+33"/>
+        <location filename="../ui_controlspanel.cpp" line="+34"/>
         <source>End:</source>
         <translation>Конец:</translation>
     </message>
@@ -293,24 +326,24 @@ For RGB/RGBA palettes it also reverses the channel order
         <translation>Начало:</translation>
     </message>
     <message>
-        <location line="+7"/>
+        <location line="+6"/>
         <source>Region start (default 0)</source>
         <translation>Начало региона (по умолчанию 0)</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+15"/>
         <source>Pick region start: click, then left-click the desired byte.
 Click again or press Esc to cancel.</source>
         <translation>Выбрать начало региона: нажмите, затем ЛКМ по нужному байту.
 Повторное нажатие или Esc — отмена.</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+17"/>
         <source>Region end, or length if length mode is enabled</source>
         <translation>Конец региона, или длина, если включён режим длины</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="+15"/>
         <source>Pick region end: click, then left-click the desired byte.
 Click again or press Esc to cancel.</source>
         <translation>Выбрать конец региона: нажмите, затем щёлкните ЛКМ по нужному байту.
@@ -474,7 +507,6 @@ Mutually exclusive with &quot;Auto zoom&quot;.</source>
 при необходимости уменьшая.
 Взаимоисключающе с «Автомасштаб».</translation>
     </message>
-    
     <message>
         <location line="+20"/>
         <source>Restore display parameters to default values</source>
@@ -521,7 +553,6 @@ LSB-first: биты в байте расположены в обратном п�
 </context>
 <context>
     <name>DemoBuilder</name>
-    
     <message>
         <location filename="../core_demobuilder.cpp" line="+269"/>
         <source>&lt;b&gt;Training: restore the image&lt;/b&gt;&lt;br&gt;&lt;br&gt;The file is loaded, but the current display settings are incorrect — you are seeing noise. Set the parameters to the correct values, and the &apos;BYTE&apos; heading, text, and graphics will appear.&lt;br&gt;&lt;br&gt;&lt;b&gt;Correct parameters:&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;1. &lt;b&gt;Bits per pixel&lt;/b&gt; -&gt; &lt;code&gt;4 bpp&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;2. &lt;b&gt;Bit order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;3. &lt;b&gt;Pixel order&lt;/b&gt; -&gt; &lt;code&gt;LSB-first&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;4. &lt;b&gt;Palette&lt;/b&gt; -&gt; &lt;code&gt;Any&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;5. &lt;b&gt;Width mode&lt;/b&gt; -&gt; &lt;code&gt;Manual&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;6. &lt;b&gt;Width&lt;/b&gt; -&gt; &lt;code&gt;96&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;7. &lt;b&gt;Padding (bits)&lt;/b&gt; -&gt; &lt;code&gt;16&lt;/code&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;8. &lt;b&gt;View&lt;/b&gt; -&gt; &lt;code&gt;Flip horizontally&lt;/code&gt;&lt;br&gt;</source>
@@ -650,7 +681,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../ui_mainwindow.cpp" line="+275"/>
+        <location filename="../ui_mainwindow.cpp" line="+278"/>
         <source>File</source>
         <translation>Файл</translation>
     </message>
@@ -680,13 +711,13 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Загрузить настройки .b0s для файла</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+36"/>
         <source>Reset display settings</source>
         <translation>Сбросить настройки отображения</translation>
     </message>
     <message>
-        <location line="+4"/>
-        <location line="+1122"/>
+        <location line="-32"/>
+        <location line="+1124"/>
         <location line="+17"/>
         <location line="+31"/>
         <location line="+12"/>
@@ -695,7 +726,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1210"/>
+        <location line="-1212"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -725,7 +756,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Вид</translation>
     </message>
     <message>
-        <location line="+1"/>
+        <location line="+7"/>
         <source>Flip horizontally</source>
         <translation>Отразить по горизонтали</translation>
     </message>
@@ -751,36 +782,36 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+937"/>
+        <location line="+933"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-937"/>
-        <location line="+937"/>
+        <location line="-933"/>
+        <location line="+933"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-933"/>
-        <location line="+967"/>
+        <location line="-929"/>
+        <location line="+963"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-962"/>
-        <location line="+958"/>
+        <location line="-958"/>
+        <location line="+954"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-953"/>
-        <location line="+953"/>
+        <location line="-949"/>
+        <location line="+949"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-939"/>
+        <location line="-935"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -852,12 +883,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+76"/>
-        <location line="+401"/>
+        <location line="+397"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-393"/>
+        <location line="-389"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -1002,7 +1033,7 @@ Expected: %2</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
     <message>
-        <location line="+15"/>
+        <location line="+11"/>
         <source>Files are too large</source>
         <translation>Файлы слишком большие</translation>
     </message>
@@ -1099,12 +1130,7 @@ Restart the application to apply the change.</source>
         <translation>Файл назначения PNG не должен быть тем же самым файлом, который открыт в данный момент.</translation>
     </message>
     <message>
-        <location line="+13"/>
-        <source>The requested PNG dimensions are invalid or too large for this Qt build, or the export task could not be started.</source>
-        <translation>Запрошенные размеры PNG-изображения недопустимы или слишком велики для данной сборки Qt, либо не удалось запустить задачу экспорта.</translation>
-    </message>
-    <message>
-        <location line="+10"/>
+        <location line="+23"/>
         <source>PNG export started…</source>
         <translation>Начат экспорт в PNG…</translation>
     </message>
@@ -1126,12 +1152,17 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-1036"/>
+        <location line="-1032"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+1128"/>
+        <location line="+1086"/>
+        <source>The requested PNG dimensions are invalid, or the export task could not be started.</source>
+        <translation>Запрошенные размеры PNG-файла недопустимы, либо задачу экспорта не удалось запустить.</translation>
+    </message>
+    <message>
+        <location line="+38"/>
         <source>Byte-0-scope v%1</source>
         <translation>Байт-0-скоп v%1</translation>
     </message>
@@ -1146,7 +1177,7 @@ Restart the application to apply the change.</source>
         <translation> [различие: %1%]</translation>
     </message>
     <message>
-        <location line="+219"/>
+        <location line="+221"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1171,7 +1202,7 @@ Restart the application to apply the change.</source>
         <translation>· Кэш тайлов: %1 МБ / %2 МБ</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindowconfig.cpp" line="+308"/>
+        <location filename="../ui_mainwindowconfig.cpp" line="+309"/>
         <source>The .b0s settings file is empty.</source>
         <translation>Файл настроек .b0s пуст.</translation>
     </message>
@@ -1196,7 +1227,7 @@ Restart the application to apply the change.</source>
         <translation>Не удалось прочитать настройки .b0s: %1</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindow.cpp" line="+113"/>
+        <location filename="../ui_mainwindow.cpp" line="+99"/>
         <source>%1 files were given: only the first two are compared (XOR).</source>
         <translation>Было передано %1 файлов: сравниваются только первые два (XOR).</translation>
     </message>
@@ -1841,38 +1872,33 @@ Auto-count: %1.</source>
 <context>
     <name>TileManager</name>
     <message>
-        <location filename="../render_tilemanager.cpp" line="+557"/>
+        <location filename="../render_tilemanager.cpp" line="+561"/>
+        <location line="+199"/>
         <source>Invalid export dimensions.</source>
         <translation>Недопустимые размеры экспорта.</translation>
     </message>
     <message>
-        <location line="+16"/>
+        <location line="-183"/>
         <source>The requested export area is outside the image.</source>
         <translation>Запрашиваемая область экспорта находится за пределами изображения.</translation>
     </message>
     <message>
-        <location line="+8"/>
-        <source>The PNG is too large for this Qt build.</source>
-        <translation>Файл PNG слишком велик для данной сборки Qt.</translation>
+        <location line="+7"/>
+        <source>The PNG row is too wide for this build.</source>
+        <translation>Строка PNG слишком широка для этой сборки.</translation>
     </message>
     <message>
-        <location line="+11"/>
-        <source>The PNG would require more memory than is safely available.</source>
-        <translation>Для этого PNG-файла потребовалось бы больше памяти, чем имеется в наличии без риска для системы.</translation>
+        <location line="+12"/>
+        <source>Not enough memory to buffer a single PNG row.</source>
+        <translation>Недостаточно памяти для буферизации одной строки PNG.</translation>
     </message>
     <message>
-        <location line="+110"/>
-        <source>The image could not be rendered. Check its dimensions and available memory.</source>
-        <translation>Не удалось отобразить изображение. Проверьте его размеры и доступный объем памяти.</translation>
-    </message>
-    <message>
-        <location line="+13"/>
-        <location line="+10"/>
+        <location line="+153"/>
         <source>PNG export was cancelled.</source>
         <translation>Экспорт в PNG отменён.</translation>
     </message>
     <message>
-        <location line="+35"/>
+        <location line="+116"/>
         <location line="+6"/>
         <source>The export task could not be started.</source>
         <translation>Не удалось запустить задачу экспорта.</translation>
