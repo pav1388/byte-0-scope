@@ -10,6 +10,7 @@
 
 class QComboBox;
 class QSpinBox;
+class Int64SpinBox;
 class QCheckBox;
 class QLabel;
 class QPushButton;
@@ -98,8 +99,8 @@ private:
     QComboBox *m_paletteCombo = nullptr;
 
     // Регион
-    QSpinBox    *m_offsetSpin = nullptr;
-    QSpinBox    *m_endSpin = nullptr;
+    Int64SpinBox *m_offsetSpin = nullptr;
+    Int64SpinBox *m_endSpin = nullptr;
     QLabel      *m_endLabel = nullptr;
     QPushButton *m_resetRegionBtn = nullptr;
     QPushButton *m_pickStartBtn = nullptr;

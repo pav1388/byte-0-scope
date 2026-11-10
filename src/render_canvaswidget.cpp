@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "render_canvaswidget.h"
+#include "qt_compat.h"
 #include "core_pixelmath.h"
 #include "ui_mainwindow.h"
 
@@ -175,9 +176,9 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
 {
     QPainter painter(this);
     const QRegion dirtyRegion = event->region();
-    const QVector<QRect> dirtyRects = dirtyRegion.rects();
-    for (const QRect &dirtyRect : dirtyRects)
+    QtCompat::forEachRegionRect(dirtyRegion, [&](const QRect &dirtyRect) {
         painter.fillRect(dirtyRect, palette().window());
+    });
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
 
     if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main || !m_tiles)
@@ -577,7 +578,7 @@ void CanvasWidget::wheelEvent(QWheelEvent *e)
     }
 
     m_wheelAccumulatedDelta += d;
-    m_pendingWheelCursorPos = e->pos();
+    m_pendingWheelCursorPos = QtCompat::wheelPos(e);
     m_wheelDebounceTimer->start(CW_WHEEL_DEBOUNCE_MS);
     e->accept();
 }

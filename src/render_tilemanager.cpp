@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "render_tilemanager.h"
+#include "qt_compat.h"
 #include "render_canvaswidget.h"
 #include "ui_mainwindow.h"
 #include "core_bitpackedreader.h"
@@ -876,13 +877,13 @@ void TileManager::storeTile(const TileKey &key, const QImage &image)
 {
     const auto old = m_tiles.constFind(key);
     if (old != m_tiles.constEnd())
-        m_cachedBytes -= qMax<qint64>(0, old->image.byteCount());
+        m_cachedBytes -= qMax<qint64>(0, QtCompat::imageBytes(old->image));
 
     CacheEntry entry;
     entry.image = image;
     entry.lastUsed = ++m_accessCounter;
     m_tiles.insert(key, entry);
-    m_cachedBytes += qMax<qint64>(0, image.byteCount());
+    m_cachedBytes += qMax<qint64>(0, QtCompat::imageBytes(image));
 }
 
 void TileManager::cleanupByMemory()
@@ -894,7 +895,7 @@ void TileManager::cleanupByMemory()
     for (auto it = m_tiles.constBegin(); it != m_tiles.constEnd(); ++it) {
         if (m_visibleTiles.contains(it.key()))
             continue;
-        nonVisibleBytes += qMax<qint64>(0, it->image.byteCount());
+        nonVisibleBytes += qMax<qint64>(0, QtCompat::imageBytes(it->image));
     }
 
     if (nonVisibleBytes <= m_cacheLimitBytes)
@@ -922,7 +923,7 @@ void TileManager::cleanupByMemory()
         if (tileIt == m_tiles.end())
             continue;
 
-        const qint64 bytes = qMax<qint64>(0, tileIt->image.byteCount());
+        const qint64 bytes = qMax<qint64>(0, QtCompat::imageBytes(tileIt->image));
         nonVisibleBytes = qMax<qint64>(0, nonVisibleBytes - bytes);
         m_cachedBytes   = qMax<qint64>(0, m_cachedBytes - bytes);
         m_tiles.erase(tileIt);

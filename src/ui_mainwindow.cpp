@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "ui_mainwindow.h"
+#include "qt_compat.h"
 #include "app_fileassoc.h"
 #include "app_settingsmanager.h"
 #include "app_thememanager.h"
@@ -86,6 +87,8 @@
 #define MW_MEMORY_TIMER_MS          2000
 #define MW_RESIZE_DEBOUNCE_MS       50
 #define MW_PERF_DEBOUNCE_MS         1000
+#define MW_CACHE_MAX_MB_64          1000
+#define MW_CACHE_MAX_MB_32          400
 #define MW_SHORTEN_NAME_MAX         30
 #define MW_BYTES_PER_KB             1024LL
 #define MW_BYTES_PER_MB             (1024.0 * 1024.0)
@@ -819,11 +822,7 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     const qint64 sizeB = f2.size();
     const qint64 needed = sizeA + sizeB + qMin(sizeA, sizeB);
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-    const qint64 qbaMax = qint64(QByteArray::maxSize());
-#else
-    const qint64 qbaMax = qint64(std::numeric_limits<int>::max());
-#endif
+    const qint64 qbaMax = QtCompat::byteArrayMaxSize();
 
     if (needed > qbaMax) {
         QMessageBox::warning(this, tr("Files are too large"),
@@ -1744,8 +1743,10 @@ void MainWindow::applyPerfFromSlider(int value)
     const double logM = norm * std::log(6.0);
     m_tilePrefetchMargin = qBound(2, int(std::exp(logM) + 0.5), 7);
 
-    const double logC = std::log(180.0) + norm * (std::log(1000.0) - std::log(180.0));
-    const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), 1000);
+    const int cacheMaxMb = QtCompat::is32BitProcess() ? MW_CACHE_MAX_MB_32
+                                                      : MW_CACHE_MAX_MB_64;
+    const double logC = std::log(180.0) + norm * (std::log(double(cacheMaxMb)) - std::log(180.0));
+    const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), cacheMaxMb);
 
     if (m_canvas && m_canvas->tileManager()) {
         m_canvas->tileManager()->setCacheLimitMb(cacheMb);

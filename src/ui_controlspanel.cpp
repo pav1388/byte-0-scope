@@ -5,6 +5,7 @@
 
 #include "ui_controlspanel.h"
 #include "ui_mainwindow.h"
+#include "ui_int64spinbox.h"
 #include "pal_palettemanager.h"
 #include "render_canvaswidget.h"
 #include "definitions.h"
@@ -183,16 +184,14 @@ void ControlsPanel::buildUi()
     regLay->setColumnStretch(1, 1);
 
     regLay->addWidget(new QLabel(tr("Start:")), 0, 0);
-    m_offsetSpin = new QSpinBox(this);
+    m_offsetSpin = new Int64SpinBox(this);
     m_offsetSpin->setObjectName("offsetSpin");
-    m_offsetSpin->setRange(0, 0x7FFFFFFF);
-    m_offsetSpin->setValue(0);
-    m_offsetSpin->setGroupSeparatorShown(false);
+    m_offsetSpin->setRange64(0, Int64SpinBox::maxAllowed());
+    m_offsetSpin->setValue64(0);
     m_offsetSpin->setKeyboardTracking(false);
     m_offsetSpin->setToolTip(tr("Region start (default 0)"));
-    connect(m_offsetSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
+    connect(m_offsetSpin, &Int64SpinBox::value64Changed,
+            this, [this](qint64) {
                 if (m_updatingConfig)
                     return;
                 clampRegionBounds(true);
@@ -217,16 +216,14 @@ void ControlsPanel::buildUi()
 
     m_endLabel = new QLabel(tr(CP_LABEL_END), this);
     regLay->addWidget(m_endLabel, 1, 0);
-    m_endSpin = new QSpinBox(this);
+    m_endSpin = new Int64SpinBox(this);
     m_endSpin->setObjectName("endSpin");
-    m_endSpin->setRange(0, 0x7FFFFFFF);
-    m_endSpin->setValue(0);
-    m_endSpin->setGroupSeparatorShown(false);
+    m_endSpin->setRange64(0, Int64SpinBox::maxAllowed());
+    m_endSpin->setValue64(0);
     m_endSpin->setKeyboardTracking(false);
     m_endSpin->setToolTip(tr("Region end, or length if length mode is enabled"));
-    connect(m_endSpin,
-            static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, [this](int) {
+    connect(m_endSpin, &Int64SpinBox::value64Changed,
+            this, [this](qint64) {
                 if (m_updatingConfig)
                     return;
                 clampRegionBounds(false);
@@ -432,8 +429,8 @@ void ControlsPanel::resetRegionToDefault()
 {
     {
         QSignalBlocker b1(m_offsetSpin), b2(m_endSpin), b3(m_lengthModeCheck);
-        m_offsetSpin->setValue(0);
-        m_endSpin->setValue(0);
+        m_offsetSpin->setValue64(0);
+        m_endSpin->setValue64(0);
         m_lengthModeCheck->setChecked(false);
         if (m_endLabel)
             m_endLabel->setText(tr(CP_LABEL_END));
@@ -508,20 +505,20 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
 
     if (target == PickNone)
         return;
-    if (address < 0 || address > 0x7FFFFFFF)
+    if (address < 0 || address > Int64SpinBox::maxAllowed())
         return;
 
-    const int maxVal = 0x7FFFFFFF;
+    const qint64 maxVal = m_offsetSpin->maximum64();
 
     if (target == PickStart) {
-        int newStart = int(address);
+        qint64 newStart = address;
         if (!m_lengthModeCheck->isChecked()) {
-            const int curEnd = m_endSpin->value();
+            const qint64 curEnd = m_endSpin->value64();
             if (curEnd != 0 && newStart >= curEnd)
-                newStart = qMax(0, curEnd - 1);
+                newStart = qMax<qint64>(0, curEnd - 1);
         }
         QSignalBlocker bo(m_offsetSpin);
-        m_offsetSpin->setValue(newStart);
+        m_offsetSpin->setValue64(newStart);
     } else {
         if (m_lengthModeCheck->isChecked()) {
             QSignalBlocker b(m_lengthModeCheck);
@@ -530,13 +527,13 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
                 m_endLabel->setText(tr(CP_LABEL_END));
         }
 
-        int newEnd = int(address);
-        const int curStart = m_offsetSpin->value();
+        qint64 newEnd = address;
+        const qint64 curStart = m_offsetSpin->value64();
         if (newEnd <= curStart)
             newEnd = qMin(curStart + 1, maxVal);
 
         QSignalBlocker be(m_endSpin);
-        m_endSpin->setValue(newEnd);
+        m_endSpin->setValue64(newEnd);
     }
 
     notifyChanged();
@@ -694,13 +691,11 @@ void ControlsPanel::updateDisplayControlsEnabled()
 
 void ControlsPanel::applyHexModeToSpins(bool useHex)
 {
-    for (QSpinBox *spin : { m_offsetSpin, m_endSpin }) {
+    for (Int64SpinBox *spin : { m_offsetSpin, m_endSpin }) {
         if (!spin)
             continue;
         QSignalBlocker b(spin);
-        spin->setDisplayIntegerBase(useHex ? 16 : 10);
-        spin->setPrefix(useHex ? QStringLiteral("0x") : QString());
-        spin->setGroupSeparatorShown(false);
+        spin->setHexMode(useHex);
     }
 }
 
@@ -711,22 +706,22 @@ void ControlsPanel::clampRegionBounds(bool startChanged)
     if (m_lengthModeCheck->isChecked())
         return;
 
-    const int maxVal   = m_offsetSpin->maximum();
-    const int curStart = m_offsetSpin->value();
-    const int curEnd   = m_endSpin->value();
+    const qint64 maxVal   = m_offsetSpin->maximum64();
+    const qint64 curStart = m_offsetSpin->value64();
+    const qint64 curEnd   = m_endSpin->value64();
 
     QSignalBlocker bo(m_offsetSpin);
     QSignalBlocker be(m_endSpin);
 
     if (startChanged) {
         if (curEnd != 0 && curStart >= curEnd) {
-            const int newStart = qMax(0, curEnd - 1);
-            m_offsetSpin->setValue(newStart);
+            const qint64 newStart = qMax<qint64>(0, curEnd - 1);
+            m_offsetSpin->setValue64(newStart);
         }
     } else {
         if (curEnd != 0 && curEnd <= curStart) {
-            const int newEnd = qMin(curStart + 1, maxVal);
-            m_endSpin->setValue(newEnd);
+            const qint64 newEnd = qMin(curStart + 1, maxVal);
+            m_endSpin->setValue64(newEnd);
         }
     }
 }
@@ -734,11 +729,11 @@ void ControlsPanel::clampRegionBounds(bool startChanged)
 bool ControlsPanel::regionIsValid() const
 {
     if (m_lengthModeCheck->isChecked())
-        return m_endSpin->value() > 0 || m_offsetSpin->value() == 0;
-    const int end = m_endSpin->value();
+        return m_endSpin->value64() > 0 || m_offsetSpin->value64() == 0;
+    const qint64 end = m_endSpin->value64();
     if (end == 0)                       // «весь файл» — валидно
         return true;
-    return end > m_offsetSpin->value();
+    return end > m_offsetSpin->value64();
 }
 
 // =========================================================================
@@ -804,13 +799,13 @@ bool ControlsPanel::fitToWindow() const
 
 quint64 ControlsPanel::offset() const
 {
-    return quint64(m_offsetSpin->value());
+    return quint64(m_offsetSpin->value64());
 }
 
 quint64 ControlsPanel::length() const
 {
     const quint64 off = offset();
-    const quint64 endOrLen = quint64(m_endSpin->value());
+    const quint64 endOrLen = quint64(m_endSpin->value64());
     if (m_lengthModeCheck->isChecked())
         return endOrLen;
     return endOrLen > off ? (endOrLen - off) : 0;
@@ -978,7 +973,7 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     if (m_endLabel)
         m_endLabel->setText(lenMode ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
 
-    const quint64 maxSpinValue = quint64(m_endSpin->maximum());
+    const quint64 maxSpinValue = quint64(m_endSpin->maximum64());
     const quint64 safeOffsetVal = qMin(offsetVal, maxSpinValue);
 
     quint64 displayVal = 0;
@@ -993,14 +988,14 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     {
         QSignalBlocker bs1(m_offsetSpin), bs2(m_endSpin);
 
-        m_offsetSpin->setValue(int(safeOffsetVal));
-        m_endSpin->setValue(int(displayVal));
+        m_offsetSpin->setValue64(qint64(safeOffsetVal));
+        m_endSpin->setValue64(qint64(displayVal));
 
         if (!m_lengthModeCheck->isChecked()
-                && m_endSpin->value() != 0
-                && m_endSpin->value() <= m_offsetSpin->value()) {
-            const int maxVal = m_offsetSpin->maximum();
-            m_endSpin->setValue(qMin(m_offsetSpin->value() + 1, maxVal));
+                && m_endSpin->value64() != 0
+                && m_endSpin->value64() <= m_offsetSpin->value64()) {
+            const qint64 maxVal = m_offsetSpin->maximum64();
+            m_endSpin->setValue64(qMin(m_offsetSpin->value64() + 1, maxVal));
         }
     }
 

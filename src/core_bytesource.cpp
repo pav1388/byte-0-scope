@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "core_bytesource.h"
+#include "qt_compat.h"
 
 #include <QCoreApplication>
 #include <QFile>
@@ -34,8 +35,12 @@ qint64 BytesSource::availableMemory()
 #ifdef Q_OS_WIN
     MEMORYSTATUSEX ms;
     ms.dwLength = sizeof(ms);
-    if (GlobalMemoryStatusEx(&ms))
-        return qint64(ms.ullAvailPhys);
+    if (GlobalMemoryStatusEx(&ms)) {
+        // 32-bit process: the limit is the free address space (2 GB, or up to
+        // 4 GB with /LARGEADDRESSAWARE), not the amount of free RAM.
+        // On a 64-bit process ullAvailVirtual is huge, so min() = RAM.
+        return qint64(qMin<quint64>(ms.ullAvailPhys, ms.ullAvailVirtual));
+    }
     return 0;
 #elif defined(Q_OS_LINUX)
     QFile f(QStringLiteral("/proc/meminfo"));
@@ -106,6 +111,12 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
                 "• Check free space in the swap file")
                 .arg(mf->size / BS_BYTES_PER_MB, 0, 'f', 1)
                 .arg(mf->file.errorString());
+            if (QtCompat::is32BitProcess()) {
+                m_lastError += QCoreApplication::translate(
+                    "BytesSource",
+                    "\n\nThis is a 32-bit build: it can address only 2-4 GB of "
+                    "memory in total. Use the 64-bit build to open large files.");
+            }
             mf->file.close();
             return false;
         }
@@ -117,11 +128,7 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
     }
 
     // ---------- readAll ----------
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-    const qint64 qbaMax = qint64(QByteArray::maxSize());
-#else
-    const qint64 qbaMax = qint64(std::numeric_limits<int>::max());
-#endif
+    const qint64 qbaMax = QtCompat::byteArrayMaxSize();
 
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
@@ -239,13 +246,18 @@ QByteArray BytesSource::mid(qint64 offset, qint64 length) const
         if (offset >= m_mapped->size)
             return QByteArray();
         const qint64 avail = m_mapped->size - offset;
-        const qint64 take  = qMin(length, avail);
+        // QByteArray size is int in Qt 5: never let it wrap around.
+        const qint64 take  = qMin(qMin(length, avail),
+                                  qint64(std::numeric_limits<int>::max()));
         return QByteArray(reinterpret_cast<const char *>(m_mapped->mapped) + offset,
                           int(take));
     }
     if (offset >= m_data.size())
         return QByteArray();
-    return m_data.mid(int(offset), int(length));
+    // int(length) could wrap to a negative value, and mid(pos, -1) returns
+    // everything up to the end - clamp first.
+    return m_data.mid(int(offset),
+                      int(qMin(length, qint64(std::numeric_limits<int>::max()))));
 }
 
 const uchar *BytesSource::rawData() const
