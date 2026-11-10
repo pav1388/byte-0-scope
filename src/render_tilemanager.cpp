@@ -4,25 +4,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "render_tilemanager.h"
-#include "qt_compat.h"
-#include "render_canvaswidget.h"
-#include "ui_mainwindow.h"
 #include "core_bitpackedreader.h"
 #include "core_pixeldecoder.h"
 #include "core_pixelmath.h"
+#include "qt_compat.h"
+#include "render_canvaswidget.h"
+#include "render_pngstream.h"
+#include "ui_mainwindow.h"
 
 #include <QCoreApplication>
 #include <QImageWriter>
-#include <QSaveFile>
 #include <QMetaObject>
-#include <QPointer>
 #include <QPainter>
+#include <QPointer>
 #include <QRunnable>
+#include <QSaveFile>
 #include <QThread>
 #include <QThreadPool>
 #include <algorithm>
 #include <climits>
 #include <limits>
+#include <list>
+#include <map>
 #include <utility>
 
 namespace {
@@ -576,23 +579,22 @@ bool validPngExportRegion(const RenderContext &context, const QRect &canvasRect,
     }
 
     const qint64 rowBytes = qint64(canvasRect.width()) * 4;
-    if (rowBytes <= 0 || rowBytes > INT_MAX
-            || qint64(canvasRect.height()) > INT_MAX / rowBytes) {
+    if (rowBytes <= 0 || rowBytes > INT_MAX) {
         if (errorMessage)
-            *errorMessage = QCoreApplication::translate("TileManager", "The PNG is too large for this Qt build.");
+            *errorMessage = QCoreApplication::translate("TileManager",
+                "The PNG row is too wide for this build.");
         return false;
     }
 
-    const qint64 imageBytes = rowBytes * qint64(canvasRect.height());
+    const qint64 streamOverhead = rowBytes + 1024 * 1024;   // row + IDAT
     const qint64 availableMemory = BytesSource::availableMemory();
     if (availableMemory > 0) {
         const qint64 reserve = qMin<qint64>(512LL * 1024 * 1024,
                                             availableMemory / 4);
-        if (imageBytes > availableMemory - reserve) {
+        if (streamOverhead > availableMemory - reserve) {
             if (errorMessage)
-                *errorMessage = QCoreApplication::translate(
-                    "TileManager",
-                    "The PNG would require more memory than is safely available.");
+                *errorMessage = QCoreApplication::translate("TileManager",
+                    "Not enough memory to buffer a single PNG row.");
             return false;
         }
     }
@@ -677,6 +679,53 @@ QImage renderPngExportRegion(const RenderContext &context,
     return output;
 }
 
+// Локальный LRU-кэш тайлов для стримингового экспорта.
+// Не трогаем интерактивный кэш TileManager — экспорт идёт в рабочем
+// потоке и не должен пересекаться с UI.
+class TileCache {
+public:
+    explicit TileCache(qint64 maxBytes)
+        : m_maxBytes(qMax<qint64>(16LL * 1024 * 1024, maxBytes)) {}
+
+    QImage get(const TileKey &key) {
+        auto it = m_map.find(key);
+        if (it == m_map.end())
+            return QImage();
+        m_order.splice(m_order.begin(), m_order, it->second);
+        return it->second->second;
+    }
+
+    void put(const TileKey &key, const QImage &img) {
+        if (img.isNull())
+            return;
+        const qint64 sz = QtCompat::imageBytes(img);
+        auto it = m_map.find(key);
+        if (it != m_map.end()) {
+            m_bytes -= QtCompat::imageBytes(it->second->second);
+            it->second->second = img;
+            m_order.splice(m_order.begin(), m_order, it->second);
+            m_bytes += sz;
+        } else {
+            m_order.emplace_front(key, img);
+            m_map[key] = m_order.begin();
+            m_bytes += sz;
+        }
+        while (m_bytes > m_maxBytes && !m_order.empty()) {
+            auto &back = m_order.back();
+            m_bytes -= QtCompat::imageBytes(back.second);
+            m_map.erase(back.first);
+            m_order.pop_back();
+        }
+    }
+
+private:
+    qint64 m_maxBytes;
+    std::list<std::pair<TileKey, QImage>> m_order;
+    std::map<TileKey,
+             std::list<std::pair<TileKey, QImage>>::iterator> m_map;
+    qint64 m_bytes = 0;
+};
+
 } // namespace
 
 class PngExportTask : public QRunnable {
@@ -691,50 +740,105 @@ public:
         setAutoDelete(true);
     }
 
-    void run() override
-    {
-        bool success = false;
-        QString errorMessage;
+	void run() override
+	{
+		bool success = false;
+		QString errorMessage;
 
-        if (m_context && !cancelled(*m_context)) {
-            const QImage image = renderPngExportRegion(
-                *m_context, m_canvasRect, m_scale, m_downsample, m_background);
-            if (image.isNull()) {
-                errorMessage = QCoreApplication::translate(
-                    "TileManager",
-                    "The image could not be rendered. Check its dimensions and available memory.");
-            } else {
-                QSaveFile file(m_path);
-                if (!file.open(QIODevice::WriteOnly)) {
-                    errorMessage = file.errorString();
-                } else {
-                    QImageWriter writer(&file, QByteArray("png"));
-                    if (!writer.write(image)) {
-                        errorMessage = writer.errorString();
-                        file.cancelWriting();
-                    } else if (cancelled(*m_context)) {
-                        errorMessage = QCoreApplication::translate("TileManager", "PNG export was cancelled.");
-                        file.cancelWriting();
-                    } else if (!file.commit()) {
-                        errorMessage = file.errorString();
-                    } else {
-                        success = true;
-                    }
-                }
-            }
-        } else {
-            errorMessage = QCoreApplication::translate("TileManager", "PNG export was cancelled.");
-        }
+		if (!m_context || cancelled(*m_context)) {
+			errorMessage = QCoreApplication::translate(
+				"TileManager", "PNG export was cancelled.");
+		} else {
+			const RenderContext &ctx = *m_context;
+			const int scale = m_scale;
+			const int ds = qMax(1, m_downsample);
+			const int outputTileSize = tileOutputSize(ctx.tileSize, ds);
+			const qint64 canvasW = m_canvasRect.width();
+			const qint64 canvasH = m_canvasRect.height();
 
-        if (m_manager) {
-            QMetaObject::invokeMethod(m_manager.data(),
-                                      "onPngExportTaskFinished",
-                                      Qt::QueuedConnection,
-                                      Q_ARG(QString, m_path),
-                                      Q_ARG(bool, success),
-                                      Q_ARG(QString, errorMessage));
-        }
-    }
+			if (outputTileSize <= 0 || canvasW <= 0 || canvasH <= 0) {
+				errorMessage = QCoreApplication::translate(
+					"TileManager", "Invalid export dimensions.");
+			} else {
+				qint64 cacheBudget = 256LL * 1024 * 1024;
+				const qint64 avail = BytesSource::availableMemory();
+				if (avail > 0)
+					cacheBudget = qBound<qint64>(32LL * 1024 * 1024,
+												 avail / 4,
+												 512LL * 1024 * 1024);
+				TileCache tileCache(cacheBudget);
+
+				const quint8 bgR = quint8(m_background.red());
+				const quint8 bgG = quint8(m_background.green());
+				const quint8 bgB = quint8(m_background.blue());
+				const quint8 bgA = quint8(m_background.alpha());
+
+				auto provideRow = [&](int rowIdx, quint8 *rowData) -> bool {
+					if (cancelled(ctx))
+						return false;
+
+					const qint64 canvasY = qint64(m_canvasRect.y()) + rowIdx;
+					const qint64 outY = canvasY / scale;
+					const int tileY  = int(outY / outputTileSize);
+					const int localY = int(outY % outputTileSize);
+
+					quint8 *p = rowData;
+					int lastTileX = -1;
+					QImage lastTile;
+
+					for (qint64 x = 0; x < canvasW; ++x) {
+						if ((x & 0x3FF) == 0 && cancelled(ctx))
+							return false;
+
+						const qint64 canvasX = qint64(m_canvasRect.x()) + x;
+						const qint64 outX = canvasX / scale;
+						const int tileX  = int(outX / outputTileSize);
+						const int localX = int(outX % outputTileSize);
+
+						if (tileX != lastTileX) {
+							lastTileX = tileX;
+							const TileKey key(tileX, tileY, ds);
+							lastTile = tileCache.get(key);
+							if (lastTile.isNull()) {
+								lastTile = TileManager::renderTile(ctx, key);
+								if (!lastTile.isNull())
+									tileCache.put(key, lastTile);
+							}
+						}
+
+						quint8 r = bgR, g = bgG, b = bgB, a = bgA;
+						if (!lastTile.isNull()
+								&& localX < lastTile.width()
+								&& localY < lastTile.height()) {
+							const QRgb px = reinterpret_cast<const QRgb *>(
+								lastTile.constScanLine(localY))[localX];
+							r = quint8(qRed(px));
+							g = quint8(qGreen(px));
+							b = quint8(qBlue(px));
+							a = quint8(qAlpha(px));
+						}
+						*p++ = r;
+						*p++ = g;
+						*p++ = b;
+						*p++ = a;
+					}
+					return true;
+				};
+
+				success = PngStream::writeRgba(
+					m_path, int(canvasW), int(canvasH), provideRow, &errorMessage);
+			}
+		}
+
+		if (m_manager) {
+			QMetaObject::invokeMethod(m_manager.data(),
+									  "onPngExportTaskFinished",
+									  Qt::QueuedConnection,
+									  Q_ARG(QString, m_path),
+									  Q_ARG(bool, success),
+									  Q_ARG(QString, errorMessage));
+		}
+	}
 
 private:
     QString m_path;

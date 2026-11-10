@@ -38,6 +38,12 @@ struct TileKey {
     bool operator==(const TileKey &o) const {
         return tx == o.tx && ty == o.ty && ds == o.ds;
     }
+	
+    bool operator<(const TileKey &o) const {
+        if (ds != o.ds) return ds < o.ds;
+        if (ty != o.ty) return ty < o.ty;
+        return tx < o.tx;
+    }
 };
 
 Q_DECLARE_METATYPE(TileKey)

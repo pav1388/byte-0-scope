@@ -1486,10 +1486,10 @@ void MainWindow::exportPng(PngExportMode mode)
             &exportError)) {
         QMessageBox::warning(
             this, tr("Export to PNG"),
-            exportError.isEmpty()
-                ? tr("The requested PNG dimensions are invalid or too large for this Qt build, "
-                     "or the export task could not be started.")
-                : exportError);
+			exportError.isEmpty()
+				? tr("The requested PNG dimensions are invalid, "
+					 "or the export task could not be started.")
+				: exportError);
         return;
     }
 

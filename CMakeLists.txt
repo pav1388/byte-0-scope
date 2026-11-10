@@ -320,7 +320,8 @@ set(BS_SOURCES
     "${BS_SRC_DIR}/pal_palettemanager.cpp"
     "${BS_SRC_DIR}/pal_palettesettings.cpp"
     "${BS_SRC_DIR}/render_canvaswidget.cpp"
-    "${BS_SRC_DIR}/render_tilemanager.cpp"
+    "${BS_SRC_DIR}/render_pngstream.cpp"
+	"${BS_SRC_DIR}/render_tilemanager.cpp"
     "${BS_SRC_DIR}/ui_aboutdialog.cpp"
     "${BS_SRC_DIR}/ui_byteconverter.cpp"
     "${BS_SRC_DIR}/ui_byteinfo.cpp"
@@ -341,7 +342,21 @@ else()
     add_executable(byte0scope ${BS_SOURCES})
 endif()
 
-target_link_libraries(byte0scope PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets)
+if(MINGW AND NOT ZLIB_ROOT AND NOT ZLIB_INCLUDE_DIR)
+    get_filename_component(_mingw_bin  "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    get_filename_component(_mingw_root "${_mingw_bin}"          DIRECTORY)
+    file(GLOB _mingw_sysroots "${_mingw_root}/*-w64-mingw32")
+    foreach(_sr ${_mingw_sysroots})
+        if(EXISTS "${_sr}/include/zlib.h" AND EXISTS "${_sr}/lib/libz.a")
+            set(ZLIB_ROOT "${_sr}" CACHE PATH "zlib root" FORCE)
+            message(STATUS "zlib root (auto): ${ZLIB_ROOT}")
+            break()
+        endif()
+    endforeach()
+endif()
+find_package(ZLIB REQUIRED)
+
+target_link_libraries(byte0scope PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets ZLIB::ZLIB)
 
 if(COMMAND qt5_import_plugins)
     qt5_import_plugins(byte0scope
