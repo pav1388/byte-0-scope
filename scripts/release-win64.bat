@@ -1,10 +1,28 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-cd /d "%~dp0"
+REM =====================================================================
+REM  release-win64.bat
+REM
+REM  Packs releases\byte-0-scope-vVERSION-win64-static\ and the matching .zip
+REM  from build-win64\byte0scope.exe  (Windows 7+, 64-bit).
+REM  Build first: scripts\build-win64.bat
+REM =====================================================================
 
+REM ---------------------- SETTINGS: edit if needed ---------------------
+REM Release name suffix: byte-0-scope-vVERSION-TAG
+set "TAG=win64-static"
+
+REM 1 = compress byte0scope.exe with UPX (upx must be in PATH), 0 = do not.
+REM (Off for 64-bit: UPX-packed 64-bit exe files are flagged by antivirus more often.)
+set "USE_UPX=1"
+REM ---------------------------------------------------------------------
+
+set "ERR="
+set "PROFILE=win64"
 for %%i in ("%~dp0..") do set "PROJECT_ROOT=%%~fi"
-set "SRC_EXE=%PROJECT_ROOT%\build\byte0scope.exe"
+
+set "SRC_EXE=%PROJECT_ROOT%\build-%PROFILE%\byte0scope.exe"
 set "SRC_README=%PROJECT_ROOT%\README.md"
 set "SRC_README_RU=%PROJECT_ROOT%\README.ru.md"
 set "SRC_SAMPLES=%PROJECT_ROOT%\sample-bin"
@@ -12,32 +30,23 @@ set "SRC_SAMPLES_ZIP=%SRC_SAMPLES%\sample-bin.zip"
 set "RELEASE_ROOT=%PROJECT_ROOT%\releases"
 
 REM --- read version (first line, spaces stripped) ---
-if not exist "%PROJECT_ROOT%\version.txt" (
-    echo ERROR: version.txt not found at "%PROJECT_ROOT%"
-    pause & exit /b 1
-)
+if not exist "%PROJECT_ROOT%\version.txt" set "ERR=version.txt not found at %PROJECT_ROOT%" & goto :fail
 set "VERSION="
 set /p VERSION=<"%PROJECT_ROOT%\version.txt"
 set "VERSION=%VERSION: =%"
-if "%VERSION%"=="" (
-    echo ERROR: version.txt is empty.
-    pause & exit /b 1
-)
+if "%VERSION%"=="" set "ERR=version.txt is empty." & goto :fail
 
-set "NAME=byte-0-scope-v%VERSION%-win32-static"
+set "NAME=byte-0-scope-v%VERSION%-%TAG%"
 set "DEST=%RELEASE_ROOT%\%NAME%"
 set "ZIP_PATH=%RELEASE_ROOT%\%NAME%.zip"
 set "DEST_SAMPLES=%DEST%\sample-bin"
 
 REM --- sanity ---
-if not exist "%SRC_EXE%" (
-    echo ERROR: %SRC_EXE% not found. Build first ^(scripts\build.bat^).
-    pause & exit /b 1
-)
-if not exist "%SRC_README%" (
-    echo ERROR: %SRC_README% not found.
-    pause & exit /b 1
-)
+if not exist "%SRC_EXE%" set "ERR=%SRC_EXE% not found. Build first: scripts\build-%PROFILE%.bat" & goto :fail
+if not exist "%SRC_README%" set "ERR=%SRC_README% not found." & goto :fail
+
+echo.
+echo ==== Byte-0-scope release: %PROFILE% ====
 
 REM --- create release dir ---
 if not exist "%RELEASE_ROOT%" mkdir "%RELEASE_ROOT%"
@@ -46,18 +55,16 @@ if not exist "%DEST%" mkdir "%DEST%"
 
 REM --- README.md (always overwrite) ---
 copy /Y "%SRC_README%" "%DEST%\README.md" >nul
-if errorlevel 1 (
-    echo ERROR: failed to copy README.md
-    pause & exit /b 1
-)
+if errorlevel 1 set "ERR=failed to copy README.md" & goto :fail
 echo [ok] README.md
 
-copy /Y "%SRC_README_RU%" "%DEST%\README.ru.md" >nul
-if errorlevel 1 (
-    echo ERROR: failed to copy README.ru.md
-    pause & exit /b 1
+if exist "%SRC_README_RU%" (
+    copy /Y "%SRC_README_RU%" "%DEST%\README.ru.md" >nul
+    if errorlevel 1 set "ERR=failed to copy README.ru.md" & goto :fail
+    echo [ok] README.ru.md
+) else (
+    echo [--] README.ru.md not found, skipped
 )
-echo [ok] README.ru.md
 
 REM --- sample-tim (extract sample-tim.zip into release sample-tim) ---
 REM if exist "%SRC_SAMPLES%" (
@@ -94,31 +101,34 @@ REM ) else (
     REM echo [--] sample-tim folder not found, skipped
 REM )
 
-REM --- byte0scope.exe (copy + UPX brute) ---
+
+REM --- byte0scope.exe (copy + optional UPX) ---
 copy /Y "%SRC_EXE%" "%DEST%\byte0scope.exe" >nul
-if errorlevel 1 (
-    echo ERROR: failed to copy byte0scope.exe
-    pause & exit /b 1
-)
+if errorlevel 1 set "ERR=failed to copy byte0scope.exe" & goto :fail
 for %%F in ("%DEST%\byte0scope.exe") do set "EXE_SIZE_RAW=%%~zF"
 echo [ok] byte0scope.exe copied ^(!EXE_SIZE_RAW! bytes^)
 
+if not "%USE_UPX%"=="1" goto :upx_off
 where upx >nul 2>&1
-if errorlevel 1 (
-    echo [--] upx not found in PATH, skipping compression
-) else (
-    REM echo [..] upx --brute ^(may take several minutes^)...
-    REM Decompress if already packed (from a previous UPX=ON build).
-    REM Errors are ignored: if the file isn't packed, upx -d exits non-zero.
-    upx -d "%DEST%\byte0scope.exe" >nul 2>&1
-    upx --best --force "%DEST%\byte0scope.exe"
-    if errorlevel 1 (
-        echo ERROR: upx --brute failed
-        pause & exit /b 1
-    )
-    for %%F in ("%DEST%\byte0scope.exe") do set "EXE_SIZE_PACKED=%%~zF"
-    echo [ok] byte0scope.exe compressed ^(!EXE_SIZE_PACKED! bytes, was !EXE_SIZE_RAW!^)
-)
+if errorlevel 1 goto :upx_missing
+
+REM Decompress if already packed (from a previous UPX=ON build).
+REM Errors are ignored: if the file isn't packed, upx -d exits non-zero.
+upx -d "%DEST%\byte0scope.exe" >nul 2>&1
+upx --best --force "%DEST%\byte0scope.exe"
+if errorlevel 1 set "ERR=upx failed." & goto :fail
+for %%F in ("%DEST%\byte0scope.exe") do set "EXE_SIZE_PACKED=%%~zF"
+echo [ok] byte0scope.exe compressed ^(!EXE_SIZE_PACKED! bytes, was !EXE_SIZE_RAW!^)
+goto :upx_done
+
+:upx_off
+echo [--] UPX disabled ^(USE_UPX=0^), skipping compression
+goto :upx_done
+
+:upx_missing
+echo [--] upx not found in PATH, skipping compression
+
+:upx_done
 
 REM --- zip packaging ---
 if exist "%ZIP_PATH%" del /Q "%ZIP_PATH%"
@@ -143,14 +153,14 @@ set "ZIP_RC=%ERRORLEVEL%"
 :zip_check
 if not "%ZIP_RC%"=="0" (
     echo WARNING: zip packaging failed ^(exit %ZIP_RC%^)
-    echo [!!] zip skipped
+    echo [WARN] zip skipped
 ) else (
     for %%F in ("%ZIP_PATH%") do set "ZIP_SIZE=%%~zF"
     echo [ok] %NAME%.zip ^(!ZIP_SIZE! bytes^)
 )
 
 echo.
-echo RELEASE READY
+echo RELEASE READY ^(%PROFILE%^)
 echo   folder: %DEST%
 if exist "%ZIP_PATH%" echo   zip:    %ZIP_PATH%
 echo.
@@ -160,5 +170,12 @@ dir /b "%DEST%"
 REM Uncomment to open the folder in Explorer after release:
 REM start "" "%DEST%"
 
-pause
+REM pause
 exit /b 0
+
+
+:fail
+echo.
+echo ERROR: %ERR%
+REM pause
+exit /b 1
