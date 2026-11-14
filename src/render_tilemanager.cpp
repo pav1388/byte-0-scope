@@ -13,6 +13,7 @@
 #include "ui_mainwindow.h"
 
 #include <QCoreApplication>
+#include <QHash>
 #include <QMetaObject>
 #include <QPointer>
 #include <QRunnable>
@@ -20,6 +21,7 @@
 #include <QThreadPool>
 #include <algorithm>
 #include <climits>
+#include <cstring>
 #include <list>
 #include <map>
 #include <utility>
@@ -510,7 +512,8 @@ bool validPngExportRegion(const RenderContext &context, const QRect &canvasRect,
         return false;
     }
 
-    const qint64 streamOverhead = rowBytes + 1024 * 1024;   // row + IDAT
+    // Оценка по худшему формату (RGBA): строка + буфер IDAT.
+    const qint64 streamOverhead = rowBytes + 1024 * 1024;
     const qint64 availableMemory = BytesSource::availableMemory();
     if (availableMemory > 0) {
         const qint64 reserve = qMin<qint64>(512LL * 1024 * 1024,
@@ -523,6 +526,63 @@ bool validPngExportRegion(const RenderContext &context, const QRect &canvasRect,
         }
     }
     return true;
+}
+
+// Подбирает минимальный формат PNG, в который без потерь укладывается
+// текущий вывод: индексный 1/2/4/8 бит для палитровых режимов, RGB для
+// непрозрачных многобайтовых, иначе RGBA. Для индексного формата заполняет
+// *indexOf (цвет -> номер в PLTE).
+PngStream::Format choosePngFormat(const RenderContext &ctx,
+                                  const QColor &background,
+                                  QHash<QRgb, int> *indexOf)
+{
+    PngStream::Format format;   // RGBA 8 бит по умолчанию
+    indexOf->clear();
+    const bool opaqueBackground = background.alpha() == 255;
+
+    QVector<QRgb> source;
+    if (ctx.bitpacked) {
+        source = BitPackedReader(ctx.bppMode, ctx.bitOrder, ctx.pixelOrder)
+                     .buildLut(ctx.palette);
+    } else if (ctx.bytesPerPixel == 1) {
+        const QRgb *lut = ctx.singleByteReverse ? ctx.singleByteLutReverse
+                                                : ctx.singleByteLut;
+        source.reserve(258);
+        for (int i = 0; i < 256; ++i)
+            source.append(lut[i]);
+    } else {
+        const PixelDecoder::Decoder decoder(ctx.paletteId, ctx.bitOrder,
+                                            ctx.byteOrder, ctx.paletteParams);
+        if (opaqueBackground && !decoder.mayHaveAlpha())
+            format.type = PngStream::ColorType::Rgb;
+        return format;
+    }
+
+    if (!opaqueBackground)
+        return format;
+
+    // Цвета тайла: LUT, чёрный (заливка тайла) и фон (вне изображения).
+    QVector<QRgb> colors;
+    source.append(qRgb(0, 0, 0));
+    source.append(background.rgb());
+    for (const QRgb c : source) {
+        if (!indexOf->contains(c)) {
+            indexOf->insert(c, colors.size());
+            colors.append(c);
+        }
+    }
+
+    if (colors.size() > 256) {
+        indexOf->clear();
+        format.type = PngStream::ColorType::Rgb;
+        return format;
+    }
+
+    format.type = PngStream::ColorType::Indexed;
+    format.palette = colors;
+    const int n = colors.size();
+    format.bitDepth = n <= 2 ? 1 : n <= 4 ? 2 : n <= 16 ? 4 : 8;
+    return format;
 }
 
 // Локальный LRU-кэш тайлов для стримингового экспорта.
@@ -634,10 +694,11 @@ private:
                                          512LL * 1024 * 1024);
         TileCache tileCache(cacheBudget);
 
-        const quint8 bgR = quint8(m_background.red());
-        const quint8 bgG = quint8(m_background.green());
-        const quint8 bgB = quint8(m_background.blue());
-        const quint8 bgA = quint8(m_background.alpha());
+        QHash<QRgb, int> indexOf;
+        const PngStream::Format format =
+            choosePngFormat(ctx, m_background, &indexOf);
+        const QRgb bgPx = m_background.rgba();
+        const int depth = format.bitDepth;
 
         auto provideRow = [&](int rowIdx, quint8 *rowData) -> bool {
             if (cancelled(ctx))
@@ -647,9 +708,17 @@ private:
             const int tileY  = int(outY / outputTileSize);
             const int localY = int(outY % outputTileSize);
 
+            if (format.type == PngStream::ColorType::Indexed) {
+                // Дописываемые ИЛИ-ом байты нужно обнулить заранее.
+                std::memset(rowData, 0,
+                            size_t(PngStream::rowBytes(format, int(canvasW))));
+            }
+
             quint8 *p = rowData;
             int lastTileX = -1;
             QImage lastTile;
+            QRgb lastColor = 0;
+            int lastIndex = 0;
 
             for (qint64 x = 0; x < canvasW; ++x) {
                 if ((x & 0x3FF) == 0 && cancelled(ctx))
@@ -669,27 +738,43 @@ private:
                     }
                 }
 
+                QRgb px = bgPx;
                 if (!lastTile.isNull()
                         && localX < lastTile.width()
                         && localY < lastTile.height()) {
-                    const QRgb px = reinterpret_cast<const QRgb *>(
+                    px = reinterpret_cast<const QRgb *>(
                         lastTile.constScanLine(localY))[localX];
+                }
+
+                switch (format.type) {
+                case PngStream::ColorType::Indexed: {
+                    if (x == 0 || px != lastColor) {
+                        lastColor = px;
+                        lastIndex = indexOf.value(px, 0);
+                    }
+                    const qint64 bit = x * depth;
+                    rowData[bit >> 3] |= quint8(
+                        lastIndex << (8 - depth - int(bit & 7)));
+                    break;
+                }
+                case PngStream::ColorType::Rgb:
+                    *p++ = quint8(qRed(px));
+                    *p++ = quint8(qGreen(px));
+                    *p++ = quint8(qBlue(px));
+                    break;
+                case PngStream::ColorType::Rgba:
                     *p++ = quint8(qRed(px));
                     *p++ = quint8(qGreen(px));
                     *p++ = quint8(qBlue(px));
                     *p++ = quint8(qAlpha(px));
-                } else {
-                    *p++ = bgR;
-                    *p++ = bgG;
-                    *p++ = bgB;
-                    *p++ = bgA;
+                    break;
                 }
             }
             return true;
         };
 
-        return PngStream::writeRgba(m_path, int(canvasW), int(canvasH),
-                                    provideRow, errorMessage);
+        return PngStream::write(m_path, format, int(canvasW), int(canvasH),
+                                provideRow, errorMessage);
     }
 
     QString m_path;

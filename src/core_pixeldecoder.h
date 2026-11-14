@@ -25,6 +25,9 @@ public:
 
     QRgb decode(const uchar *pixel, int size) const;
 
+    // true, если decode() может вернуть альфа-канал, отличный от 255.
+    bool mayHaveAlpha() const;
+
 private:
     // Приводит байты пикселя к big-endian и MSB-first; возвращает их число.
     int normalize(const uchar *pixel, int size, uchar out[8]) const;

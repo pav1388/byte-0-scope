@@ -131,10 +131,26 @@ private:
     QString             m_error;
 };
 
+int channels(ColorType type)
+{
+    return type == ColorType::Rgb ? 3 : type == ColorType::Rgba ? 4 : 1;
+}
+
+bool validFormat(const Format &f)
+{
+    if (f.type != ColorType::Indexed)
+        return f.bitDepth == 8;
+    const int n = f.palette.size();
+    return (f.bitDepth == 1 || f.bitDepth == 2 || f.bitDepth == 4
+            || f.bitDepth == 8)
+        && n >= 1 && n <= (1 << f.bitDepth);
+}
+
 // Пишет весь PNG в out. При ошибке или отмене возвращает false и заполняет
 // *errorMessage; откат результата - на вызывающем.
-bool writeImage(QIODevice &out, int width, int height, size_t rowBytes,
-                const RowProvider &provideRow, QString *errorMessage)
+bool writeImage(QIODevice &out, const Format &format, int width, int height,
+                size_t rowBytes, const RowProvider &provideRow,
+                QString *errorMessage)
 {
     auto fail = [errorMessage](const QString &msg) {
         if (errorMessage)
@@ -148,23 +164,39 @@ bool writeImage(QIODevice &out, int width, int height, size_t rowBytes,
     if (out.write(reinterpret_cast<const char *>(kSignature), 8) != 8)
         return fail(out.errorString());
 
-    // IHDR: RGBA, 8 bit, без интерлейса
     quint8 ihdr[13] = { 0 };
     const quint32 wBE = qToBigEndian<quint32>(quint32(width));
     const quint32 hBE = qToBigEndian<quint32>(quint32(height));
     std::memcpy(ihdr, &wBE, 4);
     std::memcpy(ihdr + 4, &hBE, 4);
-    ihdr[8] = 8;   // bit depth
-    ihdr[9] = 6;   // color type = RGBA
+    ihdr[8] = quint8(format.bitDepth);
+    ihdr[9] = format.type == ColorType::Indexed ? 3
+            : format.type == ColorType::Rgb     ? 2 : 6;
     if (!writeChunk(out, "IHDR", ihdr, 13))
         return fail(out.errorString());
+
+    if (format.type == ColorType::Indexed) {
+        std::vector<quint8> plte;
+        plte.reserve(size_t(format.palette.size()) * 3);
+        for (const QRgb c : format.palette) {
+            plte.push_back(quint8(qRed(c)));
+            plte.push_back(quint8(qGreen(c)));
+            plte.push_back(quint8(qBlue(c)));
+        }
+        if (!writeChunk(out, "PLTE", plte.data(), int(plte.size())))
+            return fail(out.errorString());
+    }
 
     IdatStream idat(out);
     if (!idat.begin())
         return fail(idat.error());
 
+    // Sub-фильтр; шаг - байты на пиксель, для глубины < 8 бит - 1 байт.
+    const size_t stride = format.bitDepth < 8
+        ? 1 : size_t(channels(format.type)) * size_t(format.bitDepth / 8);
+
     std::vector<quint8> row(1 + rowBytes);
-    row[0] = 1;  // filter type: Sub
+    row[0] = 1;
     quint8 *pixels = row.data() + 1;
 
     for (int y = 0; y < height; ++y) {
@@ -174,9 +206,9 @@ bool writeImage(QIODevice &out, int width, int height, size_t rowBytes,
             return false;
         }
 
-        // Sub filter (справа налево, чтобы не затирать ещё не обработанные)
-        for (size_t i = rowBytes - 1; i >= 4; --i)
-            pixels[i] = quint8(pixels[i] - pixels[i - 4]);
+        // Справа налево, чтобы не затирать ещё не обработанные байты.
+        for (size_t i = rowBytes; i-- > stride; )
+            pixels[i] = quint8(pixels[i] - pixels[i - stride]);
 
         if (!idat.write(row.data(), row.size()))
             return fail(idat.error());
@@ -191,8 +223,16 @@ bool writeImage(QIODevice &out, int width, int height, size_t rowBytes,
 
 } // namespace
 
-bool writeRgba(const QString &path, int width, int height,
-               const RowProvider &provideRow, QString *errorMessage)
+qint64 rowBytes(const Format &format, int width)
+{
+    if (width <= 0 || !validFormat(format))
+        return 0;
+    const qint64 bits = qint64(width) * format.bitDepth * channels(format.type);
+    return (bits + 7) / 8;
+}
+
+bool write(const QString &path, const Format &format, int width, int height,
+           const RowProvider &provideRow, QString *errorMessage)
 {
     auto fail = [errorMessage](const QString &msg) {
         if (errorMessage)
@@ -200,18 +240,18 @@ bool writeRgba(const QString &path, int width, int height,
         return false;
     };
 
-    if (width <= 0 || height <= 0 || !provideRow)
-        return fail(QStringLiteral("invalid PNG dimensions"));
+    if (width <= 0 || height <= 0 || !provideRow || !validFormat(format))
+        return fail(QStringLiteral("invalid PNG parameters"));
 
-    const qint64 rowBytes = qint64(width) * 4;
-    if (rowBytes > qint64(INT_MAX - 1))
+    const qint64 bytes = rowBytes(format, width);
+    if (bytes <= 0 || bytes > qint64(INT_MAX - 1))
         return fail(QStringLiteral("PNG row is too wide for this build"));
 
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly))
         return fail(out.errorString());
 
-    if (!writeImage(out, width, height, size_t(rowBytes), provideRow,
+    if (!writeImage(out, format, width, height, size_t(bytes), provideRow,
                     errorMessage)) {
         out.cancelWriting();
         return false;

@@ -103,6 +103,12 @@ Decoder::Decoder(const QString &paletteId, const QString &bitOrder,
     }
 }
 
+bool Decoder::mayHaveAlpha() const
+{
+    return isRgbaFamily(m_format) || m_format == PF_Argb1555
+        || m_format == PF_FromFile;
+}
+
 int Decoder::normalize(const uchar *p, int n, uchar out[8]) const
 {
     const int cnt = qBound(0, n, 8);
