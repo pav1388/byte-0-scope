@@ -41,7 +41,35 @@ inline int bytesPerPixelForBpp(int bpp)
     return bpp / 8;
 }
 
-//  Gradient / palette helpers (unchanged)
+//  Palette helpers
+template <typename F>
+QVector<QColor> paletteOf(int n, F colorAt)
+{
+    QVector<QColor> out;
+    out.reserve(n);
+    for (int i = 0; i < n; ++i)
+        out.append(colorAt(i));
+    return out;
+}
+
+template <typename F>
+QVector<QColor> fullPalette(F colorAt)
+{
+    return paletteOf(PM_DEFAULT_PALETTE_SIZE, colorAt);
+}
+
+// Cosine-based rainbow with n entries (used for 3 bpp and 4 bpp).
+QVector<QColor> cosineRainbow(int n)
+{
+    const double twoPi = 2.0 * M_PI;
+    return paletteOf(n, [=](int i) -> QColor {
+        const double t = twoPi * i / double(n);
+        return QColor(
+            int(255.0 * (0.5 + 0.5 * std::cos(t))),
+            int(255.0 * (0.5 + 0.5 * std::cos(t - twoPi / 3.0))),
+            int(255.0 * (0.5 + 0.5 * std::cos(t - 2.0 * twoPi / 3.0))));
+    });
+}
 QVector<QColor> grayPalette(int n)
 {
     QVector<QColor> out;
@@ -130,86 +158,63 @@ QVector<QColor> createAscii(const QVariantMap &params)
     const QColor extendedColor = asciiParamColor(
         params, "extended_color", QColor(170, 120, 230));
 
-    QVector<QColor> out;
-    out.reserve(PM_DEFAULT_PALETTE_SIZE);
-
-    for (int value = 0; value < PM_DEFAULT_PALETTE_SIZE; ++value) {
-        if (!extended) {
-            out.append(value >= 0x20 && value <= 0x7E
-                       ? printableColor : nonPrintableColor);
-            continue;
-        }
+    return fullPalette([&](int value) -> QColor {
+        if (!extended)
+            return (value >= 0x20 && value <= 0x7E) ? printableColor
+                                                    : nonPrintableColor;
 
         if (value == 0x09 || value == 0x0A || value == 0x0B ||
-            value == 0x0C || value == 0x0D || value == 0x20) {
-            out.append(whitespaceColor);
-        } else if (value < 0x20 || value == 0x7F) {
-            out.append(controlColor);
-        } else if (value >= '0' && value <= '9') {
-            out.append(digitColor);
-        } else if (value >= 'A' && value <= 'Z') {
-            out.append(upperColor);
-        } else if (value >= 'a' && value <= 'z') {
-            out.append(lowerColor);
-        } else if (value >= 0x21 && value <= 0x7E) {
-            out.append(symbolColor);
-        } else {
-            out.append(extendedColor);
-        }
-    }
-
-    return out;
+            value == 0x0C || value == 0x0D || value == 0x20)
+            return whitespaceColor;
+        if (value < 0x20 || value == 0x7F)
+            return controlColor;
+        if (value >= '0' && value <= '9')
+            return digitColor;
+        if (value >= 'A' && value <= 'Z')
+            return upperColor;
+        if (value >= 'a' && value <= 'z')
+            return lowerColor;
+        if (value >= 0x21 && value <= 0x7E)
+            return symbolColor;
+        return extendedColor;
+    });
 }
 
 QVector<QColor> createInverted(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(QColor(255 - i, 255 - i, 255 - i));
-    return o;
+    return fullPalette([](int i) { return QColor(255 - i, 255 - i, 255 - i); });
 }
 
 QVector<QColor> createZerosOnes(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         if (i == 0)
-            o.append(QColor(0, 0, 255));
-        else if (i == PM_DEFAULT_PALETTE_SIZE - 1)
-            o.append(QColor(255, 255, 0));
-        else
-            o.append(QColor(0, 0, 0));
-    }
-    return o;
+            return QColor(0, 0, 255);
+        if (i == PM_DEFAULT_PALETTE_SIZE - 1)
+            return QColor(255, 255, 0);
+        return QColor(0, 0, 0);
+    });
 }
 
 QVector<QColor> createNonzero(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(i != 0 ? QColor(0, 255, 0) : QColor(0, 0, 0));
-    return o;
+    return fullPalette([](int i) -> QColor {
+        return i != 0 ? QColor(0, 255, 0) : QColor(0, 0, 0);
+    });
 }
 
 QVector<QColor> createHighbit(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append((i & 0x80) ? QColor(255, 0, 0) : QColor(0, 0, 0));
-    return o;
+    return fullPalette([](int i) -> QColor {
+        return (i & 0x80) ? QColor(255, 0, 0) : QColor(0, 0, 0);
+    });
 }
 
 QVector<QColor> createLowbit(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append((i & 1) ? QColor(0, 255, 255) : QColor(0, 0, 0));
-    return o;
+    return fullPalette([](int i) -> QColor {
+        return (i & 1) ? QColor(0, 255, 255) : QColor(0, 0, 0);
+    });
 }
 
 QVector<QColor> createHeat(const QVariantMap &)
@@ -224,26 +229,21 @@ QVector<QColor> createHeat(const QVariantMap &)
 
 QVector<QColor> createThermal(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(QColor(qMin(255, 3 * i), qMin(255, 2 * i), i / 2));
-    return o;
+    return fullPalette([](int i) -> QColor {
+        return QColor(qMin(255, 3 * i), qMin(255, 2 * i), i / 2);
+    });
 }
 
 QVector<QColor> createPlasma(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
     const double twoPi = 2.0 * M_PI;
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([=](int i) -> QColor {
         const double t = twoPi * i / double(PM_DEFAULT_PALETTE_SIZE - 1);
-        o.append(QColor(
+        return QColor(
             int(255.0 * (0.5 + 0.5 * std::sin(t))),
             int(255.0 * (0.5 + 0.5 * std::sin(t + twoPi / 3.0))),
-            int(255.0 * (0.5 + 0.5 * std::sin(t + 2.0 * twoPi / 3.0)))));
-    }
-    return o;
+            int(255.0 * (0.5 + 0.5 * std::sin(t + 2.0 * twoPi / 3.0))));
+    });
 }
 
 QVector<QColor> createViridis(const QVariantMap &)
@@ -257,98 +257,70 @@ QVector<QColor> createViridis(const QVariantMap &)
 
 QVector<QColor> createRainbow(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
     const int half = PM_DEFAULT_PALETTE_SIZE / 2;
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
-        if (i < half)
-            o.append(QColor(255, i, 0));
-        else
-            o.append(QColor(255 - (i - half) * 2, 255, (i - half) * 2));
-    }
-    return o;
+    return fullPalette([=](int i) -> QColor {
+        return i < half ? QColor(255, i, 0)
+                        : QColor(255 - (i - half) * 2, 255, (i - half) * 2);
+    });
 }
 
 QVector<QColor> createHsv(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         const int h = int(i * 360 / (PM_DEFAULT_PALETTE_SIZE - 1)) % 360;
-        o.append(QColor::fromHsv(h, 255, 255));
-    }
-    return o;
+        return QColor::fromHsv(h, 255, 255);
+    });
 }
 
 QVector<QColor> createNibbles(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(QColor(i & 0xF0, (i << 4) & 0xF0, 0));
-    return o;
+    return fullPalette([](int i) { return QColor(i & 0xF0, (i << 4) & 0xF0, 0); });
 }
 
 QVector<QColor> createHighNibble(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         const int v = i & 0xF0;
-        o.append(QColor(v, v, v));
-    }
-    return o;
+        return QColor(v, v, v);
+    });
 }
 
 QVector<QColor> createLowNibble(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         const int v = (i & 0x0F) << 4;
-        o.append(QColor(v, v, v));
-    }
-    return o;
+        return QColor(v, v, v);
+    });
 }
 
 QVector<QColor> createSolarized(const QVariantMap &params)
 {
     const int threshold = params.value("threshold", PM_THRESHOLD_DEFAULT).toInt();
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(i < threshold ? QColor(7, 54, 101) : QColor(88, 110, 122));
-    return o;
+    return fullPalette([threshold](int i) -> QColor {
+        return i < threshold ? QColor(7, 54, 101) : QColor(88, 110, 122);
+    });
 }
 
 QVector<QColor> createEntropy(const QVariantMap &params)
 {
     const int step = qMax(1, params.value("step", PM_ENTROPY_STEP_DEFAULT).toInt());
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([step](int i) -> QColor {
         const int band = qMin(255, (i / step) * step + step / 2);
-        const int r = (255 * band) / 255;
-        o.append(QColor(r, 0, 255 - r));
-    }
-    return o;
+        return QColor(band, 0, 255 - band);
+    });
 }
 
 QVector<QColor> createBitplane(const QVariantMap &params)
 {
     const int plane = qBound(0, params.value("plane", PM_BITPLANE_DEFAULT).toInt(), 7);
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int b = 0; b < PM_DEFAULT_PALETTE_SIZE; ++b)
-        o.append(((b >> plane) & 1) ? QColor(255, 255, 255) : QColor(0, 0, 0));
-    return o;
+    return fullPalette([plane](int b) -> QColor {
+        return ((b >> plane) & 1) ? QColor(255, 255, 255) : QColor(0, 0, 0);
+    });
 }
 
 QVector<QColor> createBitScale(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         int r = 0, g = 0, b = 0;
         if (i & 0x80) r += 255;
         if (i & 0x40) r += 128;
@@ -359,54 +331,39 @@ QVector<QColor> createBitScale(const QVariantMap &)
         int m = 0;
         if (i & 0x02) m += 128;
         if (i & 0x01) m += 64;
-        r = qMin(255, r + m / 3);
-        g = qMin(255, g + m / 3);
-        b = qMin(255, b + m / 3);
-        o.append(QColor(r, g, b));
-    }
-    return o;
+        return QColor(qMin(255, r + m / 3), qMin(255, g + m / 3),
+                      qMin(255, b + m / 3));
+    });
 }
 
 QVector<QColor> createBitRotation(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
-        const int r = ((i << 1) | (i >> 7)) & 0xFF;
-        const int g = ((i << 3) | (i >> 5)) & 0xFF;
-        const int b = ((i << 5) | (i >> 3)) & 0xFF;
-        o.append(QColor(r, g, b));
-    }
-    return o;
+    return fullPalette([](int i) -> QColor {
+        return QColor(((i << 1) | (i >> 7)) & 0xFF,
+                      ((i << 3) | (i >> 5)) & 0xFF,
+                      ((i << 5) | (i >> 3)) & 0xFF);
+    });
 }
 
 QVector<QColor> createSolarize(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         const double t = double(i) / (PM_DEFAULT_PALETTE_SIZE - 1);
-        if (t < 0.5) {
-            o.append(QColor(int(t * 2 * 255), int(t * 2 * 160), int(t * 2 * 40)));
-        } else {
-            const double u = (t - 0.5) * 2.0;
-            o.append(QColor(int(255 * (1 - u * 0.6)),
-                            int(160 * (1 - u * 0.9)),
-                            int(40  * (1 - u))));
-        }
-    }
-    return o;
+        if (t < 0.5)
+            return QColor(int(t * 2 * 255), int(t * 2 * 160), int(t * 2 * 40));
+        const double u = (t - 0.5) * 2.0;
+        return QColor(int(255 * (1 - u * 0.6)),
+                      int(160 * (1 - u * 0.9)),
+                      int(40  * (1 - u)));
+    });
 }
 
 QVector<QColor> createHashColor(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([](int i) -> QColor {
         const quint32 h = quint32(i) * 2654435761u;
-        o.append(QColor((h >> 16) & 0xFF, (h >> 8) & 0xFF, h & 0xFF));
-    }
-    return o;
+        return QColor((h >> 16) & 0xFF, (h >> 8) & 0xFF, h & 0xFF);
+    });
 }
 
 // --- 1 bpp ---------------------------------------------------------------
@@ -457,20 +414,7 @@ QVector<QColor> createRgb332(const QVariantMap &)
         QColor(255, 255, 0),   QColor(255, 0, 255),   QColor(0, 255, 255),   QColor(255, 255, 255),
     };
 }
-QVector<QColor> createRainbow8(const QVariantMap &)
-{
-    QVector<QColor> o;
-    o.reserve(8);
-    const double twoPi = 2.0 * M_PI;
-    for (int i = 0; i < 8; ++i) {
-        const double t = twoPi * i / 8.0;
-        o.append(QColor(
-            int(255.0 * (0.5 + 0.5 * std::cos(t))),
-            int(255.0 * (0.5 + 0.5 * std::cos(t - twoPi / 3.0))),
-            int(255.0 * (0.5 + 0.5 * std::cos(t - 2.0 * twoPi / 3.0)))));
-    }
-    return o;
-}
+QVector<QColor> createRainbow8(const QVariantMap &)  { return cosineRainbow(8); }
 QVector<QColor> createWarm3bpp(const QVariantMap &)
 {
     return {
@@ -535,47 +479,22 @@ QVector<QColor> createZx(const QVariantMap &)
 }
 QVector<QColor> createAmberCrt(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(16);
-    for (int i = 0; i < 16; ++i)
-        o.append(QColor(int(i * 255 / 15), int(i * 176 / 15), 0));
-    return o;
+    return paletteOf(16, [](int i) { return QColor(i * 255 / 15, i * 176 / 15, 0); });
 }
 QVector<QColor> createGreenTerminal(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(16);
-    for (int i = 0; i < 16; ++i)
-        o.append(QColor(0, int(i * 255 / 15), 0));
-    return o;
+    return paletteOf(16, [](int i) { return QColor(0, i * 255 / 15, 0); });
 }
 QVector<QColor> createHeat16(const QVariantMap &)
 {
-    QVector<QColor> o;
-    o.reserve(16);
-    for (int i = 0; i < 16; ++i) {
+    return paletteOf(16, [](int i) -> QColor {
         const double t = i / 15.0;
-        const int r = qMin(255, int(t * 3 * 255));
-        const int g = qMin(255, int(qMax(0.0, t * 3 - 1) * 255));
-        const int b = qMin(255, int(qMax(0.0, t * 3 - 2) * 255));
-        o.append(QColor(r, g, b));
-    }
-    return o;
+        return QColor(qMin(255, int(t * 3 * 255)),
+                      qMin(255, int(qMax(0.0, t * 3 - 1) * 255)),
+                      qMin(255, int(qMax(0.0, t * 3 - 2) * 255)));
+    });
 }
-QVector<QColor> createRainbow16(const QVariantMap &)
-{
-    QVector<QColor> o;
-    o.reserve(16);
-    const double twoPi = 2.0 * M_PI;
-    for (int i = 0; i < 16; ++i) {
-        const double t = twoPi * i / 16.0;
-        o.append(QColor(
-            int(255.0 * (0.5 + 0.5 * std::cos(t))),
-            int(255.0 * (0.5 + 0.5 * std::cos(t - twoPi / 3.0))),
-            int(255.0 * (0.5 + 0.5 * std::cos(t - 2.0 * twoPi / 3.0)))));
-    }
-    return o;
-}
+QVector<QColor> createRainbow16(const QVariantMap &) { return cosineRainbow(16); }
 
 // --- "Custom" ------------------------------------------------------------
 QVector<QColor> createCustom(const QVariantMap &params)
@@ -654,15 +573,10 @@ QVector<QColor> createByteFrequency(const QVariantMap &params)
             maxFreq = freq[i];
     }
 
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i) {
+    return fullPalette([&](int i) -> QColor {
         const double t = double(freq[i]) / maxFreq;
-        const int r = int(255 * t);
-        const int g = int(255 * (1 - t));
-        o.append(QColor(r, g, 0));
-    }
-    return o;
+        return QColor(int(255 * t), int(255 * (1 - t)), 0);
+    });
 }
 
 // --- "Repeats" -----------------------------------------------------------
@@ -672,11 +586,9 @@ QVector<QColor> createRepeatsHighlight(const QVariantMap &params)
     for (const QVariant &v : params.value("repeats").toList())
         repeats.insert(v.toInt());
 
-    QVector<QColor> o;
-    o.reserve(PM_DEFAULT_PALETTE_SIZE);
-    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-        o.append(repeats.contains(i) ? QColor(255, 0, 0) : QColor(i, i, i));
-    return o;
+    return fullPalette([&repeats](int i) -> QColor {
+        return repeats.contains(i) ? QColor(255, 0, 0) : QColor(i, i, i);
+    });
 }
 
 // -------------------------------------------------------------------------
@@ -688,28 +600,31 @@ QVector<QColor> createMultibytePlaceholder(const QVariantMap &)
 }
 
 // --- Preparation steps ---------------------------------------------------
+void countBytes(const QByteArray &data, quint64 *freq)
+{
+    const uchar *p = reinterpret_cast<const uchar *>(data.constData());
+    const int n = data.size();
+    for (int i = 0; i < n; ++i)
+        ++freq[p[i]];
+}
+
 QVariantMap prepareByteFrequency(const QVariantMap &params,
                                  const QByteArray &fileData,
                                  const quint64 *byteHistogram)
 {
-    QVariantList list;
-
-    if (byteHistogram) {
-        list.reserve(PM_DEFAULT_PALETTE_SIZE);
-        for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-            list.append(qint64(byteHistogram[i]));
-    } else if (!fileData.isEmpty()) {
-        quint64 freq[PM_DEFAULT_PALETTE_SIZE] = {0};
-        const uchar *p = reinterpret_cast<const uchar *>(fileData.constData());
-        const int n = fileData.size();
-        for (int i = 0; i < n; ++i)
-            ++freq[p[i]];
-        list.reserve(PM_DEFAULT_PALETTE_SIZE);
-        for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
-            list.append(qint64(freq[i]));
-    } else {
-        return params;
+    quint64 localCounts[PM_DEFAULT_PALETTE_SIZE] = {0};
+    const quint64 *hist = byteHistogram;
+    if (!hist && !fileData.isEmpty()) {
+        countBytes(fileData, localCounts);
+        hist = localCounts;
     }
+    if (!hist)
+        return params;
+
+    QVariantList list;
+    list.reserve(PM_DEFAULT_PALETTE_SIZE);
+    for (int i = 0; i < PM_DEFAULT_PALETTE_SIZE; ++i)
+        list.append(qint64(hist[i]));
 
     QVariantMap out;
     out["freq"] = list;
@@ -724,13 +639,9 @@ QVariantMap prepareRepeats(const QVariantMap &params,
     const quint64 *hist = byteHistogram;
 
     if (!hist && !fileData.isEmpty()) {
-        const uchar *p = reinterpret_cast<const uchar *>(fileData.constData());
-        const int n = fileData.size();
-        for (int i = 0; i < n; ++i)
-            ++localCounts[p[i]];
+        countBytes(fileData, localCounts);
         hist = localCounts;
     }
-
     if (!hist)
         return params;
 
@@ -761,30 +672,22 @@ QVariantMap prepareFromFile(const QVariantMap &params, const QByteArray &fileDat
     const QString fmt    = params.value("format", "auto").toString();
     const QString end    = params.value("endianness", "big").toString();
 
-    if (fileData.isEmpty()) {
-        QVariantMap out;
-        out["data"] = QByteArray();
-        out["count"] = 0;
-        out["record_size"] = recordSize;
-        out["bpp"] = bpp;
-        out["format"] = fmt;
-        out["endianness"] = end;
-        return out;
+    QByteArray slice;
+    int count = 0;
+    if (!fileData.isEmpty()) {
+        if (explicitCt > 0)
+            count = explicitCt;
+        else if (bpp <= 4)
+            count = 1 << bpp;
+        else
+            count = qMax(1, length / recordSize);
+
+        count = qMin(count, PM_FROM_FILE_COUNT_MAX);
+
+        const qint64 sliceLength = qMin<qint64>(qint64(count) * recordSize,
+                                                std::numeric_limits<int>::max());
+        slice = fileData.mid(address, int(sliceLength));
     }
-
-    int count;
-    if (explicitCt > 0)
-        count = explicitCt;
-    else if (bpp <= 4)
-        count = 1 << bpp;
-    else
-        count = qMax(1, length / recordSize);
-
-    count = qMin(count, PM_FROM_FILE_COUNT_MAX);
-
-    const qint64 sliceLength = qMin<qint64>(qint64(count) * recordSize,
-                                            std::numeric_limits<int>::max());
-    QByteArray slice = fileData.mid(address, int(sliceLength));
 
     QVariantMap out;
     out["data"] = slice;
@@ -1079,25 +982,15 @@ void PaletteManager::registerSampledPalettes()
             const QString paletteDisplayName =
                 QString("%1 %2bpp").arg(s.name).arg(bpp);
 
-            PaletteGenFn src = s.fn;
+            // The sources always yield PM_DEFAULT_PALETTE_SIZE entries and
+            // n = 4/8/16, so plain index sampling is safe.
+            const PaletteGenFn src = s.fn;
             PaletteGenFn sampled = [src, n](const QVariantMap &) -> QVector<QColor> {
                 const QVector<QColor> full = src(QVariantMap());
-                if (full.isEmpty())
-                    return {};
-                QVector<QColor> out;
-                out.reserve(n);
-                if (n == 1) {
-                    out.append(full.first());
-                    return out;
-                }
-                if (n >= full.size())
-                    return full;
                 const double step = double(full.size() - 1) / (n - 1);
-                for (int i = 0; i < n; ++i) {
-                    const int idx = int(std::round(i * step));
-                    out.append(full.value(qBound(0, idx, full.size() - 1)));
-                }
-                return out;
+                return paletteOf(n, [&](int i) -> QColor {
+                    return full.at(int(std::round(i * step)));
+                });
             };
 
             registerPalette({ paletteId, paletteDisplayName, sampled, bpp });
@@ -1126,7 +1019,7 @@ QString PaletteManager::displayName(const QString &id) const
 
 bool PaletteManager::contains(const QString &id) const
 {
-    return m_generators.contains(id) && m_configs.contains(id);
+    return m_generators.contains(id);
 }
 
 int PaletteManager::bytesPerPixel(const QString &id) const

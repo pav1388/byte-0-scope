@@ -7,7 +7,6 @@
 
 #include <QFontMetrics>
 #include <QLineEdit>
-#include <QtGlobal>
 
 // Максимальная длина вводимого числа (цифр без префикса). Для 2^53 хватает
 // 16 десятичных / 14 шестнадцатеричных цифр.
@@ -39,38 +38,43 @@ bool splitPrefix(const QString &text, QString *body)
     return false;
 }
 
+// Базовый sizeHint рассчитан на самый длинный текст (до 2^53 = 16 символов),
+// что раздвинуло бы панель управления. Сужаем до прежних ~10 символов.
+QSize narrowed(QSize s, const QFont &font)
+{
+    const QFontMetrics fm(font);
+    const int full   = fm.boundingRect(QString(I64_MAX_DIGITS, QLatin1Char('0'))).width();
+    const int wanted = fm.boundingRect(QString(I64_SIZEHINT_CHARS, QLatin1Char('0'))).width();
+    s.setWidth(qMax(wanted, s.width() - qMax(0, full - wanted)));
+    return s;
+}
+
 } // namespace
 
 Int64SpinBox::Int64SpinBox(QWidget *parent)
     : QDoubleSpinBox(parent)
 {
     setDecimals(0);
-    setSingleStep(1.0);
     QDoubleSpinBox::setRange(0.0, double(maxAllowed()));
 
     connect(this,
             static_cast<void (QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
-            this, [this](double v) { emit value64Changed(qint64(qRound64(v))); });
+            this, [this](double v) { emit value64Changed(qRound64(v)); });
 }
 
 qint64 Int64SpinBox::value64() const
 {
-    return qint64(qRound64(QDoubleSpinBox::value()));
-}
-
-qint64 Int64SpinBox::minimum64() const
-{
-    return qint64(qRound64(QDoubleSpinBox::minimum()));
+    return qRound64(QDoubleSpinBox::value());
 }
 
 qint64 Int64SpinBox::maximum64() const
 {
-    return qint64(qRound64(QDoubleSpinBox::maximum()));
+    return qRound64(QDoubleSpinBox::maximum());
 }
 
 void Int64SpinBox::setValue64(qint64 v)
 {
-    QDoubleSpinBox::setValue(double(qBound<qint64>(minimum64(), v, maximum64())));
+    QDoubleSpinBox::setValue(double(v));    // диапазон ограничит базовый класс
 }
 
 void Int64SpinBox::setRange64(qint64 minimum, qint64 maximum)
@@ -93,7 +97,7 @@ void Int64SpinBox::setHexMode(bool hex)
 
 QString Int64SpinBox::textFromValue(double value) const
 {
-    const qint64 n = qMax<qint64>(0, qint64(qRound64(value)));
+    const qint64 n = qMax<qint64>(0, qRound64(value));
     if (m_hex)
         return QStringLiteral("0x") + QString::number(n, 16).toUpper();
     return QString::number(n);
@@ -133,17 +137,6 @@ QValidator::State Int64SpinBox::validate(QString &input, int &pos) const
     // Больше максимума: пока "промежуточное" - при завершении ввода значение
     // будет ограничено диапазоном.
     return (n > maximum64()) ? QValidator::Intermediate : QValidator::Acceptable;
-}
-
-// Базовый sizeHint рассчитан на самый длинный текст (до 2^53 = 16 символов),
-// что раздвинуло бы панель управления. Сужаем до прежних ~10 символов.
-static QSize narrowed(QSize s, const QFont &font)
-{
-    const QFontMetrics fm(font);
-    const int full   = fm.boundingRect(QString(I64_MAX_DIGITS, QLatin1Char('0'))).width();
-    const int wanted = fm.boundingRect(QString(I64_SIZEHINT_CHARS, QLatin1Char('0'))).width();
-    s.setWidth(qMax(wanted, s.width() - qMax(0, full - wanted)));
-    return s;
 }
 
 QSize Int64SpinBox::sizeHint() const

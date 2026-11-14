@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "core_demobuilder.h"
-#include "definitions.h"
 
 #include <QDateTime>
 #include <QtMath>
@@ -13,7 +12,7 @@
 // --- Настройки модуля DemoBuilder (префикс DB_) ---
 
 #define DB_DEMO_SIZE            256
-#define DB_TR_R                 96
+#define DB_TR_W                 96
 #define DB_TR_H                 96
 #define DB_TR_BPP               4
 #define DB_TR_PAD_BITS          16
@@ -59,14 +58,10 @@ const Glyph *findGlyph(char ch)
 }
 
 //  Шрифт2 5×7 (используется в обучающем файле)
-struct Glyph7 {
-    const char *rows[7];
-};
-
-const Glyph7 gBigB = {{"11110","10001","10001","11110","10001","10001","11110"}};
-const Glyph7 gBigY = {{"10001","10001","01010","00100","00100","00100","00100"}};
-const Glyph7 gBigT = {{"11111","00100","00100","00100","00100","00100","00100"}};
-const Glyph7 gBigE = {{"11111","10000","10000","11110","10000","10000","11111"}};
+const char *const kBigB[7] = {"11110","10001","10001","11110","10001","10001","11110"};
+const char *const kBigY[7] = {"10001","10001","01010","00100","00100","00100","00100"};
+const char *const kBigT[7] = {"11111","00100","00100","00100","00100","00100","00100"};
+const char *const kBigE[7] = {"11111","10000","10000","11110","10000","10000","11111"};
 
 } // namespace
 
@@ -99,18 +94,16 @@ QByteArray buildDefaultDemo(qint64 msecsSinceEpoch)
     }
 
     // Структура
-    const int W = S, H = S;
-
-    for (int i = 0; i < H * W; ++i)
+    for (int i = 0; i < S * S; ++i)
         p[i] = 150;
 
     auto set = [&](int y0, int y1, int x0, int x1, quint8 val) {
         if (y0 < 0) y0 = 0;
         if (x0 < 0) x0 = 0;
-        if (y1 > H) y1 = H;
-        if (x1 > W) x1 = W;
+        if (y1 > S) y1 = S;
+        if (x1 > S) x1 = S;
         for (int y = y0; y < y1; ++y) {
-            uchar *row = p + y * W;
+            uchar *row = p + y * S;
             for (int x = x0; x < x1; ++x)
                 row[x] = val;
         }
@@ -153,7 +146,7 @@ QByteArray buildDefaultDemo(qint64 msecsSinceEpoch)
 //  Обучающий demo
 QByteArray buildTrainingDemo()
 {
-    const int W    = DB_TR_R;
+    const int W    = DB_TR_W;
     const int H    = DB_TR_H;
     const int BPP  = DB_TR_BPP;
     const int PADB = DB_TR_PAD_BITS;
@@ -188,20 +181,13 @@ QByteArray buildTrainingDemo()
                 setPixel(x, y, val);
     };
 
-    auto drawGlyph5x5 = [&](const char *const *rows, int gx, int gy, int scale, int val) {
-        for (int r = 0; r < 5; ++r)
-            for (int c = 0; c < 5; ++c)
-                if (rows[r][c] == '1')
-                    fillRect(gx + c * scale, gy + r * scale,
-                             gx + (c + 1) * scale, gy + (r + 1) * scale, val);
-    };
-
-    auto drawGlyph7 = [&](const Glyph7 &g, int gx, int gy, int scale, int val) {
-        for (int r = 0; r < 7; ++r)
-            for (int c = 0; c < 5; ++c)
-                if (g.rows[r][c] == '1')
-                    fillRect(gx + c * scale, gy + r * scale,
-                             gx + (c + 1) * scale, gy + (r + 1) * scale, val);
+    auto drawGlyph = [&](const char *const *rows, int rowCount, int gx, int gy,
+                         int scale, int val) {
+        for (int r = 0; r < rowCount; ++r)
+            for (int col = 0; col < 5; ++col)
+                if (rows[r][col] == '1')
+                    fillRect(gx + col * scale, gy + r * scale,
+                             gx + (col + 1) * scale, gy + (r + 1) * scale, val);
     };
 
     fillRect(0, 0, W, H, DB_TR_BG);
@@ -212,12 +198,12 @@ QByteArray buildTrainingDemo()
 
     {
         const int scale = 3;
-        const int y     = 8;
-        int x           = 8;
-        drawGlyph7(gBigB, x, y, scale, DB_TR_FG); x += 5 * scale + 3;
-        drawGlyph7(gBigY, x, y, scale, DB_TR_FG); x += 5 * scale + 3;
-        drawGlyph7(gBigT, x, y, scale, DB_TR_FG); x += 5 * scale + 3;
-        drawGlyph7(gBigE, x, y, scale, DB_TR_FG);
+        const char *const *const title[] = {kBigB, kBigY, kBigT, kBigE};
+        int x = 8;
+        for (const char *const *rows : title) {
+            drawGlyph(rows, 7, x, 8, scale, DB_TR_FG);
+            x += 5 * scale + 3;
+        }
     }
 
     {
@@ -252,7 +238,7 @@ QByteArray buildTrainingDemo()
             if (*pc == ' ') { x += 4; continue; }
             const Glyph *g = findGlyph(*pc);
             if (!g) { x += 6; continue; }
-            drawGlyph5x5(g->rows, x, ln.y, 1, DB_TR_FG);
+            drawGlyph(g->rows, 5, x, ln.y, 1, DB_TR_FG);
             x += 6;
         }
     }

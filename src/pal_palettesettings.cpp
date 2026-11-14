@@ -12,14 +12,12 @@
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
-#include <QDialog>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
-#include <climits>
 
 // --- PaletteSettingsPanel module settings (prefix PS_) ---
 
@@ -95,9 +93,8 @@ PaletteSettingsPanel::PaletteSettingsPanel(MainWindow *parent)
     m_resetBtn = new QPushButton("X", this);
     m_resetBtn->setFixedWidth(PS_SMALL_BUTTON_WIDTH);
     m_resetBtn->setToolTip(tr("Reset palette settings"));
-    connect(m_resetBtn, &QPushButton::clicked, this, [this]() {
-        resetRulesToDefault();
-    });
+    connect(m_resetBtn, &QPushButton::clicked,
+            this, &PaletteSettingsPanel::resetRulesToDefault);
     m_autoApplyCheck = new QCheckBox(tr("Auto-apply settings"), this);
     m_autoApplyCheck->setChecked(true);
     connect(m_autoApplyCheck, &QCheckBox::toggled,
@@ -112,7 +109,7 @@ PaletteSettingsPanel::PaletteSettingsPanel(MainWindow *parent)
 
 bool PaletteSettingsPanel::autoApplyChecked() const
 {
-    return m_autoApplyCheck && m_autoApplyCheck->isChecked();
+    return m_autoApplyCheck->isChecked();
 }
 
 void PaletteSettingsPanel::clearContent()
@@ -134,7 +131,6 @@ void PaletteSettingsPanel::clearContent()
     m_endianCombo          = nullptr;
     m_countSpin            = nullptr;
     m_asciiExtendedCheck   = nullptr;
-    m_asciiColorButtons.clear();
     m_asciiBasicColorButtons.clear();
     m_asciiExtendedColorButtons.clear();
 
@@ -152,39 +148,29 @@ void PaletteSettingsPanel::clear()
 
 void PaletteSettingsPanel::buildFor(const QString &paletteId)
 {
-    const QString idCopy = paletteId;
-
     clearContent();
-    m_currentPaletteId = idCopy;
-
-    if (!m_main || !m_main->paletteManager()) {
-        setVisible(false);
-        return;
-    }
+    m_currentPaletteId = paletteId;
 
     PaletteManager *pm = m_main->paletteManager();
-    QVariantMap params = m_main->paletteParams().value(idCopy).toMap();
+    QVariantMap params = m_main->paletteParams().value(paletteId).toMap();
     if (params.isEmpty())
-        params = pm->defaultParams(idCopy);
+        params = pm->defaultParams(paletteId);
 
-    const bool configurable = pm->isConfigurable(idCopy);
+    const bool configurable = pm->isConfigurable(paletteId);
 
-    m_resetBtn->setVisible(true);
-    m_autoApplyCheck->setVisible(true);
-
-    if (idCopy == QLatin1String(PaletteIds::Custom)) {
+    if (paletteId == QLatin1String(PaletteIds::Custom)) {
         buildCustomUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::Ascii)) {
+    } else if (paletteId == QLatin1String(PaletteIds::Ascii)) {
         buildAsciiUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::Entropy)) {
+    } else if (paletteId == QLatin1String(PaletteIds::Entropy)) {
         buildEntropyUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::Bitplane)) {
+    } else if (paletteId == QLatin1String(PaletteIds::Bitplane)) {
         buildPlaneUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::Threshold)) {
+    } else if (paletteId == QLatin1String(PaletteIds::Threshold)) {
         buildThresholdUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::Repeats)) {
+    } else if (paletteId == QLatin1String(PaletteIds::Repeats)) {
         buildRepeatsUi(params);
-    } else if (idCopy == QLatin1String(PaletteIds::FromFile)) {
+    } else if (paletteId == QLatin1String(PaletteIds::FromFile)) {
         buildFromFileUi(params);
     } else {
         setVisible(false);
@@ -209,7 +195,7 @@ void PaletteSettingsPanel::addInfoLabel(const QString &text)
 {
     auto *label = new QLabel(text);
     label->setWordWrap(true);
-    if (m_main && m_main->themeManager()) {
+    if (m_main->themeManager()) {
         label->setStyleSheet(
             m_main->themeManager()->current().styles.value("info_label"));
     }
@@ -256,22 +242,17 @@ void PaletteSettingsPanel::buildAsciiUi(const QVariantMap &params)
     addAsciiColorRow(tr("Extended (80-FF)"),
                      "extended_color", "#e65555", params, true);
 
-    const bool extended = m_asciiExtendedCheck->isChecked();
-
-    for (QPushButton *button : m_asciiBasicColorButtons)
-        button->setEnabled(!extended);
-
-    for (QPushButton *button : m_asciiExtendedColorButtons)
-        button->setEnabled(extended);
+    auto applyExtended = [this](bool extended) {
+        for (QPushButton *button : m_asciiBasicColorButtons)
+            button->setEnabled(!extended);
+        for (QPushButton *button : m_asciiExtendedColorButtons)
+            button->setEnabled(extended);
+    };
+    applyExtended(m_asciiExtendedCheck->isChecked());
 
     connect(m_asciiExtendedCheck, &QCheckBox::toggled, this,
-            [this](bool enabled) {
-        for (QPushButton *button : m_asciiBasicColorButtons)
-            button->setEnabled(!enabled);
-
-        for (QPushButton *button : m_asciiExtendedColorButtons)
-            button->setEnabled(enabled);
-
+            [this, applyExtended](bool extended) {
+        applyExtended(extended);
         notifyChanged();
     });
 }
@@ -298,14 +279,13 @@ void PaletteSettingsPanel::addAsciiColorRow(const QString &label,
 
     QHBoxLayout *row = new QHBoxLayout;
     row->setContentsMargins(0, 0, 0, 0);
-    row->setSpacing(4);
+    row->setSpacing(PS_CONTENT_SPACING);
     row->addWidget(button);
     row->addWidget(new QLabel(label, m_contentWidget));
     row->addStretch();
 
     m_contentLayout->addLayout(row);
 
-    m_asciiColorButtons.append(button);
     if (extendedOnly)
         m_asciiExtendedColorButtons.append(button);
     else
@@ -347,13 +327,9 @@ void PaletteSettingsPanel::buildRepeatsUi(const QVariantMap &params)
     m_minCountSpin->setRange(PS_MIN_COUNT_MIN, PS_MIN_COUNT_MAX);
 
     int value = params.value("min_count", 0).toInt();
-    if (value <= 0 && m_main)
+    if (value <= 0)
         value = m_main->averageByteRepeatCount();
-    if (value < PS_MIN_COUNT_MIN)
-        value = PS_MIN_COUNT_MIN;
-    if (value > PS_MIN_COUNT_MAX)
-        value = PS_MIN_COUNT_MAX;
-    m_minCountSpin->setValue(value);
+    m_minCountSpin->setValue(qBound(PS_MIN_COUNT_MIN, value, PS_MIN_COUNT_MAX));
 
     m_minCountSpin->setToolTip(tr("Bytes appearing at least N times\n"
                                   "are highlighted in red."));
@@ -378,10 +354,8 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
 
     m_lenSpin = new QSpinBox();
     m_lenSpin->setRange(1, PS_ADDR_MAX);
-    const qint64 rawLen = qint64(params.value("length", 256).toLongLong());
-    m_lenSpin->setValue(qBound(1,
-                               int(qMin<qint64>(rawLen, qint64(PS_ADDR_MAX))),
-                               PS_ADDR_MAX));
+    m_lenSpin->setValue(int(qBound<qint64>(
+        1, params.value("length", 256).toLongLong(), PS_ADDR_MAX)));
     m_lenSpin->setGroupSeparatorShown(false);
     watch(m_lenSpin);
     addRow(tr("Max length (bytes):"), m_lenSpin);
@@ -414,7 +388,7 @@ void PaletteSettingsPanel::buildFromFileUi(const QVariantMap &params)
     watch(m_countSpin);
     addRow(tr("Entries (0=auto):"), m_countSpin);
 
-    const int bpp = m_main ? m_main->bppMode() : 8;
+    const int bpp = m_main->bppMode();
     const QString autoHint = (bpp <= 4)
         ? tr("%1 entries (from bpp)").arg(1 << bpp)
         : tr("256 entries");
@@ -480,9 +454,10 @@ void PaletteSettingsPanel::buildCustomUi(const QVariantMap &params)
     m_contentLayout->addLayout(btnRow);
 }
 
-PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
-    int start, int end, const QString &hexColor)
+void PaletteSettingsPanel::addRuleWidget(int start, int end,
+                                         const QString &hexColor)
 {
+    const bool dark = isDarkTheme();
     RuleWidget rw;
     rw.container = new QWidget();
     rw.container->setAutoFillBackground(false);
@@ -491,11 +466,11 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
     lay->setContentsMargins(0, 0, 0, 0);
     lay->setSpacing(PS_CONTENT_MARGIN);
 
-    auto *numLabel = new QLabel(QString("%1.").arg(m_ruleWidgets.size() + 1));
-    numLabel->setFixedWidth(PS_RULE_NUM_LABEL_WIDTH);
-    numLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    numLabel->setStyleSheet(isDarkTheme() ? "color: #ccc;" : "color: #666;");
-    lay->addWidget(numLabel);
+    rw.number = new QLabel(QString("%1.").arg(m_ruleWidgets.size() + 1));
+    rw.number->setFixedWidth(PS_RULE_NUM_LABEL_WIDTH);
+    rw.number->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    rw.number->setStyleSheet(dark ? "color: #ccc;" : "color: #666;");
+    lay->addWidget(rw.number);
 
     rw.start = new QSpinBox();
     rw.start->setRange(0, PS_BYTE_MAX);
@@ -504,7 +479,7 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
     lay->addWidget(rw.start);
 
     auto *dash = new QLabel("–");
-    dash->setStyleSheet(isDarkTheme() ? "color: #888;" : "color: #666;");
+    dash->setStyleSheet(dark ? "color: #888;" : "color: #666;");
     lay->addWidget(dash);
 
     rw.end = new QSpinBox();
@@ -524,33 +499,31 @@ PaletteSettingsPanel::RuleWidget PaletteSettingsPanel::addRuleWidget(
         QString("QPushButton { color: %1; font-weight: bold; font-size: 12pt; "
                 "border: none; background: transparent; } "
                 "QPushButton:hover { background: %2; border-radius: 3px; }")
-            .arg(isDarkTheme() ? "red" : "darkred")
-            .arg(isDarkTheme() ? "#444" : "#ddd"));
+            .arg(dark ? "red" : "darkred")
+            .arg(dark ? "#444" : "#ddd"));
     lay->addWidget(delBtn);
     lay->addStretch();
 
     QWidget *container = rw.container;
-    QPushButton *colorBtnPtr = rw.colorBtn;
+    QPushButton *colorBtn = rw.colorBtn;
 
-    connect(colorBtnPtr, &QPushButton::clicked, this,
-            [this, colorBtnPtr]() { pickColorForButton(colorBtnPtr); });
+    connect(colorBtn, &QPushButton::clicked, this,
+            [this, colorBtn]() { pickColorForButton(colorBtn); });
     connect(delBtn, &QPushButton::clicked, this,
             [this, container]() { deleteRuleWidget(container); });
 
     watch(rw.start);
     watch(rw.end);
 
-    m_rulesLayout->addWidget(rw.container);
+    m_rulesLayout->addWidget(container);
     m_ruleWidgets.append(rw);
-    return rw;
 }
 
 void PaletteSettingsPanel::deleteRuleWidget(QWidget *container)
 {
     for (int i = 0; i < m_ruleWidgets.size(); ++i) {
         if (m_ruleWidgets[i].container == container) {
-            if (m_rulesLayout)
-                m_rulesLayout->removeWidget(container);
+            m_rulesLayout->removeWidget(container);
             container->hide();
             container->setParent(nullptr);
             container->deleteLater();
@@ -564,28 +537,17 @@ void PaletteSettingsPanel::deleteRuleWidget(QWidget *container)
 
 void PaletteSettingsPanel::renumberRules()
 {
-    for (int i = 0; i < m_ruleWidgets.size(); ++i) {
-        QWidget *c = m_ruleWidgets[i].container;
-        if (!c)
-            continue;
-        auto *lay = c->layout();
-        if (!lay || lay->count() == 0)
-            continue;
-        auto *lbl = qobject_cast<QLabel *>(lay->itemAt(0)->widget());
-        if (lbl)
-            lbl->setText(QString("%1.").arg(i + 1));
-    }
+    for (int i = 0; i < m_ruleWidgets.size(); ++i)
+        m_ruleWidgets[i].number->setText(QString("%1.").arg(i + 1));
 }
 
 void PaletteSettingsPanel::resetRulesToDefault()
 {
-    if (!m_main || m_currentPaletteId.isEmpty())
+    if (m_currentPaletteId.isEmpty())
         return;
 
     const QString paletteId = m_currentPaletteId;
-
-    PaletteManager *pm = m_main->paletteManager();
-    QVariantMap defaults = pm->defaultParams(paletteId);
+    QVariantMap defaults = m_main->paletteManager()->defaultParams(paletteId);
 
     if (paletteId == QLatin1String(PaletteIds::FromFile)) {
         const quint64 fs = m_main->fileSize();
@@ -614,14 +576,12 @@ void PaletteSettingsPanel::updateColorButton(QPushButton *btn, const QString &he
         color = "#000000";
     btn->setProperty("color_hex", color);
 
-    QString border;
-    if (m_main && m_main->themeManager()) {
+    QString border = "#888";
+    if (m_main->themeManager()) {
         const bool special = (color == "#000000" || color == "#ffffff");
         border = m_main->themeManager()->isDark()
             ? (special ? "#aaa" : "#888")
             : (special ? "#666" : "#444");
-    } else {
-        border = "#888";
     }
 
     btn->setStyleSheet(
@@ -633,12 +593,7 @@ void PaletteSettingsPanel::updateColorButton(QPushButton *btn, const QString &he
 
 void PaletteSettingsPanel::pickColorForButton(QPushButton *btn)
 {
-    if (!btn)
-        return;
-    QString current = btn->property("color_hex").toString();
-    if (current.isEmpty())
-        current = "#000000";
-    QColor col(current);
+    QColor col(btn->property("color_hex").toString());
     if (!col.isValid())
         col = Qt::black;
 
@@ -647,11 +602,7 @@ void PaletteSettingsPanel::pickColorForButton(QPushButton *btn)
     if (dlg.exec() != QDialog::Accepted)
         return;
 
-    QColor chosen = dlg.selectedColor();
-    if (!chosen.isValid())
-        return;
-
-    const QString hexNew = chosen.name().toLower();
+    const QString hexNew = dlg.selectedColor().name().toLower();
     updateColorButton(btn, hexNew);
     if (btn != m_defaultColorBtn)
         btn->setToolTip(tr("Color: %1").arg(hexNew));
@@ -675,8 +626,6 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
         }
         QVariantList rules;
         for (const RuleWidget &rw : m_ruleWidgets) {
-            if (!rw.start || !rw.end || !rw.colorBtn)
-                continue;
             const int s = rw.start->value();
             const int e = rw.end->value();
             if (s > e)
@@ -696,13 +645,14 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
 
     if (m_currentPaletteId == QLatin1String(PaletteIds::Ascii)) {
         p["extended"] = m_asciiExtendedCheck && m_asciiExtendedCheck->isChecked();
-        for (QPushButton *button : m_asciiColorButtons) {
-            if (!button)
-                continue;
-            const QString key = button->property("param_key").toString();
-            const QString color = button->property("color_hex").toString();
-            if (!key.isEmpty() && !color.isEmpty())
-                p[key] = color;
+        for (const QVector<QPushButton *> *group :
+             { &m_asciiBasicColorButtons, &m_asciiExtendedColorButtons }) {
+            for (const QPushButton *button : *group) {
+                const QString key = button->property("param_key").toString();
+                const QString color = button->property("color_hex").toString();
+                if (!key.isEmpty() && !color.isEmpty())
+                    p[key] = color;
+            }
         }
     } else if (m_currentPaletteId == QLatin1String(PaletteIds::Entropy)
                && m_stepSpin) {
@@ -730,7 +680,7 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
         p["format"]      = m_formatCombo->currentText();
         p["endianness"]  = m_endianCombo->currentText();
         p["count"]       = m_countSpin->value();
-        p["bpp"]         = m_main ? m_main->bppMode() : 8;
+        p["bpp"]         = m_main->bppMode();
     }
 
     return p;
@@ -738,7 +688,7 @@ QVariantMap PaletteSettingsPanel::collectCurrentParams() const
 
 bool PaletteSettingsPanel::isDarkTheme() const
 {
-    return m_main && m_main->themeManager() && m_main->themeManager()->isDark();
+    return m_main->themeManager() && m_main->themeManager()->isDark();
 }
 
 void PaletteSettingsPanel::watch(QSpinBox *spin)
@@ -757,9 +707,7 @@ void PaletteSettingsPanel::watch(QComboBox *combo)
 
 void PaletteSettingsPanel::notifyChanged()
 {
-    if (m_clearing)
-        return;
-    if (m_currentPaletteId.isEmpty())
+    if (m_clearing || m_currentPaletteId.isEmpty())
         return;
     emit paramsChanged(collectCurrentParams());
 }

@@ -38,6 +38,157 @@ bool writeChunk(QIODevice &out, const char *type,
     return out.write(reinterpret_cast<const char *>(&crcBE), 4) == 4;
 }
 
+// Сжимает строки в zlib-поток и пишет его в IDAT-чанки порциями.
+class IdatStream {
+public:
+    explicit IdatStream(QIODevice &out) : m_out(out)
+    {
+        std::memset(&m_z, 0, sizeof(m_z));
+        m_idat.reserve(kFlushThreshold * 2);
+    }
+    ~IdatStream()
+    {
+        if (m_ready)
+            deflateEnd(&m_z);
+    }
+
+    // Описание последней ошибки.
+    const QString &error() const { return m_error; }
+
+    bool begin()
+    {
+        m_ready = deflateInit2(&m_z, 6, Z_DEFLATED, 15, 8,
+                               Z_DEFAULT_STRATEGY) == Z_OK;
+        if (!m_ready)
+            m_error = QStringLiteral("deflateInit2 failed");
+        return m_ready;
+    }
+
+    bool write(quint8 *data, size_t size)
+    {
+        m_z.next_in  = data;
+        m_z.avail_in = uInt(size);
+        while (m_z.avail_in > 0) {
+            quint8 temp[16 * 1024];
+            m_z.next_out  = temp;
+            m_z.avail_out = sizeof(temp);
+            if (deflate(&m_z, Z_NO_FLUSH) != Z_OK)
+                return fail(QStringLiteral("deflate error"));
+            append(temp);
+            if (int(m_idat.size()) >= kFlushThreshold && !flush())
+                return false;
+        }
+        return true;
+    }
+
+    bool finish()
+    {
+        int rc = Z_OK;
+        while (rc != Z_STREAM_END) {
+            quint8 temp[16 * 1024];
+            m_z.next_in   = nullptr;
+            m_z.avail_in  = 0;
+            m_z.next_out  = temp;
+            m_z.avail_out = sizeof(temp);
+            rc = deflate(&m_z, Z_FINISH);
+            if (rc == Z_STREAM_ERROR)
+                return fail(QStringLiteral("deflate finish error"));
+            append(temp);
+        }
+        return flush();
+    }
+
+private:
+    static constexpr int kFlushThreshold = 256 * 1024;
+
+    bool fail(const QString &msg)
+    {
+        m_error = msg;
+        return false;
+    }
+
+    void append(const quint8 *temp)
+    {
+        const int produced = 16 * 1024 - int(m_z.avail_out);
+        if (produced > 0)
+            m_idat.insert(m_idat.end(), temp, temp + produced);
+    }
+
+    bool flush()
+    {
+        if (m_idat.empty())
+            return true;
+        if (!writeChunk(m_out, "IDAT", m_idat.data(), int(m_idat.size())))
+            return fail(m_out.errorString());
+        m_idat.clear();
+        return true;
+    }
+
+    QIODevice          &m_out;
+    z_stream            m_z;
+    bool                m_ready = false;
+    std::vector<quint8> m_idat;
+    QString             m_error;
+};
+
+// Пишет весь PNG в out. При ошибке или отмене возвращает false и заполняет
+// *errorMessage; откат результата - на вызывающем.
+bool writeImage(QIODevice &out, int width, int height, size_t rowBytes,
+                const RowProvider &provideRow, QString *errorMessage)
+{
+    auto fail = [errorMessage](const QString &msg) {
+        if (errorMessage)
+            *errorMessage = msg;
+        return false;
+    };
+
+    static const quint8 kSignature[8] = {
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+    };
+    if (out.write(reinterpret_cast<const char *>(kSignature), 8) != 8)
+        return fail(out.errorString());
+
+    // IHDR: RGBA, 8 bit, без интерлейса
+    quint8 ihdr[13] = { 0 };
+    const quint32 wBE = qToBigEndian<quint32>(quint32(width));
+    const quint32 hBE = qToBigEndian<quint32>(quint32(height));
+    std::memcpy(ihdr, &wBE, 4);
+    std::memcpy(ihdr + 4, &hBE, 4);
+    ihdr[8] = 8;   // bit depth
+    ihdr[9] = 6;   // color type = RGBA
+    if (!writeChunk(out, "IHDR", ihdr, 13))
+        return fail(out.errorString());
+
+    IdatStream idat(out);
+    if (!idat.begin())
+        return fail(idat.error());
+
+    std::vector<quint8> row(1 + rowBytes);
+    row[0] = 1;  // filter type: Sub
+    quint8 *pixels = row.data() + 1;
+
+    for (int y = 0; y < height; ++y) {
+        if (!provideRow(y, pixels)) {
+            if (errorMessage && errorMessage->isEmpty())
+                *errorMessage = QStringLiteral("canceled");
+            return false;
+        }
+
+        // Sub filter (справа налево, чтобы не затирать ещё не обработанные)
+        for (size_t i = rowBytes - 1; i >= 4; --i)
+            pixels[i] = quint8(pixels[i] - pixels[i - 4]);
+
+        if (!idat.write(row.data(), row.size()))
+            return fail(idat.error());
+    }
+
+    if (!idat.finish())
+        return fail(idat.error());
+    if (!writeChunk(out, "IEND", nullptr, 0))
+        return fail(out.errorString());
+    return true;
+}
+
 } // namespace
 
 bool writeRgba(const QString &path, int width, int height,
@@ -53,154 +204,20 @@ bool writeRgba(const QString &path, int width, int height,
         return fail(QStringLiteral("invalid PNG dimensions"));
 
     const qint64 rowBytes = qint64(width) * 4;
-    if (rowBytes <= 0 || rowBytes > qint64(INT_MAX - 1))
+    if (rowBytes > qint64(INT_MAX - 1))
         return fail(QStringLiteral("PNG row is too wide for this build"));
 
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly))
         return fail(out.errorString());
 
-    // PNG signature
-    static const quint8 kSignature[8] = {
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-    };
-    if (out.write(reinterpret_cast<const char *>(kSignature), 8) != 8) {
-        out.cancelWriting();
-        return fail(out.errorString());
-    }
-
-    // IHDR: RGBA, 8 bit, no interlace
-    {
-        quint8 ihdr[13];
-        const quint32 wBE = qToBigEndian<quint32>(quint32(width));
-        const quint32 hBE = qToBigEndian<quint32>(quint32(height));
-        std::memcpy(ihdr, &wBE, 4);
-        std::memcpy(ihdr + 4, &hBE, 4);
-        ihdr[8]  = 8;   // bit depth
-        ihdr[9]  = 6;   // color type = RGBA
-        ihdr[10] = 0;   // compression
-        ihdr[11] = 0;   // filter
-        ihdr[12] = 0;   // interlace = none
-        if (!writeChunk(out, "IHDR", ihdr, 13)) {
-            out.cancelWriting();
-            return fail(out.errorString());
-        }
-    }
-
-    z_stream strm;
-    std::memset(&strm, 0, sizeof(strm));
-    if (deflateInit2(&strm, 6, Z_DEFLATED, 15, 8,
-                     Z_DEFAULT_STRATEGY) != Z_OK) {
-        out.cancelWriting();
-        return fail(QStringLiteral("deflateInit2 failed"));
-    }
-
-    constexpr int kIdatThreshold = 256 * 1024;
-    std::vector<quint8> idat;
-    idat.reserve(kIdatThreshold * 2);
-    std::vector<quint8> row(1 + size_t(rowBytes));
-
-    auto flushIdat = [&]() -> bool {
-        if (idat.empty())
-            return true;
-        if (!writeChunk(out, "IDAT", idat.data(), int(idat.size()))) {
-            out.cancelWriting();
-            return false;
-        }
-        idat.clear();
-        return true;
-    };
-
-    bool ok = true;
-
-    for (int y = 0; y < height && ok; ++y) {
-        row[0] = 1;  // filter type: Sub
-
-        if (!provideRow(y, row.data() + 1)) {
-            ok = false;
-            if (errorMessage && errorMessage->isEmpty())
-                *errorMessage = QStringLiteral("canceled");
-            break;
-        }
-
-        // Sub filter (right-to-left, чтобы не затирать ещё не обработанные)
-        quint8 *p = row.data() + 1;
-        for (int i = int(rowBytes) - 1; i >= 4; --i)
-            p[i] = quint8(p[i] - p[i - 4]);
-
-        strm.next_in  = row.data();
-        strm.avail_in = uInt(row.size());
-
-        while (strm.avail_in > 0 && ok) {
-            quint8 temp[16 * 1024];
-            strm.next_out  = temp;
-            strm.avail_out = sizeof(temp);
-            if (deflate(&strm, Z_NO_FLUSH) != Z_OK) {
-                ok = false;
-                if (errorMessage)
-                    *errorMessage = QStringLiteral("deflate error");
-                break;
-            }
-            const int produced = int(sizeof(temp)) - int(strm.avail_out);
-            if (produced > 0)
-                idat.insert(idat.end(), temp, temp + produced);
-            if (int(idat.size()) >= kIdatThreshold) {
-                if (!flushIdat()) {
-                    ok = false;
-                    if (errorMessage)
-                        *errorMessage = out.errorString();
-                    break;
-                }
-            }
-        }
-    }
-
-    if (ok) {
-        // Закрываем zlib-поток
-        while (true) {
-            quint8 temp[16 * 1024];
-            strm.next_in   = nullptr;
-            strm.avail_in  = 0;
-            strm.next_out  = temp;
-            strm.avail_out = sizeof(temp);
-            const int rc = deflate(&strm, Z_FINISH);
-            if (rc == Z_STREAM_ERROR) {
-                ok = false;
-                if (errorMessage)
-                    *errorMessage = QStringLiteral("deflate finish error");
-                break;
-            }
-            const int produced = int(sizeof(temp)) - int(strm.avail_out);
-            if (produced > 0)
-                idat.insert(idat.end(), temp, temp + produced);
-            if (rc == Z_STREAM_END)
-                break;
-        }
-        if (ok && !flushIdat()) {
-            ok = false;
-            if (errorMessage)
-                *errorMessage = out.errorString();
-        }
-    }
-
-    deflateEnd(&strm);
-
-    if (ok) {
-        if (!writeChunk(out, "IEND", nullptr, 0)) {
-            ok = false;
-            if (errorMessage)
-                *errorMessage = out.errorString();
-        }
-    }
-
-    if (!ok) {
+    if (!writeImage(out, width, height, size_t(rowBytes), provideRow,
+                    errorMessage)) {
         out.cancelWriting();
         return false;
     }
-
     if (!out.commit())
         return fail(out.errorString());
-
     return true;
 }
 

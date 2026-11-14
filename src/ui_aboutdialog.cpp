@@ -16,8 +16,6 @@
 #include <QPushButton>
 #include <QStringList>
 #include <QIcon>
-#include <QDesktopServices>
-#include <QUrl>
 
 // --- Настройки модуля AboutDialog (префикс AD_) ---
 
@@ -100,7 +98,8 @@ void showAboutDialog(QWidget *parent)
     QDialog dlg(parent);
     dlg.setWindowTitle(
         QCoreApplication::translate("AboutDialog", "About"));
-    dlg.setWindowIcon(parent ? parent->windowIcon() : QIcon());
+    const QIcon appIcon = parent ? parent->windowIcon() : QIcon();
+    dlg.setWindowIcon(appIcon);
     dlg.setWindowFlags(dlg.windowFlags() & ~Qt::WindowContextHelpButtonHint);
     dlg.resize(AD_DIALOG_WIDTH, AD_DIALOG_HEIGHT);
 
@@ -109,7 +108,6 @@ void showAboutDialog(QWidget *parent)
     auto *headerRow = new QHBoxLayout();
 
     auto *iconLabel = new QLabel(&dlg);
-    const QIcon appIcon = parent ? parent->windowIcon() : QIcon();
     if (!appIcon.isNull()) {
         iconLabel->setPixmap(
             appIcon.pixmap(AD_HEADER_ICON_SIZE, AD_HEADER_ICON_SIZE));
@@ -162,8 +160,8 @@ void showAboutDialog(QWidget *parent)
     layout->addWidget(txt);
 
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
-    if (auto *b = bb->button(QDialogButtonBox::Close))
-        b->setText(QCoreApplication::translate("AboutDialog", "Close"));
+    bb->button(QDialogButtonBox::Close)->setText(
+        QCoreApplication::translate("AboutDialog", "Close"));
     QObject::connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     layout->addWidget(bb);
 

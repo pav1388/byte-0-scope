@@ -15,7 +15,6 @@
 #include <QObject>
 #include <QSet>
 #include <QRect>
-#include <QSize>
 #include <QVariantMap>
 #include <QVector>
 #include <QtGlobal>
@@ -38,7 +37,7 @@ struct TileKey {
     bool operator==(const TileKey &o) const {
         return tx == o.tx && ty == o.ty && ds == o.ds;
     }
-	
+
     bool operator<(const TileKey &o) const {
         if (ds != o.ds) return ds < o.ds;
         if (ty != o.ty) return ty < o.ty;
@@ -113,7 +112,6 @@ struct RenderContext {
 
     QRgb singleByteLut[256] = {};
     QRgb singleByteLutReverse[256] = {};
-    bool singleByteLutValid = false;
     bool singleByteReverse = false;
 
     const uchar *bytes() const
@@ -127,9 +125,7 @@ struct RenderContext {
 
     qint64 byteSize() const
     {
-        if (mapped)
-            return mapped->mapped ? mapped->size : 0;
-        return data.size();
+        return mapped ? mapped->size : data.size();
     }
 };
 
@@ -146,7 +142,6 @@ public:
     static QImage renderTile(const RenderContext &ctx, const TileKey &key);
 
     QImage getTile(int tileX, int tileY);
-    QImage renderImage(const QSize &targetSize, int scale, int downsample) const;
     bool startPngExport(const QString &path, const QRect &canvasRect,
                         int scale, int downsample, const QColor &background,
                         QString *errorMessage = nullptr);
@@ -156,8 +151,7 @@ public:
     void clearCache();
     void setCacheLimitMb(int mb);
 
-    int currentTileSize() const;
-    qint64 cacheBytes() const;
+    qint64 cacheBytes() const { return m_cachedBytes; }
     int cacheLimitMb() const;
     int activeTasks() const { return m_activeTasks; }
 

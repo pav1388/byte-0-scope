@@ -11,7 +11,6 @@
 
 #include <QCursor>
 #include <QFont>
-#include <QSizePolicy>
 #include <QVBoxLayout>
 #include <algorithm>
 
@@ -52,7 +51,7 @@ QByteArray reverseBitsPerByte(const QByteArray &raw)
 {
     QByteArray r = raw;
     for (int i = 0; i < r.size(); ++i)
-        r[i] = char(PixelDecoder::reverseBits8(quint8(r.at(i))));
+        r[i] = char(PixelMath::reverseBits8(quint8(r.at(i))));
     return r;
 }
 
@@ -123,31 +122,23 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
 
     const bool rev = (m_main->bitOrder() == QLatin1String("lsb"));
 
-    const qint64 fileSize = qint64(m_main->fileSize());
-
+    // addr уже проверен вызывающим: 0 <= addr < fileSize, поэтому ctxEnd > ctxStart.
     const qint64 ctxStart = qMax<qint64>(0, addr - 5);
-    const qint64 ctxEnd   = qMin<qint64>(fileSize, addr + 6);
-    const qint64 ctxLen   = qMax<qint64>(0, ctxEnd - ctxStart);
-    const QByteArray ctxRaw = (ctxLen > 0)
-        ? m_main->readRange(ctxStart, ctxLen)
-        : QByteArray();
+    const qint64 ctxEnd   = qMin<qint64>(qint64(m_main->fileSize()), addr + 6);
+    const QByteArray ctxRaw = m_main->readRange(ctxStart, ctxEnd - ctxStart);
 
+    // Одиннадцать байт вокруг addr; -1 - байта нет (за пределами файла).
     QVector<int> ctx;
     ctx.reserve(11);
     for (int off = -5; off <= 5; ++off) {
-        const qint64 pos = addr + off;
-        if (pos < 0 || pos >= fileSize) {
-            ctx.append(-1);
-            continue;
-        }
-        const qint64 rel = pos - ctxStart;
+        const qint64 rel = addr + off - ctxStart;
         if (rel < 0 || rel >= ctxRaw.size()) {
             ctx.append(-1);
             continue;
         }
         quint8 b = quint8(ctxRaw.at(int(rel)));
         if (rev)
-            b = PixelDecoder::reverseBits8(b);
+            b = PixelMath::reverseBits8(b);
         ctx.append(int(b));
     }
 
@@ -182,7 +173,7 @@ QString ByteInfoWidget::formatSingleByte(qint64 addr, quint8 rawByte)
     } else {
         value = rawByte;
         if (rev)
-            value = PixelDecoder::reverseBits8(value);
+            value = PixelMath::reverseBits8(value);
     }
 
     lines << QString("&nbsp;&nbsp;Bin:&nbsp;<b>%1</b>&nbsp;&nbsp;Dec:&nbsp;<b>%2</b>")
@@ -212,7 +203,7 @@ QString ByteInfoWidget::formatBitpacked(qint64 addr, int bitOffset)
         bytes, raw.size(), offset, bpp, bitLsb, pixLsb);
 
     auto interpret = [bitLsb](quint8 v) -> quint8 {
-        return bitLsb ? PixelDecoder::reverseBits8(v) : v;
+        return bitLsb ? PixelMath::reverseBits8(v) : v;
     };
 
     auto binMarked = [](quint8 v, int from, int to) -> QString {
@@ -238,9 +229,6 @@ QString ByteInfoWidget::formatBitpacked(qint64 addr, int bitOffset)
 
     if (spans) {
         const quint8 next = interpret(quint8(bytes[1]));
-        // lines << QString("Next:&nbsp;<b>0x%1</b>&nbsp;Bin:&nbsp;<b>%2</b>")
-                     // .arg(hexU(addr + 1, 8))
-                     // .arg(binMarked(next, 0, lastBit - 8));
         lines << QString("Next:&nbsp;<b>%1</b>")
                      .arg(binMarked(next, 0, lastBit - 8));
     }
@@ -297,11 +285,16 @@ QString ByteInfoWidget::formatMultibyte(qint64 addr,
 //  Public slot
 // =========================================================================
 
+void ByteInfoWidget::showEmpty()
+{
+    m_label->setText(emptyInfoText());
+    m_popup->hide();
+}
+
 void ByteInfoWidget::updateInfo(qint64 addr, int bitOffset)
 {
     if (!m_main || addr < 0 || addr >= qint64(m_main->fileSize())) {
-        m_label->setText(emptyInfoText());
-        m_popup->hide();
+        showEmpty();
         return;
     }
 
@@ -315,8 +308,7 @@ void ByteInfoWidget::updateInfo(qint64 addr, int bitOffset)
         const int bp = qMax(1, m_main->bytesPerPixel());
         const QByteArray data = m_main->readRange(addr, bp);
         if (data.isEmpty()) {
-            m_label->setText(emptyInfoText());
-            m_popup->hide();
+            showEmpty();
             return;
         }
         const QString pal = m_main->currentPaletteId();

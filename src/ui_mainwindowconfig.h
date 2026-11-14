@@ -31,7 +31,6 @@ struct StartupDisplayDefaults {
     bool byteTooltip = false;
 };
 
-bool loadStartupDisplayDefaults(const QVariantMap &ini,
-                                StartupDisplayDefaults *out);
+StartupDisplayDefaults loadStartupDisplayDefaults(const QVariantMap &ini);
 QVariantMap startupDefaultsToConfig(const StartupDisplayDefaults &s);
 bool readConfigFile(const QString &path, QJsonObject *out, QString *error);

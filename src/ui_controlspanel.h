@@ -63,7 +63,7 @@ private slots:
     void onLengthModeChanged(bool checked);
     void onWidthModeChanged();
     void resetRegionToDefault();
-    void startRegionPick(bool startBoundary);
+    void toggleRegionPick(bool startBoundary);
     void cancelRegionPick();
     void onRegionAddressCaptured(qint64 address);
 
@@ -72,6 +72,7 @@ private:
     void refillPaletteList(int bpp);
     void fillPaletteCombo(int bpp);
     void updateDisplayControlsEnabled();
+    void updateEndLabel();
     void updateBitSettingsEnabled(int bpp);
     void applyHexModeToSpins(bool useHex);
     void clampRegionBounds(bool startChanged);

@@ -17,7 +17,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
-#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -28,12 +27,8 @@
 #include <QVariantMap>
 
 //  StartupDisplayDefaults
-bool loadStartupDisplayDefaults(const QVariantMap &ini,
-                                StartupDisplayDefaults *out)
+StartupDisplayDefaults loadStartupDisplayDefaults(const QVariantMap &ini)
 {
-    if (!out)
-        return false;
-
     StartupDisplayDefaults s;
 
     s.hasAny =
@@ -43,10 +38,8 @@ bool loadStartupDisplayDefaults(const QVariantMap &ini,
         ini.contains(QStringLiteral(CFG_SCALE)) ||
         ini.contains(QStringLiteral(CFG_BYTE_TOOLTIP));
 
-    if (!s.hasAny) {
-        *out = s;
-        return false;
-    }
+    if (!s.hasAny)
+        return s;
 
     s.bppMode = ini.value(QStringLiteral(CFG_BPP_MODE),
                           CFG_DEF_BPP_MODE).toInt();
@@ -78,8 +71,7 @@ bool loadStartupDisplayDefaults(const QVariantMap &ini,
     s.fitToWindow = ini.value(QStringLiteral(CFG_FIT_TO_WINDOW), false).toBool();
     s.byteTooltip = ini.value(QStringLiteral(CFG_BYTE_TOOLTIP), false).toBool();
 
-    *out = s;
-    return true;
+    return s;
 }
 
 QVariantMap startupDefaultsToConfig(const StartupDisplayDefaults &s)
@@ -113,7 +105,6 @@ bool readConfigFile(const QString &path, QJsonObject *out, QString *error)
 
     QJsonParseError parseError;
     const QJsonDocument doc = QJsonDocument::fromJson(f.readAll(), &parseError);
-    f.close();
     if (parseError.error != QJsonParseError::NoError) {
         if (error)
             *error = parseError.errorString();
@@ -135,12 +126,8 @@ void MainWindow::loadSettings()
     if (s.isEmpty())
         return;
 
-    {
-        const QString themeStr = s.value("theme", "light").toString();
-        const bool wantDark =
-            (themeStr.compare("dark", Qt::CaseInsensitive) == 0);
-        m_theme->setDark(wantDark);
-    }
+    m_theme->setDark(s.value("theme", "light").toString()
+                         .compare("dark", Qt::CaseInsensitive) == 0);
 
     m_lastDir               = s.value("last_directory").toString();
     m_perfSliderValue       = s.value("perf_slider_value", 10).toInt();
@@ -150,10 +137,10 @@ void MainWindow::loadSettings()
     m_startupNormalGeometry = s.value("window_normal_geometry").toString();
     m_startupMaximized      = s.value("window_maximized", false).toBool();
     m_startupFullscreen     = s.value("window_fullscreen", false).toBool();
-	m_hexViewHeight         = s.value("hex_view_height", 0).toInt();
-	m_hexBytesPerLine       = s.value("hex_bytes_per_line", 16).toInt();
-	m_hexFontPt             = s.value("hex_font_pt", 9).toInt();
-	m_hexViewVisible        = s.value("hex_view_visible", false).toBool();
+    m_hexViewHeight         = s.value("hex_view_height", 0).toInt();
+    m_hexBytesPerLine       = s.value("hex_bytes_per_line", 16).toInt();
+    m_hexFontPt             = s.value("hex_font_pt", 9).toInt();
+    m_hexViewVisible        = s.value("hex_view_visible", false).toBool();
     m_language = s.value("language",
                          QString::fromLatin1(AppLimits::LangEn)).toString();
     if (m_language.isEmpty())
@@ -163,7 +150,7 @@ void MainWindow::loadSettings()
     m_recentFiles = SettingsManager::filterExisting(recents,
                                                     AppLimits::RecentMax);
 
-    loadStartupDisplayDefaults(s, &m_startupDefaults);
+    m_startupDefaults = loadStartupDisplayDefaults(s);
 
     if (!m_startupDefaults.paletteId.isEmpty() &&
         !m_paletteManager->contains(m_startupDefaults.paletteId)) {
@@ -175,9 +162,8 @@ void MainWindow::saveSettings()
 {
     QVariantMap s;
     s["language"] = m_language;
-    s["theme"]             = (m_theme && m_theme->isDark())
-                                 ? QStringLiteral("dark")
-                                 : QStringLiteral("light");
+    s["theme"]    = m_theme->isDark() ? QStringLiteral("dark")
+                                      : QStringLiteral("light");
     s[QStringLiteral(CFG_BPP_MODE)]         = m_bppMode;
     s[QStringLiteral(CFG_BIT_ORDER)]        = m_bitOrder;
     s[QStringLiteral(CFG_BYTE_ORDER)]       = m_byteOrder;
@@ -198,10 +184,10 @@ void MainWindow::saveSettings()
     s["show_debug_info"]   = m_showDebugInfo;
     s["recent_files"]      = m_recentFiles;
     s["window_geometry"]   = QString::fromLatin1(saveGeometry().toBase64());
-	s["hex_view_height"]    = m_hexViewHeight;
-	s["hex_bytes_per_line"] = m_hexView ? m_hexView->bytesPerLine() : 16;
-	s["hex_font_pt"]        = m_hexView ? m_hexView->fontPt() : 9;
-	s["hex_view_visible"]   = m_hexViewAct && m_hexViewAct->isChecked();
+    s["hex_view_height"]    = m_hexViewHeight;
+    s["hex_bytes_per_line"] = m_hexView ? m_hexView->bytesPerLine() : 16;
+    s["hex_font_pt"]        = m_hexView ? m_hexView->fontPt() : 9;
+    s["hex_view_visible"]   = m_hexViewAct && m_hexViewAct->isChecked();
 
     const QRect ng = normalGeometry();
     s["window_normal_geometry"] = QString("%1,%2,%3,%4")
@@ -292,13 +278,8 @@ QJsonObject MainWindow::configToJson() const
 
     QJsonObject pp;
     for (auto it = m_paletteParams.constBegin();
-         it != m_paletteParams.constEnd(); ++it) {
-        const QVariantMap m = it.value().toMap();
-        QJsonObject sub;
-        for (auto mi = m.constBegin(); mi != m.constEnd(); ++mi)
-            sub[mi.key()] = QJsonValue::fromVariant(mi.value());
-        pp[it.key()] = sub;
-    }
+         it != m_paletteParams.constEnd(); ++it)
+        pp[it.key()] = QJsonObject::fromVariantMap(it.value().toMap());
     c[QStringLiteral(CFG_PALETTE_PARAMS)] = pp;
     return c;
 }
@@ -309,9 +290,9 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
         statusBar()->showMessage(tr("The .b0s settings file is empty."), 7000);
         return false;
     }
-	
-	m_widthFromConfig = c.contains(QLatin1String(CFG_WIDTH_MODE))
-						|| c.contains(QLatin1String(CFG_FIXED_WIDTH));
+
+    m_widthFromConfig = c.contains(QLatin1String(CFG_WIDTH_MODE))
+                        || c.contains(QLatin1String(CFG_FIXED_WIDTH));
 
     setMirrorState(
         c.value(QStringLiteral(CFG_MIRROR_H)).toBool(m_mirrorH),
@@ -319,20 +300,13 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
 
     const QJsonObject pp = c.value(QStringLiteral(CFG_PALETTE_PARAMS)).toObject();
     for (auto it = pp.constBegin(); it != pp.constEnd(); ++it) {
-        QVariantMap m;
-        const QJsonObject sub = it.value().toObject();
-        for (auto si = sub.constBegin(); si != sub.constEnd(); ++si)
-            m[si.key()] = si.value().toVariant();
         const QString &paletteId = it.key();
         if (m_paletteManager->contains(paletteId))
-            m_paletteParams[paletteId] = m;
+            m_paletteParams[paletteId] = it.value().toObject().toVariantMap();
     }
 
-    QVariantMap vmap;
-    for (auto it = c.constBegin(); it != c.constEnd(); ++it)
-        vmap[it.key()] = it.value().toVariant();
     if (m_controls)
-        m_controls->setConfig(vmap);
+        m_controls->setConfig(c.toVariantMap());
 
     const QString paletteId = c.value(QStringLiteral(CFG_PALETTE))
                                .toString(m_currentPaletteId);
@@ -344,8 +318,6 @@ bool MainWindow::applyConfigFromJson(const QJsonObject &c)
 
 void MainWindow::saveCurrentConfig()
 {
-    if (!m_source.isOpen())
-        return;
     const QString cfgPath = configPathForFile(m_source.sourcePath());
     if (cfgPath.isEmpty())
         return;
@@ -366,8 +338,6 @@ void MainWindow::saveCurrentConfig()
 
 void MainWindow::loadConfigFromFile()
 {
-    if (!m_source.isOpen())
-        return;
     const QString cfgPath = configPathForFile(m_source.sourcePath());
     if (cfgPath.isEmpty())
         return;

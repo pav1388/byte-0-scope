@@ -24,9 +24,6 @@ using MappedFilePtr = std::shared_ptr<MappedFile>;
 
 class BytesSource {
 public:
-    BytesSource();
-    ~BytesSource();
-
     bool    open(const QString &path, bool loadIntoMemory = false);
     void    close();
     bool    isOpen() const { return m_open; }
@@ -42,12 +39,15 @@ public:
 
     void    setData(const QByteArray &data);
 
-    QString sourcePath() const { return m_path; }
-    QString lastError() const  { return m_lastError; }
+    const QString &sourcePath() const { return m_path; }
+    const QString &lastError() const  { return m_lastError; }
 
     static qint64 availableMemory();
 
 private:
+    bool openMapped(const QString &path);
+    bool openInMemory(const QString &path);
+
     MappedFilePtr m_mapped;
     QByteArray    m_data;
     QString       m_path;

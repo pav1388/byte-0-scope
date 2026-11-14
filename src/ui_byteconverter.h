@@ -30,10 +30,11 @@ signals:
 private:
     void buildUi();
     void updateFromSource(QLineEdit *source);
+    // Записывает m_value в оба поля, кроме skip (без испускания сигналов).
+    void showValue(const QLineEdit *skip);
 
     QLineEdit *m_decEdit = nullptr;
     QLineEdit *m_hexEdit = nullptr;
 
-    quint32 m_value    = 0;
-    bool    m_updating = false;
+    quint32 m_value = 0;
 };

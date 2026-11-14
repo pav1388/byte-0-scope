@@ -17,8 +17,6 @@ class ByteInfoWidget : public QWidget {
 public:
     explicit ByteInfoWidget(MainWindow *parent);
 
-    QLabel *popupLabel() const { return m_popup; }
-
     bool isPopupEnabled() const { return m_popupEnabled; }
     void setPopupEnabled(bool enabled) { m_popupEnabled = enabled; }
 
@@ -28,6 +26,7 @@ public slots:
     void updateInfo(qint64 addr, int bitOffset = 0);
 
 private:
+    void    showEmpty();
     QString formatSingleByte(qint64 addr, quint8 rawByte);
     QString formatBitpacked(qint64 addr, int bitOffset);
     QString formatMultibyte(qint64 addr, const QByteArray &dataBytes,

@@ -5,7 +5,8 @@
 
 #pragma once
 
-#include <QByteArray>
+#include "core_pixelmath.h"
+
 #include <QColor>
 #include <QString>
 #include <QVector>
@@ -14,19 +15,21 @@
 class BitPackedReader {
 public:
     BitPackedReader(int bitsPerPixel, const QString &bitOrder,
-                    int rowPaddingBits, const QString &pixelOrder);
+                    const QString &pixelOrder);
 
-    int bpp() const      { return m_bpp; }
-    int maxValue() const { return m_maxValue; }
-    int rowBytes(int rowWidth) const;
-    unsigned valueAt(const uchar *row, qint64 availableBytes, int index) const;
-    QVector<quint8> extractRow(const QByteArray &raw, int rowWidth) const;
+    // Значение пикселя с номером index в строке из availableBytes байт.
+    unsigned valueAt(const uchar *row, qint64 availableBytes, int index) const
+    {
+        return PixelMath::bitpackedValue(row, availableBytes,
+                                         qint64(index) * m_bpp, m_bpp,
+                                         m_lsbBits, m_lsbPixels);
+    }
+
+    // Таблица цветов на 2^bpp значений; недостающие записи - оттенки серого.
     QVector<QRgb> buildLut(const QVector<QColor> &palette) const;
 
 private:
     int  m_bpp;
     bool m_lsbBits;
     bool m_lsbPixels;
-    int  m_rowPadding;
-    int  m_maxValue;
 };

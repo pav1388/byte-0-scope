@@ -10,7 +10,6 @@
 #include "render_canvaswidget.h"
 #include "definitions.h"
 
-
 #include <QComboBox>
 #include <QSpinBox>
 #include <QCheckBox>
@@ -19,7 +18,6 @@
 #include <QGroupBox>
 #include <QGridLayout>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 #include <QSignalBlocker>
 #include <QEvent>
 #include <QWheelEvent>
@@ -45,7 +43,7 @@ protected:
     bool eventFilter(QObject *obj, QEvent *ev) override
     {
         if (obj == m_spin && ev->type() == QEvent::Wheel) {
-            if (!m_spin || !m_spin->isEnabled())
+            if (!m_spin->isEnabled())
                 return false;
 
             QWheelEvent *we = static_cast<QWheelEvent *>(ev);
@@ -53,7 +51,7 @@ protected:
             if (wheel == 0)
                 return false;
             const int delta = (wheel > 0) ? +1 : -1;
-            const int step = qMax(1, m_step ? m_step->value() : 8);
+            const int step = qMax(1, m_step->value());
             const int cur = m_spin->value();
             const int nv = qMax(1, ((cur / step) + delta) * step);
             m_spin->setValue(nv);
@@ -76,6 +74,22 @@ bool selectByData(QComboBox *combo, const QVariant &value)
         return false;
     combo->setCurrentIndex(idx);
     return true;
+}
+
+// Выбирает first, если value == first, иначе second.
+void selectChoice(QComboBox *combo, const QString &value,
+                  const char *first, const char *second)
+{
+    selectByData(combo, QString::fromLatin1(
+        value == QLatin1String(first) ? first : second));
+}
+
+// Показывает/скрывает и включает/выключает пару «подпись + поле».
+void setRowActive(QWidget *label, QWidget *field, bool active)
+{
+    label->setVisible(active);
+    field->setVisible(active);
+    field->setEnabled(active);
 }
 
 } // namespace
@@ -110,13 +124,12 @@ void ControlsPanel::buildUi()
     fmtLay->addWidget(new QLabel(tr("Bits per pixel:")), row, 0);
     m_bppCombo = new QComboBox(this);
     m_bppCombo->setObjectName("bppCombo");
-    for (int bpp : { 64, 32, 24, 16, 8, 4, 3, 2, 1 }) {
+    for (int bpp : { 64, 32, 24, 16, 8, 4, 3, 2, 1 })
         m_bppCombo->addItem(QString::number(bpp) + QStringLiteral(" bpp"), bpp);
-    }
     selectByData(m_bppCombo, CFG_DEF_BPP_MODE);
     connect(m_bppCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { onBppChanged(); });
+            this, &ControlsPanel::onBppChanged);
     fmtLay->addWidget(m_bppCombo, row++, 1);
 
     m_bitOrderLabel = new QLabel(tr("Bit order:"), this);
@@ -173,7 +186,7 @@ void ControlsPanel::buildUi()
     m_paletteCombo->setMaxVisibleItems(30);
     connect(m_paletteCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, [this](int) { onPaletteChanged(); });
+            this, &ControlsPanel::onPaletteChanged);
     palLay->addWidget(m_paletteCombo);
     layout->addWidget(palGroup);
 
@@ -183,67 +196,57 @@ void ControlsPanel::buildUi()
     regLay->setColumnMinimumWidth(1, CP_LAYOUT_COL_MIN_WIDTH);
     regLay->setColumnStretch(1, 1);
 
+    auto makeRegionSpin = [this](const char *name, const QString &toolTip,
+                                 bool startSpin) -> Int64SpinBox * {
+        auto *spin = new Int64SpinBox(this);
+        spin->setObjectName(name);
+        spin->setRange64(0, Int64SpinBox::maxAllowed());
+        spin->setValue64(0);
+        spin->setKeyboardTracking(false);
+        spin->setToolTip(toolTip);
+        connect(spin, &Int64SpinBox::value64Changed,
+                this, [this, startSpin](qint64) {
+                    if (m_updatingConfig)
+                        return;
+                    clampRegionBounds(startSpin);
+                    emit settingsChanged();
+                });
+        return spin;
+    };
+    auto makePickButton = [this](const char *text, const char *name,
+                                 const QString &toolTip,
+                                 bool startBoundary) -> QPushButton * {
+        auto *btn = new QPushButton(QString::fromLatin1(text), this);
+        btn->setObjectName(name);
+        btn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
+        btn->setCheckable(true);
+        btn->setAutoDefault(false);
+        btn->setToolTip(toolTip);
+        connect(btn, &QPushButton::clicked, this,
+                [this, startBoundary]() { toggleRegionPick(startBoundary); });
+        return btn;
+    };
+
     regLay->addWidget(new QLabel(tr("Start:")), 0, 0);
-    m_offsetSpin = new Int64SpinBox(this);
-    m_offsetSpin->setObjectName("offsetSpin");
-    m_offsetSpin->setRange64(0, Int64SpinBox::maxAllowed());
-    m_offsetSpin->setValue64(0);
-    m_offsetSpin->setKeyboardTracking(false);
-    m_offsetSpin->setToolTip(tr("Region start (default 0)"));
-    connect(m_offsetSpin, &Int64SpinBox::value64Changed,
-            this, [this](qint64) {
-                if (m_updatingConfig)
-                    return;
-                clampRegionBounds(true);
-                emit settingsChanged();
-            });
+    m_offsetSpin = makeRegionSpin("offsetSpin", tr("Region start (default 0)"), true);
     regLay->addWidget(m_offsetSpin, 0, 1);
 
-    m_pickStartBtn = new QPushButton(QString("|+"), this);
-    m_pickStartBtn->setObjectName("pickStartBtn");
-    m_pickStartBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
-    m_pickStartBtn->setCheckable(true);
-    m_pickStartBtn->setAutoDefault(false);
-    m_pickStartBtn->setToolTip(tr("Pick region start: click, then left-click the desired byte.\n"
-                                  "Click again or press Esc to cancel."));
-    connect(m_pickStartBtn, &QPushButton::clicked, this, [this]() {
-        if (m_regionPickTarget == PickStart)
-            cancelRegionPick();
-        else
-            startRegionPick(true);
-    });
+    m_pickStartBtn = makePickButton(
+        "|+", "pickStartBtn",
+        tr("Pick region start: click, then left-click the desired byte.\n"
+           "Click again or press Esc to cancel."), true);
     regLay->addWidget(m_pickStartBtn, 0, 2);
 
     m_endLabel = new QLabel(tr(CP_LABEL_END), this);
     regLay->addWidget(m_endLabel, 1, 0);
-    m_endSpin = new Int64SpinBox(this);
-    m_endSpin->setObjectName("endSpin");
-    m_endSpin->setRange64(0, Int64SpinBox::maxAllowed());
-    m_endSpin->setValue64(0);
-    m_endSpin->setKeyboardTracking(false);
-    m_endSpin->setToolTip(tr("Region end, or length if length mode is enabled"));
-    connect(m_endSpin, &Int64SpinBox::value64Changed,
-            this, [this](qint64) {
-                if (m_updatingConfig)
-                    return;
-                clampRegionBounds(false);
-                emit settingsChanged();
-            });
+    m_endSpin = makeRegionSpin(
+        "endSpin", tr("Region end, or length if length mode is enabled"), false);
     regLay->addWidget(m_endSpin, 1, 1);
 
-    m_pickEndBtn = new QPushButton(QString("+|"), this);
-    m_pickEndBtn->setObjectName("pickEndBtn");
-    m_pickEndBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
-    m_pickEndBtn->setCheckable(true);
-    m_pickEndBtn->setAutoDefault(false);
-    m_pickEndBtn->setToolTip(tr("Pick region end: click, then left-click the desired byte.\n"
-                                "Click again or press Esc to cancel."));
-    connect(m_pickEndBtn, &QPushButton::clicked, this, [this]() {
-        if (m_regionPickTarget == PickEnd)
-            cancelRegionPick();
-        else
-            startRegionPick(false);
-    });
+    m_pickEndBtn = makePickButton(
+        "+|", "pickEndBtn",
+        tr("Pick region end: click, then left-click the desired byte.\n"
+           "Click again or press Esc to cancel."), false);
     regLay->addWidget(m_pickEndBtn, 1, 2);
 
     m_hexModeCheck = new QCheckBox(tr("hex"), this);
@@ -251,9 +254,9 @@ void ControlsPanel::buildUi()
     m_hexModeCheck->setToolTip(tr("Use hexadecimal input (0x…)"));
     connect(m_hexModeCheck, &QCheckBox::toggled,
             this, &ControlsPanel::onHexModeChanged);
-	regLay->addWidget(m_hexModeCheck, 2, 0, 1, 1);
-    
-	m_lengthModeCheck = new QCheckBox(tr("Length mode"), this);
+    regLay->addWidget(m_hexModeCheck, 2, 0, 1, 1);
+
+    m_lengthModeCheck = new QCheckBox(tr("Length mode"), this);
     m_lengthModeCheck->setObjectName("lengthModeCheck");
     m_lengthModeCheck->setToolTip(
         tr("If checked, the 'End' field is interpreted as 'Length'"));
@@ -305,16 +308,11 @@ void ControlsPanel::buildUi()
     watch(m_bytesPerRowSpin);
     dispLay->addWidget(m_bytesPerRowSpin, dr++, 1);
 
-    m_bytesPerRowLabel->setVisible(false);
-    m_bytesPerRowSpin->setVisible(false);
-
     m_widthLabel = new QLabel(tr("Width / N:"), this);
     dispLay->addWidget(m_widthLabel, dr, 0);
     m_widthSpin = new QSpinBox(this);
     m_widthSpin->setRange(1, 65536);
     m_widthSpin->setValue(256);
-    m_widthSpin->setToolTip(tr("For \"Manual\" — width in pixels.\n"
-                               "For \"Divisor ≤ N\" — upper width limit."));
     watch(m_widthSpin);
     dispLay->addWidget(m_widthSpin, dr++, 1);
 
@@ -324,8 +322,6 @@ void ControlsPanel::buildUi()
     m_widthStepSpin->setObjectName("widthStepSpin");
     m_widthStepSpin->setRange(1, 65536);
     m_widthStepSpin->setValue(8);
-    m_widthStepSpin->setToolTip(tr("Width change step with Ctrl+mouse wheel.\n"
-                                   "Used in manual mode."));
     watch(m_widthStepSpin);
     dispLay->addWidget(m_widthStepSpin, dr++, 1);
 
@@ -342,16 +338,6 @@ void ControlsPanel::buildUi()
     m_autoScaleCheck->setToolTip(tr("Pick a zoom so the image takes up\n"
                                     "maximum space in the window, but without shrinking.\n"
                                     "Mutually exclusive with \"Fit to window\"."));
-    connect(m_autoScaleCheck, &QCheckBox::toggled, this, [this](bool checked) {
-        if (m_updatingConfig)
-            return;
-        if (checked && m_fitCheck->isChecked()) {
-            QSignalBlocker b(m_fitCheck);
-            m_fitCheck->setChecked(false);
-        }
-        updateDisplayControlsEnabled();
-        emit settingsChanged();
-    });
     dispLay->addWidget(m_autoScaleCheck, dr++, 0, 1, 2);
 
     m_fitCheck = new QCheckBox(tr("Fit to window"), this);
@@ -359,17 +345,24 @@ void ControlsPanel::buildUi()
     m_fitCheck->setToolTip(tr("Fit the entire image within the window bounds,\n"
                               "shrinking if necessary.\n"
                               "Mutually exclusive with \"Auto zoom\"."));
-    connect(m_fitCheck, &QCheckBox::toggled, this, [this](bool checked) {
-        if (m_updatingConfig)
-            return;
-        if (checked && m_autoScaleCheck->isChecked()) {
-            QSignalBlocker b(m_autoScaleCheck);
-            m_autoScaleCheck->setChecked(false);
-        }
-        updateDisplayControlsEnabled();
-        emit settingsChanged();
-    });
     dispLay->addWidget(m_fitCheck, dr++, 0, 1, 2);
+
+    // «Auto zoom» и «Fit to window» взаимоисключающие.
+    auto bindExclusive = [this](QCheckBox *self, QCheckBox *other) {
+        connect(self, &QCheckBox::toggled, this,
+                [this, other](bool checked) {
+            if (m_updatingConfig)
+                return;
+            if (checked && other->isChecked()) {
+                QSignalBlocker b(other);
+                other->setChecked(false);
+            }
+            updateDisplayControlsEnabled();
+            emit settingsChanged();
+        });
+    };
+    bindExclusive(m_autoScaleCheck, m_fitCheck);
+    bindExclusive(m_fitCheck, m_autoScaleCheck);
 
     layout->addWidget(dispGroup);
 
@@ -402,8 +395,6 @@ void ControlsPanel::onBppChanged()
 
 void ControlsPanel::onPaletteChanged()
 {
-    if (!m_main)
-        return;
     if (m_updatingConfig)
         return;
 
@@ -420,8 +411,8 @@ void ControlsPanel::onHexModeChanged(bool checked)
 
 void ControlsPanel::onLengthModeChanged(bool checked)
 {
-    if (m_endLabel)
-        m_endLabel->setText(checked ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
+    Q_UNUSED(checked);
+    updateEndLabel();
     notifyChanged();
 }
 
@@ -432,15 +423,15 @@ void ControlsPanel::resetRegionToDefault()
         m_offsetSpin->setValue64(0);
         m_endSpin->setValue64(0);
         m_lengthModeCheck->setChecked(false);
-        if (m_endLabel)
-            m_endLabel->setText(tr(CP_LABEL_END));
+        updateEndLabel();
     }
     notifyChanged();
 }
 
-void ControlsPanel::startRegionPick(bool startBoundary)
+void ControlsPanel::toggleRegionPick(bool startBoundary)
 {
-    if (!m_main || !m_main->canvasWidget()) {
+    const RegionPickTarget wanted = startBoundary ? PickStart : PickEnd;
+    if (m_regionPickTarget == wanted || !m_main->canvasWidget()) {
         cancelRegionPick();
         return;
     }
@@ -448,17 +439,12 @@ void ControlsPanel::startRegionPick(bool startBoundary)
     if (m_regionPickTarget != PickNone)
         cancelRegionPick();
 
-    m_regionPickTarget = startBoundary ? PickStart : PickEnd;
+    m_regionPickTarget = wanted;
 
     {
         QSignalBlocker b1(m_pickStartBtn), b2(m_pickEndBtn);
-        if (startBoundary) {
-            m_pickStartBtn->setChecked(true);
-            m_pickEndBtn->setChecked(false);
-        } else {
-            m_pickStartBtn->setChecked(false);
-            m_pickEndBtn->setChecked(true);
-        }
+        m_pickStartBtn->setChecked(startBoundary);
+        m_pickEndBtn->setChecked(!startBoundary);
     }
 
     m_main->canvasWidget()->setRegionPickMode(true);
@@ -466,33 +452,14 @@ void ControlsPanel::startRegionPick(bool startBoundary)
 
 void ControlsPanel::cancelRegionPick()
 {
-    if (m_regionPickTarget == PickNone) {
-        if (m_main && m_main->canvasWidget())
-            m_main->canvasWidget()->setRegionPickMode(false);
-        if (m_pickStartBtn) {
-            QSignalBlocker b(m_pickStartBtn);
-            m_pickStartBtn->setChecked(false);
-        }
-        if (m_pickEndBtn) {
-            QSignalBlocker b(m_pickEndBtn);
-            m_pickEndBtn->setChecked(false);
-        }
-        return;
-    }
-
     m_regionPickTarget = PickNone;
 
-    if (m_main && m_main->canvasWidget())
+    if (m_main->canvasWidget())
         m_main->canvasWidget()->setRegionPickMode(false);
 
-    if (m_pickStartBtn && m_pickStartBtn->isChecked()) {
-        QSignalBlocker b(m_pickStartBtn);
-        m_pickStartBtn->setChecked(false);
-    }
-    if (m_pickEndBtn && m_pickEndBtn->isChecked()) {
-        QSignalBlocker b(m_pickEndBtn);
-        m_pickEndBtn->setChecked(false);
-    }
+    QSignalBlocker b1(m_pickStartBtn), b2(m_pickEndBtn);
+    m_pickStartBtn->setChecked(false);
+    m_pickEndBtn->setChecked(false);
 }
 
 void ControlsPanel::onRegionAddressCaptured(qint64 address)
@@ -500,7 +467,7 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
     const RegionPickTarget target = m_regionPickTarget;
     cancelRegionPick();
 
-    if (m_main && m_main->canvasWidget())
+    if (m_main->canvasWidget())
         m_main->canvasWidget()->clearLock();
 
     if (target == PickNone)
@@ -523,8 +490,7 @@ void ControlsPanel::onRegionAddressCaptured(qint64 address)
         if (m_lengthModeCheck->isChecked()) {
             QSignalBlocker b(m_lengthModeCheck);
             m_lengthModeCheck->setChecked(false);
-            if (m_endLabel)
-                m_endLabel->setText(tr(CP_LABEL_END));
+            updateEndLabel();
         }
 
         qint64 newEnd = address;
@@ -547,7 +513,7 @@ void ControlsPanel::fillPaletteCombo(int bpp)
 {
     m_paletteCombo->clear();
 
-    PaletteManager *pm = m_main ? m_main->paletteManager() : nullptr;
+    PaletteManager *pm = m_main->paletteManager();
     if (!pm)
         return;
 
@@ -566,6 +532,12 @@ void ControlsPanel::refillPaletteList(int bpp)
     const QString current = m_paletteCombo->currentData().toString();
     fillPaletteCombo(bpp);
     selectByData(m_paletteCombo, current);
+}
+
+void ControlsPanel::updateEndLabel()
+{
+    m_endLabel->setText(m_lengthModeCheck->isChecked() ? tr(CP_LABEL_LENGTH)
+                                                       : tr(CP_LABEL_END));
 }
 
 void ControlsPanel::notifyChanged()
@@ -595,105 +567,59 @@ void ControlsPanel::updateBitSettingsEnabled(int bpp)
 
     // Bit order виден всегда. Для 1–4 bpp — порядок извлечения битов,
     // для 8+ — bit-reversal в байте.
-    if (m_bitOrderLabel)
-        m_bitOrderLabel->setVisible(true);
-    if (m_bitOrderCombo) {
-        m_bitOrderCombo->setVisible(true);
-        m_bitOrderCombo->setEnabled(true);
-        m_bitOrderCombo->setToolTip(bitpacked
-            ? tr("Bit extraction order for bit-packed pixels.\n"
-                 "MSB-first: highest bit of byte first.\n"
-                 "LSB-first: lowest bit of byte first.")
-            : tr("Bit order within each byte.\n"
-                 "MSB-first: normal byte.\n"
-                 "LSB-first: reverse bits in byte."));
-    }
+    m_bitOrderCombo->setToolTip(bitpacked
+        ? tr("Bit extraction order for bit-packed pixels.\n"
+             "MSB-first: highest bit of byte first.\n"
+             "LSB-first: lowest bit of byte first.")
+        : tr("Bit order within each byte.\n"
+             "MSB-first: normal byte.\n"
+             "LSB-first: reverse bits in byte."));
 
     // Byte order — только для 16–64 bpp.
-    if (m_byteOrderLabel)
-        m_byteOrderLabel->setVisible(multibyte);
-    if (m_byteOrderCombo) {
-        m_byteOrderCombo->setVisible(multibyte);
-        m_byteOrderCombo->setEnabled(multibyte);
-    }
+    setRowActive(m_byteOrderLabel, m_byteOrderCombo, multibyte);
 
     // Pixel order и Padding — только для 1–4 bpp.
-    if (m_pixelOrderLabel)
-        m_pixelOrderLabel->setVisible(bitpacked);
-    if (m_pixelOrderCombo) {
-        m_pixelOrderCombo->setVisible(bitpacked);
-        m_pixelOrderCombo->setEnabled(bitpacked);
-    }
-    if (m_rowPadLabel)
-        m_rowPadLabel->setVisible(bitpacked);
-    if (m_rowPadSpin) {
-        m_rowPadSpin->setVisible(bitpacked);
-        m_rowPadSpin->setEnabled(bitpacked);
-    }
+    setRowActive(m_pixelOrderLabel, m_pixelOrderCombo, bitpacked);
+    setRowActive(m_rowPadLabel, m_rowPadSpin, bitpacked);
 }
 
 QString ControlsPanel::byteOrder() const
 {
-    if (!m_byteOrderCombo)
-        return QStringLiteral(CFG_DEF_BYTE_ORDER);
     return m_byteOrderCombo->currentData().toString();
 }
 
 void ControlsPanel::updateDisplayControlsEnabled()
 {
-    if (!m_widthModeCombo)
-        return;
-
     const int idx = m_widthModeCombo->currentIndex();
 
     const bool widthVisible = (idx == WM_Fixed || idx == WM_Divisor);
     const bool stepVisible  = (idx == WM_Fixed);
     const bool bprVisible   = (idx == WM_BytesPerRow);
 
-    if (m_widthLabel)
-        m_widthLabel->setVisible(widthVisible);
-    if (m_widthSpin) {
-        m_widthSpin->setVisible(widthVisible);
-        m_widthSpin->setEnabled(widthVisible);
-        m_widthSpin->setToolTip(widthVisible
-            ? tr("For \"Manual\" — width in pixels.\n"
-                 "For \"Divisor ≤ N\" — upper width limit.")
-            : tr("Controlled by the current width mode."));
-    }
+    setRowActive(m_widthLabel, m_widthSpin, widthVisible);
+    m_widthSpin->setToolTip(widthVisible
+        ? tr("For \"Manual\" — width in pixels.\n"
+             "For \"Divisor ≤ N\" — upper width limit.")
+        : tr("Controlled by the current width mode."));
 
-    if (m_widthStepLabel)
-        m_widthStepLabel->setVisible(stepVisible);
-    if (m_widthStepSpin) {
-        m_widthStepSpin->setVisible(stepVisible);
-        m_widthStepSpin->setEnabled(stepVisible);
-        m_widthStepSpin->setToolTip(stepVisible
-            ? tr("Width change step with Ctrl+mouse wheel.\n"
-                 "Used in manual mode.")
-            : tr("Available only in \"Manual\" mode."));
-    }
+    setRowActive(m_widthStepLabel, m_widthStepSpin, stepVisible);
+    m_widthStepSpin->setToolTip(stepVisible
+        ? tr("Width change step with Ctrl+mouse wheel.\n"
+             "Used in manual mode.")
+        : tr("Available only in \"Manual\" mode."));
 
-    if (m_bytesPerRowLabel)
-        m_bytesPerRowLabel->setVisible(bprVisible);
-    if (m_bytesPerRowSpin) {
-        m_bytesPerRowSpin->setVisible(bprVisible);
-        m_bytesPerRowSpin->setEnabled(bprVisible);
-    }
+    setRowActive(m_bytesPerRowLabel, m_bytesPerRowSpin, bprVisible);
 
-    if (m_scaleSpin) {
-        const bool locked = (m_autoScaleCheck && m_autoScaleCheck->isChecked())
-                         || (m_fitCheck && m_fitCheck->isChecked());
-        m_scaleSpin->setEnabled(!locked);
-        m_scaleSpin->setToolTip(locked
-            ? tr("Controlled by \"Auto zoom\" or \"Fit to window\".")
-            : tr("Display zoom."));
-    }
+    const bool locked = m_autoScaleCheck->isChecked() || m_fitCheck->isChecked();
+    m_scaleSpin->setEnabled(!locked);
+    m_scaleSpin->setToolTip(locked
+        ? tr("Controlled by \"Auto zoom\" or \"Fit to window\".")
+        : tr("Display zoom."));
 }
 
 void ControlsPanel::applyHexModeToSpins(bool useHex)
 {
     for (Int64SpinBox *spin : { m_offsetSpin, m_endSpin }) {
-        if (!spin)
-            continue;
         QSignalBlocker b(spin);
         spin->setHexMode(useHex);
     }
@@ -701,9 +627,7 @@ void ControlsPanel::applyHexModeToSpins(bool useHex)
 
 void ControlsPanel::clampRegionBounds(bool startChanged)
 {
-    if (m_updatingConfig)
-        return;
-    if (m_lengthModeCheck->isChecked())
+    if (m_updatingConfig || m_lengthModeCheck->isChecked())
         return;
 
     const qint64 maxVal   = m_offsetSpin->maximum64();
@@ -779,7 +703,7 @@ int ControlsPanel::fixedWidth() const
 
 int ControlsPanel::widthStep() const
 {
-    return m_widthStepSpin ? m_widthStepSpin->value() : CFG_DEF_WIDTH_STEP;
+    return m_widthStepSpin->value();
 }
 
 int ControlsPanel::scaleValue() const
@@ -818,7 +742,7 @@ bool ControlsPanel::lengthMode() const
 
 int ControlsPanel::bytesPerRow() const
 {
-    return m_bytesPerRowSpin ? m_bytesPerRowSpin->value() : CFG_DEF_BYTES_PER_ROW;
+    return m_bytesPerRowSpin->value();
 }
 
 QVariantMap ControlsPanel::currentConfig() const
@@ -864,26 +788,19 @@ void ControlsPanel::setCanvasWidget(CanvasWidget *canvas)
 
 void ControlsPanel::setScaleSilent(int s)
 {
-    if (!m_scaleSpin)
-        return;
     QSignalBlocker b(m_scaleSpin);
     m_scaleSpin->setValue(qBound(1, s, 32));
 }
 
 void ControlsPanel::setWidthModeSilent(int idx)
 {
-    if (!m_widthModeCombo)
-        return;
     QSignalBlocker b(m_widthModeCombo);
-    const int clamped = qBound(0, idx, int(WM_Count) - 1);
-    m_widthModeCombo->setCurrentIndex(clamped);
+    m_widthModeCombo->setCurrentIndex(qBound(0, idx, int(WM_Count) - 1));
     updateDisplayControlsEnabled();
 }
 
 void ControlsPanel::setWidthSilent(int w)
 {
-    if (!m_widthSpin)
-        return;
     QSignalBlocker b(m_widthSpin);
     m_widthSpin->setValue(qMax(1, w));
 }
@@ -911,25 +828,25 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     fillPaletteCombo(bpp);
 
     QString paletteId = cfg.value(QStringLiteral(CFG_PALETTE)).toString();
-    if (m_main && m_main->paletteManager() &&
-        !m_main->paletteManager()->contains(paletteId))
+    PaletteManager *pm = m_main->paletteManager();
+    if (pm && !pm->contains(paletteId))
         paletteId.clear();
     if (!selectByData(m_paletteCombo, paletteId) && m_paletteCombo->count() > 0)
         m_paletteCombo->setCurrentIndex(0);
 
     // Любое значение, кроме «msb»/«big», трактуется как противоположный порядок.
-    selectByData(m_bitOrderCombo,
-        cfg.value(QStringLiteral(CFG_BIT_ORDER),
-                  QStringLiteral(CFG_DEF_BIT_ORDER)).toString()
-            == QLatin1String("msb") ? QStringLiteral("msb") : QStringLiteral("lsb"));
-    selectByData(m_byteOrderCombo,
-        cfg.value(QStringLiteral(CFG_BYTE_ORDER),
-                  QStringLiteral(CFG_DEF_BYTE_ORDER)).toString()
-            == QLatin1String("little") ? QStringLiteral("little") : QStringLiteral("big"));
-    selectByData(m_pixelOrderCombo,
-        cfg.value(QStringLiteral(CFG_PIXEL_ORDER),
-                  QStringLiteral(CFG_DEF_PIXEL_ORDER)).toString()
-            == QLatin1String("msb") ? QStringLiteral("msb") : QStringLiteral("lsb"));
+    selectChoice(m_bitOrderCombo,
+                 cfg.value(QStringLiteral(CFG_BIT_ORDER),
+                           QStringLiteral(CFG_DEF_BIT_ORDER)).toString(),
+                 "msb", "lsb");
+    selectChoice(m_byteOrderCombo,
+                 cfg.value(QStringLiteral(CFG_BYTE_ORDER),
+                           QStringLiteral(CFG_DEF_BYTE_ORDER)).toString(),
+                 "little", "big");
+    selectChoice(m_pixelOrderCombo,
+                 cfg.value(QStringLiteral(CFG_PIXEL_ORDER),
+                           QStringLiteral(CFG_DEF_PIXEL_ORDER)).toString(),
+                 "msb", "lsb");
 
     m_rowPadSpin->setValue(
         cfg.value(QStringLiteral(CFG_ROW_PADDING_BITS), CFG_DEF_ROW_PADDING).toInt());
@@ -951,14 +868,10 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
     m_widthModeCombo->setCurrentIndex(widthModeFromKey(wmKey));
     m_widthSpin->setValue(qMax(1,
         cfg.value(QStringLiteral(CFG_FIXED_WIDTH), CFG_DEF_FIXED_WIDTH).toInt()));
-    if (m_widthStepSpin) {
-        m_widthStepSpin->setValue(qMax(1,
-            cfg.value(QStringLiteral(CFG_WIDTH_STEP), CFG_DEF_WIDTH_STEP).toInt()));
-    }
-    if (m_bytesPerRowSpin) {
-        m_bytesPerRowSpin->setValue(qMax(1,
-            cfg.value(QStringLiteral(CFG_BYTES_PER_ROW), CFG_DEF_BYTES_PER_ROW).toInt()));
-    }
+    m_widthStepSpin->setValue(qMax(1,
+        cfg.value(QStringLiteral(CFG_WIDTH_STEP), CFG_DEF_WIDTH_STEP).toInt()));
+    m_bytesPerRowSpin->setValue(qMax(1,
+        cfg.value(QStringLiteral(CFG_BYTES_PER_ROW), CFG_DEF_BYTES_PER_ROW).toInt()));
 
     updateDisplayControlsEnabled();
 
@@ -970,8 +883,7 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
         cfg.value(QStringLiteral(CFG_LENGTH_MODE), false).toBool();
 
     m_lengthModeCheck->setChecked(lenMode);
-    if (m_endLabel)
-        m_endLabel->setText(lenMode ? tr(CP_LABEL_LENGTH) : tr(CP_LABEL_END));
+    updateEndLabel();
 
     const quint64 maxSpinValue = quint64(m_endSpin->maximum64());
     const quint64 safeOffsetVal = qMin(offsetVal, maxSpinValue);

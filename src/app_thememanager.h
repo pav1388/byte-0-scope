@@ -12,7 +12,6 @@
 class QApplication;
 
 struct Theme {
-    QString name;
     QMap<QString, QColor>  colors;
     QMap<QString, QString> styles;
 };

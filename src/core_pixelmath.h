@@ -51,17 +51,13 @@ inline int pixelCountForBytes(quint64 byteCount, bool bitpacked,
                               int bitsPerPixel, int bytesPerPixel) noexcept
 {
     const quint64 intMax = quint64(std::numeric_limits<int>::max());
-    quint64 pixels = 0;
     if (bitpacked) {
         const quint64 bpp = quint64(qBound(1, bitsPerPixel, 8));
-        const quint64 maxBytesWithoutSaturation = (intMax * bpp) / 8;
-        if (byteCount > maxBytesWithoutSaturation)
+        if (byteCount > (intMax * bpp) / 8)
             return std::numeric_limits<int>::max();
-        pixels = (byteCount * 8) / bpp;
-    } else {
-        pixels = byteCount / quint64(qMax(1, bytesPerPixel));
+        return int((byteCount * 8) / bpp);
     }
-    return int(qMin(pixels, intMax));
+    return int(qMin(byteCount / quint64(qMax(1, bytesPerPixel)), intMax));
 }
 
 // Высота изображения (в строках) для byteCount байт при заданной ширине.
@@ -73,21 +69,17 @@ inline qint64 imageHeightForBytes(quint64 byteCount, int width,
     if (byteCount == 0 || width <= 0)
         return 0;
 
-    quint64 rows = 0;
+    // total - число единиц (байт или пикселей), perRow - единиц в строке.
+    quint64 total = byteCount;
+    quint64 perRow = 0;
     if (bitpacked) {
-        const qint64 rowBytes = bitpackedRowBytes(width, bitsPerPixel,
-                                                  rowPaddingBits);
-        if (rowBytes <= 0)
-            return 0;
-        const quint64 stride = quint64(rowBytes);
-        rows = byteCount / stride + (byteCount % stride != 0 ? 1 : 0);
+        perRow = quint64(bitpackedRowBytes(width, bitsPerPixel, rowPaddingBits));
     } else {
-        const quint64 bpp = quint64(qMax(1, bytesPerPixel));
-        const quint64 pixels = byteCount / bpp;
-        const quint64 w = quint64(width);
-        rows = pixels / w + (pixels % w != 0 ? 1 : 0);
+        total /= quint64(qMax(1, bytesPerPixel));
+        perRow = quint64(width);
     }
 
+    const quint64 rows = total / perRow + (total % perRow != 0 ? 1 : 0);
     return rows > quint64(std::numeric_limits<qint64>::max())
         ? std::numeric_limits<qint64>::max() : qint64(rows);
 }
@@ -176,7 +168,8 @@ inline int unitToGrayF(float v) noexcept
     return int(std::lround(s));
 }
 
-// Декодирует «нормализованный» буфер
+// Декодирует пиксель многобайтового формата из n байт буфера s (big-endian)
+// в Rgba8; false - формат не поддерживается или данных меньше, чем нужно.
 inline bool decodeNormalized(PixelFormat fmt, bool isSigned,
                              const uchar *s, int n, Rgba8 *out) noexcept
 {

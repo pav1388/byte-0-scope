@@ -8,7 +8,6 @@
 #include "core_pixelmath.h"
 #include "ui_mainwindow.h"
 
-#include <QApplication>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegion>
@@ -23,6 +22,10 @@
 #define CW_WHEEL_DEBOUNCE_MS     150
 #define CW_PREFETCH_DELAY_MS     50
 #define CW_MARKER_PEN_WIDTH      2
+
+namespace {
+constexpr qint64 kIntMax = std::numeric_limits<int>::max();
+}
 
 CanvasWidget::CanvasWidget(MainWindow *parent)
     : QWidget(parent), m_main(parent)
@@ -77,53 +80,70 @@ void CanvasWidget::setRegionPickMode(bool enabled)
         unsetCursor();
 }
 
-void CanvasWidget::clearLock()
+void CanvasWidget::lockAt(qint64 addr, int bitOffset, const QPoint &sourcePixel)
 {
-    if (!m_locked)
-        return;
+    m_locked = true;
+    m_lockedAddr = addr;
+    m_lockedBitOffset = bitOffset;
+    m_lockedSourcePixel = sourcePixel;
+    m_lockedSourcePixelValid = true;
+}
+
+void CanvasWidget::resetLock()
+{
     m_locked = false;
     m_lockedAddr = -1;
     m_lockedBitOffset = 0;
     m_lockedSourcePixel = QPoint();
     m_lockedSourcePixelValid = false;
+}
+
+void CanvasWidget::clearLock()
+{
+    if (!m_locked)
+        return;
+    resetLock();
     emit lockedChanged(-1);
     update();
 }
 
-void CanvasWidget::rebuild()
+void CanvasWidget::dropSnapshot()
 {
-    // Snapshot only the currently visible part of a potentially enormous
-    // canvas.
     m_frozenSnapshot = QImage();
     m_snapshotRect = QRect();
     m_snapshotActive = false;
-    if (isVisible() && width() > 0 && height() > 0
-            && m_main && m_main->scrollArea()) {
-        QScrollArea *scrollArea = m_main->scrollArea();
-        const QPoint scrollOrigin(
-            scrollArea->horizontalScrollBar()->value(),
-            scrollArea->verticalScrollBar()->value());
-        const QRect viewportRect(scrollOrigin,
-                                 scrollArea->viewport()->size());
-        const QRect captureRect = viewportRect.intersected(rect());
-        if (!captureRect.isEmpty()) {
-            m_frozenSnapshot = grab(captureRect).toImage();
-            if (!m_frozenSnapshot.isNull()) {
-                m_snapshotRect = captureRect;
-                m_snapshotActive = true;
-            }
-        }
-    }
+}
+
+// Снимается только видимая часть: холст целиком может быть огромным.
+void CanvasWidget::captureSnapshot()
+{
+    dropSnapshot();
+
+    QScrollArea *scrollArea = m_main->scrollArea();
+    if (!isVisible() || width() <= 0 || height() <= 0 || !scrollArea)
+        return;
+
+    const QPoint scrollOrigin(scrollArea->horizontalScrollBar()->value(),
+                              scrollArea->verticalScrollBar()->value());
+    const QRect viewportRect(scrollOrigin, scrollArea->viewport()->size());
+    const QRect captureRect = viewportRect.intersected(rect());
+    if (captureRect.isEmpty())
+        return;
+
+    m_frozenSnapshot = grab(captureRect).toImage();
+    if (m_frozenSnapshot.isNull())
+        return;
+    m_snapshotRect = captureRect;
+    m_snapshotActive = true;
+}
+
+void CanvasWidget::rebuild()
+{
+    captureSnapshot();
 
     m_tiles->clearCache();
-    if (m_prefetchTimer)
-        m_prefetchTimer->stop();
+    m_prefetchTimer->stop();
     m_lastPrefetchTiles.clear();
-
-    if (!m_main) {
-        update();
-        return;
-    }
 
     m_imageWidth  = m_main->imageWidth();
     m_imageHeight = m_main->imageHeight();
@@ -131,14 +151,13 @@ void CanvasWidget::rebuild()
     m_downsample  = m_main->downsample();
 
     setFixedSize(scaledSize());
-    m_forceRedraw = false;
     update();
     refreshHover();
 }
 
 void CanvasWidget::refreshHover()
 {
-    if (m_locked || !underMouse() || !m_hoverTimer)
+    if (m_locked || !underMouse())
         return;
     m_pendingHoverPos = mapFromGlobal(QCursor::pos());
     m_hoverTimer->start(CW_HOVER_DELAY_MS);
@@ -153,23 +172,9 @@ QSize CanvasWidget::scaledSize() const
     const int ds = qMax(1, m_downsample);
     const qint64 width = qint64(tileOutputExtent(m_imageWidth, ds)) * s;
     const qint64 height = qint64(tileOutputExtent(m_imageHeight, ds)) * s;
-    if (width <= 0 || height <= 0
-            || width > std::numeric_limits<int>::max()
-            || height > std::numeric_limits<int>::max())
+    if (width <= 0 || height <= 0 || width > kIntMax || height > kIntMax)
         return QSize(1, 1);
     return QSize(int(width), int(height));
-}
-
-bool CanvasWidget::allVisibleTilesReady() const
-{
-    if (!m_main)
-        return true;
-    const QSet<TileKey> vis = visibleTiles();
-    for (const TileKey &k : vis) {
-        if (m_tiles->getTile(k.tx, k.ty).isNull())
-            return false;
-    }
-    return true;
 }
 
 void CanvasWidget::paintEvent(QPaintEvent *event)
@@ -181,37 +186,38 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
     });
     painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
 
-    if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main || !m_tiles)
+    if (m_imageWidth <= 0 || m_imageHeight <= 0)
         return;
 
-    if (m_forceRedraw) {
-        m_tiles->clearCache();
-        m_forceRedraw = false;
-    }
-
-    if (m_snapshotActive && !m_frozenSnapshot.isNull())
+    if (m_snapshotActive)
         painter.drawImage(m_snapshotRect, m_frozenSnapshot);
 
     const QSet<TileKey> visible = visibleTiles();
     m_tiles->setVisibleTiles(visible);
 
-    if (m_snapshotActive && allVisibleTilesReady()) {
-        m_snapshotActive = false;
-        m_frozenSnapshot = QImage();
-        m_snapshotRect = QRect();
+    if (m_snapshotActive) {
+        bool allReady = true;
+        for (const TileKey &k : visible) {
+            if (m_tiles->getTile(k.tx, k.ty).isNull()) {
+                allReady = false;
+                break;
+            }
+        }
+        if (allReady)
+            dropSnapshot();
     }
 
     if (visible != m_lastPrefetchTiles) {
         m_lastPrefetchTiles = visible;
-        if (m_prefetchTimer && !m_prefetchTimer->isActive())
+        if (!m_prefetchTimer->isActive())
             m_prefetchTimer->start(CW_PREFETCH_DELAY_MS);
     }
 
-    const int sourceTileSize = normalizedTileSourceSize(m_main->tileSize());
-    const int outputTileSize = tileOutputSize(sourceTileSize, m_downsample);
-    const int scale = qMax(1, m_scale);
+    const int outputTileSize = tileOutputSize(
+        normalizedTileSourceSize(m_main->tileSize()), m_downsample);
     if (outputTileSize <= 0)
         return;
+    const int scale = qMax(1, m_scale);
 
     for (const TileKey &key : visible) {
         const QImage image = m_tiles->getTile(key.tx, key.ty);
@@ -223,12 +229,7 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
         const qint64 width = qint64(image.width()) * scale;
         const qint64 height = qint64(image.height()) * scale;
         if (x < 0 || y < 0 || width <= 0 || height <= 0
-                || x > std::numeric_limits<int>::max()
-                || y > std::numeric_limits<int>::max()
-                || width > std::numeric_limits<int>::max()
-                || height > std::numeric_limits<int>::max()
-                || x + width > std::numeric_limits<int>::max()
-                || y + height > std::numeric_limits<int>::max())
+                || x + width > kIntMax || y + height > kIntMax)
             continue;
 
         const QRect tileRect = QRect(int(x), int(y), int(width), int(height));
@@ -239,6 +240,12 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
         painter.drawImage(tileRect, image);
     }
 
+    drawSelectionMarker(painter, dirtyRegion);
+}
+
+void CanvasWidget::drawSelectionMarker(QPainter &painter,
+                                       const QRegion &dirtyRegion)
+{
     const qint64 address = m_locked ? m_lockedAddr : m_hoverAddr;
     if (address < 0)
         return;
@@ -257,12 +264,13 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
     if (m_main->mirrorVertical())
         y = m_imageHeight - 1 - y;
 
+    const int scale = qMax(1, m_scale);
     const int ds = qMax(1, m_downsample);
     const qint64 xp64 = qint64(x / ds) * scale;
     const qint64 yp64 = qint64(y / ds) * scale;
     if (xp64 < 0 || yp64 < 0
-            || xp64 > std::numeric_limits<int>::max() - scale - 2
-            || yp64 > std::numeric_limits<int>::max() - scale - 2)
+            || xp64 > kIntMax - scale - 2
+            || yp64 > kIntMax - scale - 2)
         return;
     const int xp = int(xp64);
     const int yp = int(yp64);
@@ -282,18 +290,14 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
             m_main->bitOrder() == QLatin1String("lsb"),
             m_main->pixelOrder() == QLatin1String("lsb")));
     }
-    const QVector<QColor> palette = m_main->currentPalette();
-    int r = byteValue, g = byteValue, b = byteValue;
-    if (!palette.isEmpty()) {
-        const QColor &color = palette[byteValue % palette.size()];
-        r = color.red();
-        g = color.green();
-        b = color.blue();
-    }
+    QColor color(byteValue, byteValue, byteValue);
+    const QVector<QColor> colors = m_main->currentPalette();
+    if (!colors.isEmpty())
+        color = colors[byteValue % colors.size()];
 
-    const QColor contour(qMin(255, 285 - r),
-                         qMin(255, 285 - g),
-                         qMin(255, 285 - b));
+    const QColor contour(qMin(255, 285 - color.red()),
+                         qMin(255, 285 - color.green()),
+                         qMin(255, 285 - color.blue()));
     painter.setPen(QPen(contour, CW_MARKER_PEN_WIDTH, Qt::DashLine));
     painter.drawRect(xp, yp, qMax(0, scale - 1), qMax(0, scale - 1));
 }
@@ -301,11 +305,10 @@ void CanvasWidget::paintEvent(QPaintEvent *event)
 QSet<TileKey> CanvasWidget::visibleTiles() const
 {
     QSet<TileKey> result;
-    if (!m_main || !m_main->scrollArea()
-            || m_imageWidth <= 0 || m_imageHeight <= 0)
+    QScrollArea *scrollArea = m_main->scrollArea();
+    if (!scrollArea || m_imageWidth <= 0 || m_imageHeight <= 0)
         return result;
 
-    QScrollArea *scrollArea = m_main->scrollArea();
     const QRect viewport = scrollArea->viewport()->rect();
     const qint64 viewLeft = qint64(viewport.left())
                           + scrollArea->horizontalScrollBar()->value();
@@ -344,8 +347,7 @@ QSet<TileKey> CanvasWidget::visibleTiles() const
 
     for (qint64 ty = firstTileY; ty <= lastTileY; ++ty) {
         for (qint64 tx = firstTileX; tx <= lastTileX; ++tx) {
-            if (tx > std::numeric_limits<int>::max()
-                    || ty > std::numeric_limits<int>::max())
+            if (tx > kIntMax || ty > kIntMax)
                 continue;
             result.insert(TileKey(int(tx), int(ty), ds));
         }
@@ -358,8 +360,6 @@ void CanvasWidget::displayedRegion(quint64 *offset, quint64 *length) const
 {
     *offset = 0;
     *length = 0;
-    if (!m_main)
-        return;
 
     const quint64 offsetValue = m_main->offset();
     if (offsetValue > quint64(std::numeric_limits<qint64>::max()))
@@ -377,7 +377,7 @@ bool CanvasWidget::pixelForAddress(qint64 address, int bitOffset,
     quint64 offsetValue = 0;
     quint64 regionLength = 0;
     displayedRegion(&offsetValue, &regionLength);
-    if (!m_main || address < 0 || regionLength == 0
+    if (address < 0 || regionLength == 0
             || quint64(address) < offsetValue
             || quint64(address) - offsetValue >= regionLength)
         return false;
@@ -424,8 +424,7 @@ qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel,
     if (bitOffset)
         *bitOffset = 0;
 
-    if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main
-            || pos.x() < 0 || pos.y() < 0)
+    if (m_imageWidth <= 0 || m_imageHeight <= 0 || pos.x() < 0 || pos.y() < 0)
         return -1;
 
     quint64 offsetValue = 0;
@@ -436,9 +435,9 @@ qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel,
 
     const int scale = qMax(1, m_scale);
     const int ds = qMax(1, m_downsample);
-    qint64 x64 = qint64(pos.x() / scale) * ds;
-    qint64 y64 = qint64(pos.y() / scale) * ds;
-    if (x64 < 0 || y64 < 0 || x64 >= m_imageWidth || y64 >= m_imageHeight)
+    const qint64 x64 = qint64(pos.x() / scale) * ds;
+    const qint64 y64 = qint64(pos.y() / scale) * ds;
+    if (x64 >= m_imageWidth || y64 >= m_imageHeight)
         return -1;
 
     int x = int(x64);
@@ -497,38 +496,18 @@ void CanvasWidget::mousePressEvent(QMouseEvent *e)
             return;
         }
 
-        if (m_regionPickMode) {
-            m_locked     = true;
-            m_lockedAddr = a;
-            m_lockedBitOffset = bitOffset;
-            m_lockedSourcePixel = sourcePixel;
-            m_lockedSourcePixelValid = true;
-            m_hoverAddr  = a;
+        // В режиме выбора региона байт всегда закрепляется; иначе клик
+        // переключает закрепление.
+        const bool lock = m_regionPickMode || !m_locked;
+        if (lock)
+            lockAt(a, bitOffset, sourcePixel);
+        else
+            resetLock();
+        if (!lock || m_regionPickMode) {
+            m_hoverAddr = a;
             m_hoverBitOffset = bitOffset;
-            emit lockedChanged(a);
-            emit hoverChanged(a);
-            update();
-            e->accept();
-            return;
         }
-
-        if (m_locked) {
-            m_locked     = false;
-            m_lockedAddr = -1;
-            m_lockedBitOffset = 0;
-            m_lockedSourcePixel = QPoint();
-            m_lockedSourcePixelValid = false;
-            m_hoverAddr  = a;
-            m_hoverBitOffset = bitOffset;
-            emit lockedChanged(-1);
-        } else {
-            m_locked     = true;
-            m_lockedAddr = a;
-            m_lockedBitOffset = bitOffset;
-            m_lockedSourcePixel = sourcePixel;
-            m_lockedSourcePixelValid = true;
-            emit lockedChanged(a);
-        }
+        emit lockedChanged(lock ? a : -1);
         emit hoverChanged(a);
         update();
         e->accept();
@@ -572,7 +551,7 @@ void CanvasWidget::wheelEvent(QWheelEvent *e)
         return;
     }
 
-    if (m_main && (m_main->fitToWindow() || m_main->autoScale())) {
+    if (m_main->fitToWindow() || m_main->autoScale()) {
         e->ignore();
         return;
     }
@@ -596,13 +575,9 @@ void CanvasWidget::leaveEvent(QEvent *e)
 
 void CanvasWidget::clearHover()
 {
-    m_hoverAddr  = -1;
-    m_hoverBitOffset  = 0;
-    m_lockedBitOffset = 0;
-    m_locked     = false;
-    m_lockedAddr = -1;
-    m_lockedSourcePixel = QPoint();
-    m_lockedSourcePixelValid = false;
+    m_hoverAddr = -1;
+    m_hoverBitOffset = 0;
+    resetLock();
     update();
 }
 
@@ -611,15 +586,13 @@ void CanvasWidget::clearHover()
 // =========================================================================
 void CanvasWidget::applyWheelZoom()
 {
-    if (m_wheelAccumulatedDelta == 0 || !m_main)
-        return;
-    if (!m_main->scrollArea())
+    QScrollArea *sa = m_main->scrollArea();
+    if (m_wheelAccumulatedDelta == 0 || !sa)
         return;
 
     const int totalDelta = m_wheelAccumulatedDelta;
     m_wheelAccumulatedDelta = 0;
 
-    QScrollArea *sa = m_main->scrollArea();
     QScrollBar *h = sa->horizontalScrollBar();
     QScrollBar *v = sa->verticalScrollBar();
 
@@ -645,45 +618,24 @@ void CanvasWidget::applyWheelZoom()
     const double newCanvasX = imgX * newScale / double(newDs);
     const double newCanvasY = imgY * newScale / double(newDs);
 
-    int newH = qRound(newCanvasX) - vpX;
-    int newV = qRound(newCanvasY) - vpY;
-
-    h->setValue(qMax(0, qMin(newH, h->maximum())));
-    v->setValue(qMax(0, qMin(newV, v->maximum())));
+    h->setValue(qBound(0, qRound(newCanvasX) - vpX, h->maximum()));
+    v->setValue(qBound(0, qRound(newCanvasY) - vpY, v->maximum()));
 }
 
 void CanvasWidget::prefetchTiles()
 {
-    if (m_imageWidth <= 0 || m_imageHeight <= 0 || !m_main)
-        return;
-    if (m_lastPrefetchTiles.isEmpty())
-        return;
-    m_tiles->prefetchAround(m_lastPrefetchTiles);
-}
-
-QImage CanvasWidget::renderToImage(const QSize &targetSize)
-{
-    if (!m_tiles)
-        return QImage();
-    return m_tiles->renderImage(targetSize, m_scale, m_downsample);
+    if (!m_lastPrefetchTiles.isEmpty())
+        m_tiles->prefetchAround(m_lastPrefetchTiles);
 }
 
 void CanvasWidget::setLockedAddress(qint64 addr, int bitOffset)
 {
-    if (addr < 0) {
-        clearLock();
-        return;
-    }
     int x = -1, y = -1;
-    if (!pixelForAddress(addr, bitOffset, &x, &y)) {
+    if (addr < 0 || !pixelForAddress(addr, bitOffset, &x, &y)) {
         clearLock();
         return;
     }
-    m_locked = true;
-    m_lockedAddr = addr;
-    m_lockedBitOffset = qBound(0, bitOffset, 7);
-    m_lockedSourcePixel = QPoint(x, y);
-    m_lockedSourcePixelValid = true;
+    lockAt(addr, qBound(0, bitOffset, 7), QPoint(x, y));
     m_hoverAddr = addr;
     m_hoverBitOffset = m_lockedBitOffset;
     emit lockedChanged(addr);

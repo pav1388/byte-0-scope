@@ -21,11 +21,6 @@ inline quint16 readU16(const uchar *p, const QString &endianness)
         : qFromBigEndian<quint16>(p);
 }
 
-struct FormatInfo {
-    PixelFormat format;
-    bool        isSigned;
-};
-
 struct FormatEntry {
     const char *id;
     PixelFormat format;
@@ -34,7 +29,7 @@ struct FormatEntry {
 
 // Palette identifier -> format. PaletteIds::* makes this table the single
 // source of truth: a typo in a palette name now fails to compile.
-FormatInfo lookupFormat(const QString &id)
+FormatEntry lookupFormat(const QString &id)
 {
     static const FormatEntry kFormats[] = {
         { PaletteIds::Rgb,              PF_Rgb,      false },
@@ -62,16 +57,10 @@ FormatInfo lookupFormat(const QString &id)
         { PaletteIds::FromFile,         PF_FromFile, false },
     };
     for (const FormatEntry &e : kFormats) {
-        if (id == QLatin1String(e.id)) {
-            FormatInfo info;
-            info.format   = e.format;
-            info.isSigned = e.isSigned;
-            return info;
-        }
+        if (id == QLatin1String(e.id))
+            return e;
     }
-    FormatInfo none;
-    none.format   = PF_Unknown;
-    none.isSigned = false;
+    const FormatEntry none = { nullptr, PF_Unknown, false };
     return none;
 }
 
@@ -90,17 +79,6 @@ bool isRgbaFamily(PixelFormat f)
 
 } // namespace
 
-PixelFormat parseFormat(const QString &paletteId)
-{
-    return lookupFormat(paletteId).format;
-}
-
-bool isMultibytePalette(const QString &id)
-{
-    const PixelFormat f = parseFormat(id);
-    return f != PF_Unknown && f != PF_FromFile;
-}
-
 //  Decoder
 Decoder::Decoder(const QString &paletteId, const QString &bitOrder,
                  const QString &byteOrder, const QVariantMap &params)
@@ -110,7 +88,7 @@ Decoder::Decoder(const QString &paletteId, const QString &bitOrder,
       m_signed(false),
       m_fileRecordSize(1)
 {
-    const FormatInfo info = lookupFormat(paletteId);
+    const FormatEntry info = lookupFormat(paletteId);
     m_format = info.format;
     m_signed = info.isSigned
         || params.value(QStringLiteral("signed"), false).toBool();
@@ -140,42 +118,23 @@ QRgb Decoder::decode(const uchar *p, int n) const
     if (n <= 0 || !p)
         return qRgba(0, 0, 0, 255);
 
+    if (m_format == PF_FromFile) {
+        const QByteArray rec(reinterpret_cast<const char *>(p),
+                             qMin(n, m_fileRecordSize));
+        return interpretPaletteRecord(rec, m_fileFormat, m_fileRecordSize,
+                                      m_fileEndianness).rgba();
+    }
+
     uchar buf[8];
     const int cnt = normalize(p, n, buf);
 
     Rgba8 px = { 0, 0, 0, 255 };
-    if (m_format == PF_FromFile) {
-        const QByteArray rec(reinterpret_cast<const char *>(p),
-                             qMin(n, m_fileRecordSize));
-        const QColor c = interpretPaletteRecord(rec, m_fileFormat,
-                                                m_fileRecordSize,
-                                                m_fileEndianness);
-        return qRgba(c.red(), c.green(), c.blue(), c.alpha());
-    }
-
-    if (!decodeNormalized(m_format, m_signed, buf, cnt, &px)) {
+    if (!decodeNormalized(m_format, m_signed, buf, cnt, &px))
         px.r = px.g = px.b = buf[0];
-        px.a = 255;
-    }
     return qRgba(px.r, px.g, px.b, px.a);
 }
 
 //  Free functions
-QRgb decodeArgbRaw(const uchar *p, int n, const QString &id,
-                   const QString &bitOrder, const QString &byteOrder,
-                   const QVariantMap &params)
-{
-    return Decoder(id, bitOrder, byteOrder, params).decode(p, n);
-}
-
-QRgb decodeArgb(const QByteArray &bytes, const QString &id,
-                const QString &bitOrder, const QString &byteOrder,
-                const QVariantMap &params)
-{
-    return decodeArgbRaw(reinterpret_cast<const uchar *>(bytes.constData()),
-                         bytes.size(), id, bitOrder, byteOrder, params);
-}
-
 QString describe(const QByteArray &px, const QString &id,
                  const QString &bitOrder, const QString &byteOrder,
                  const QVariantMap &params)
@@ -186,36 +145,18 @@ QString describe(const QByteArray &px, const QString &id,
     const Decoder decoder(id, bitOrder, byteOrder, params);
     const PixelFormat fmt = decoder.format();
 
-    const uchar *p = reinterpret_cast<const uchar *>(px.constData());
-    const QRgb argb = decoder.decode(p, px.size());
+    const QRgb argb = decoder.decode(
+        reinterpret_cast<const uchar *>(px.constData()), px.size());
     const int r = qRed(argb);
-    const int g = qGreen(argb);
-    const int b = qBlue(argb);
-    const int a = qAlpha(argb);
 
     if (isRgbaFamily(fmt))
-        return QStringLiteral("R=%1 G=%2 B=%3 A=%4").arg(r).arg(g).arg(b).arg(a);
+        return QStringLiteral("R=%1 G=%2 B=%3 A=%4")
+            .arg(r).arg(qGreen(argb)).arg(qBlue(argb)).arg(qAlpha(argb));
     if (isPlainRgbFamily(fmt))
-        return QStringLiteral("R=%1 G=%2 B=%3").arg(r).arg(g).arg(b);
-
-    if (fmt == PF_Int16 || fmt == PF_Int32 || fmt == PF_Int64) {
-        uchar buf[8];
-        const int cnt = decoder.normalize(p, px.size(), buf);
-        const bool sgn = decoder.isSigned();
-
-        QString rawVal;
-        if (fmt == PF_Int16 && cnt >= 2) {
-            const quint16 u = readU16BE(buf);
-            rawVal = QString::number(sgn ? qint32(qint16(u)) : qint32(u));
-        } else if (fmt == PF_Int32 && cnt >= 4) {
-            const quint32 u = readU32BE(buf);
-            rawVal = QString::number(sgn ? qint64(qint32(u)) : qint64(u));
-        } else if (fmt == PF_Int64 && cnt >= 8) {
-            const quint64 u = readU64BE(buf);
-            rawVal = sgn ? QString::number(qint64(u)) : QString::number(u);
-        }
+        return QStringLiteral("R=%1 G=%2 B=%3")
+            .arg(r).arg(qGreen(argb)).arg(qBlue(argb));
+    if (fmt == PF_Int16 || fmt == PF_Int32 || fmt == PF_Int64)
         return QStringLiteral(" > gray=%1").arg(r);
-    }
     if (fmt == PF_Float32 || fmt == PF_Float64)
         return QString::number(r);
     return QString();

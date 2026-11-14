@@ -13,6 +13,8 @@
 #include <QRect>
 #include <QPoint>
 
+#include <memory>
+
 #include "core_bytesource.h"
 #include "definitions.h"
 #include "ui_hexviewwidget.h"
@@ -27,7 +29,6 @@ class QTimer;
 class QCheckBox;
 class QPushButton;
 class QGroupBox;
-class QJsonObject;
 class CanvasWidget;
 class ControlsPanel;
 class ByteConverterWidget;
@@ -44,7 +45,7 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    ~MainWindow() override;
 
     void openFiles(const QStringList &paths);
     bool showDebugInfo() const { return m_showDebugInfo; }
@@ -81,8 +82,8 @@ public:
     QString         currentPaletteId() const { return m_currentPaletteId; }
     QVector<QColor> currentPalette() const   { return m_currentPalette; }
     QVariantMap     paletteParams() const    { return m_paletteParams; }
-    PaletteManager *paletteManager() const   { return m_paletteManager; }
-    ThemeManager   *themeManager() const     { return m_theme; }
+    PaletteManager *paletteManager() const   { return m_paletteManager.get(); }
+    ThemeManager   *themeManager() const     { return m_theme.get(); }
     QByteArray      sourceBytes() const      { return m_source.data(); }
     MappedFilePtr   sourceMapped() const     { return m_source.mapped(); }
 
@@ -114,7 +115,6 @@ private slots:
     void onLanguageChanged(QAction *action);
     void openFileDialog();
     void compareFiles();
-    void closeCurrentFile();
     void saveCurrentConfig();
     void loadConfigFromFile();
     void toggleTheme();
@@ -134,13 +134,11 @@ private slots:
     void resetMirror();
     void onPerfSliderMoved(int value);
     void applyPerfSettings();
-    void resetDisplaySettings();
     void onActiveTasksChanged(int count);
     void onPngExportFinished(const QString &path, bool success,
                              const QString &errorMessage);
     void onDebugInfoToggled(bool enabled);
-    void onTrainingButtonClicked();
-	void onHexViewToggled(bool enabled);
+    void onHexViewToggled(bool enabled);
 
 private:
     void buildUi();
@@ -228,7 +226,7 @@ private:
     bool m_fitToWindow  = false;
     bool m_mirrorH = false;
     bool m_mirrorV = false;
-	bool m_widthFromConfig = false;
+    bool m_widthFromConfig = false;
     int m_imageWidth = 0;
     int m_imageHeight = 0;
     QRect m_viewportRect;
@@ -259,9 +257,9 @@ private:
     bool    m_byteHistogramValid = false;
 
     // --- Managers ---
-    ThemeManager *m_theme = nullptr;
-    PaletteManager *m_paletteManager = nullptr;
-    SettingsManager *m_settings = nullptr;
+    std::unique_ptr<ThemeManager> m_theme;
+    std::unique_ptr<PaletteManager> m_paletteManager;
+    std::unique_ptr<SettingsManager> m_settings;
 
     // --- Widgets ---
     ControlsPanel *m_controls = nullptr;
@@ -297,13 +295,13 @@ private:
     bool m_showDebugInfo = false;
     QPushButton *m_trainingBtn = nullptr;
     bool m_trainingMode = false;
-	
-	HexViewWidget *m_hexView = nullptr;
+
+    HexViewWidget *m_hexView = nullptr;
     QAction *m_hexViewAct = nullptr;
-	int m_hexViewHeight = 0;
+    int m_hexViewHeight = 0;
     int m_hexBytesPerLine = 16;
     int m_hexFontPt = 9;
     bool m_hexViewVisible = false;
-	
-	ByteConverterWidget *m_byteConverter = nullptr;
+
+    ByteConverterWidget *m_byteConverter = nullptr;
 };

@@ -11,9 +11,7 @@
 #include <QPainter>
 #include <QScrollArea>
 #include <QScrollBar>
-#include <QtMath>
 #include <cmath>
-#include <limits>
 
 // --- Настройки модуля PanoramaWidget (префикс PW_) ---
 
@@ -22,9 +20,29 @@
 #define PW_MIN_VIEWPORT_PX          16
 #define PW_HOVER_COLOR_DELTA        30
 #define PW_HOVER_ALPHA              180
-#define PW_HOVER_FALLBACK_ALPHA     210
 #define PW_DRAG_PEN_COLOR           QColor(255, 255, 0)
 #define PW_DRAG_PEN_WIDTH           2
+
+namespace {
+
+// Положение и длина рамки по одной оси.
+void axisRect(const QScrollBar *bar, double viewLenImg, int imgLen,
+              int dispStart, int dispLen, int *outPos, int *outLen)
+{
+    const double frac = imgLen > 0
+        ? qBound(0.0, viewLenImg / imgLen, 1.0) : 1.0;
+    const int minLen = qMin(PW_MIN_VIEWPORT_PX, dispLen);
+    const int len = qBound(minLen, int(std::ceil(frac * dispLen)), dispLen);
+
+    const int maximum = bar ? bar->maximum() : 0;
+    const double t = maximum > 0
+        ? qBound(0.0, double(bar->value()) / maximum, 1.0) : 0.0;
+
+    *outLen = len;
+    *outPos = dispStart + int(std::lround(t * (dispLen - len)));
+}
+
+} // namespace
 
 PanoramaWidget::PanoramaWidget(MainWindow *parent)
     : QWidget(parent), m_main(parent)
@@ -37,31 +55,19 @@ PanoramaWidget::PanoramaWidget(MainWindow *parent)
 
 void PanoramaWidget::refreshColors()
 {
-    if (m_main && m_main->themeManager()) {
-        const Theme &t = m_main->themeManager()->current();
-        m_bg             = t.colors.value("panorama_bg",             QColor(30, 30, 30));
-        m_img            = t.colors.value("panorama_image",          QColor(60, 60, 60));
-        m_imgBorder      = t.colors.value("panorama_image_border",   QColor(100, 100, 100));
-        m_viewport       = t.colors.value("panorama_viewport",       QColor(255, 255, 255, 180));
-        m_viewportBorder = t.colors.value("panorama_viewport_border",QColor(255, 0, 0));
-        m_text           = t.colors.value("window_text",             QColor(150, 150, 150));
+    const QMap<QString, QColor> &colors = m_main->themeManager()->current().colors;
+    m_bg             = colors.value("panorama_bg",             QColor(30, 30, 30));
+    m_img            = colors.value("panorama_image",          QColor(60, 60, 60));
+    m_imgBorder      = colors.value("panorama_image_border",   QColor(100, 100, 100));
+    m_viewport       = colors.value("panorama_viewport",       QColor(255, 255, 255, 180));
+    m_viewportBorder = colors.value("panorama_viewport_border",QColor(255, 0, 0));
+    m_text           = colors.value("window_text",             QColor(150, 150, 150));
 
-        QColor hv = m_viewport;
-        hv.setRed  (qMin(255, hv.red()   + PW_HOVER_COLOR_DELTA));
-        hv.setGreen(qMin(255, hv.green() + PW_HOVER_COLOR_DELTA));
-        hv.setBlue (qMin(255, hv.blue()  + PW_HOVER_COLOR_DELTA));
-        hv.setAlpha(PW_HOVER_ALPHA);
-        m_hover = hv;
-        return;
-    }
-
-    m_bg             = QColor(30, 30, 30);
-    m_img            = QColor(60, 60, 60);
-    m_imgBorder      = QColor(100, 100, 100);
-    m_viewport       = QColor(255, 255, 255, 180);
-    m_viewportBorder = QColor(255, 0, 0);
-    m_text           = QColor(150, 150, 150);
-    m_hover          = QColor(255, 255, 255, PW_HOVER_FALLBACK_ALPHA);
+    m_hover = m_viewport;
+    m_hover.setRed  (qMin(255, m_hover.red()   + PW_HOVER_COLOR_DELTA));
+    m_hover.setGreen(qMin(255, m_hover.green() + PW_HOVER_COLOR_DELTA));
+    m_hover.setBlue (qMin(255, m_hover.blue()  + PW_HOVER_COLOR_DELTA));
+    m_hover.setAlpha(PW_HOVER_ALPHA);
 }
 
 QRect PanoramaWidget::computeViewportRect() const
@@ -98,28 +104,9 @@ QRect PanoramaWidget::computeViewportRect() const
     return QRect(sx, sy, sw, sh);
 }
 
-// Положение и длина рамки по одной оси.
-void PanoramaWidget::axisRect(const QScrollBar *bar, double viewLenImg,
-                              int imgLen, int dispStart, int dispLen,
-                              int *outPos, int *outLen) const
-{
-    const double frac = imgLen > 0
-        ? qBound(0.0, viewLenImg / imgLen, 1.0) : 1.0;
-    const int minLen = qMin(PW_MIN_VIEWPORT_PX, dispLen);
-    const int len = qBound(minLen, int(std::ceil(frac * dispLen)), dispLen);
-
-    const int maximum = bar ? bar->maximum() : 0;
-    const double t = maximum > 0
-        ? qBound(0.0, double(bar->value()) / maximum, 1.0) : 0.0;
-
-    *outLen = len;
-    *outPos = dispStart + int(std::lround(t * (dispLen - len)));
-}
-
 void PanoramaWidget::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing, false);
     p.fillRect(rect(), m_bg);
 
     if (!m_main || m_main->imageWidth() <= 0) {
@@ -135,9 +122,9 @@ void PanoramaWidget::paintEvent(QPaintEvent *)
     if (iw <= 0 || ih <= 0)
         return;
 
-    m_scale = qMin(double(ww) / iw, double(wh) / ih);
-    m_dw = qMax(1, int(iw * m_scale));
-    m_dh = qMax(1, int(ih * m_scale));
+    const double scale = qMin(double(ww) / iw, double(wh) / ih);
+    m_dw = qMax(1, int(iw * scale));
+    m_dh = qMax(1, int(ih * scale));
     m_dx = (width()  - m_dw) / 2;
     m_dy = (height() - m_dh) / 2;
 
@@ -161,19 +148,22 @@ void PanoramaWidget::paintEvent(QPaintEvent *)
     }
 }
 
+void PanoramaWidget::updateHoverCursor(const QPoint &pos)
+{
+    setCursor(m_currentViewport.contains(pos) ? Qt::OpenHandCursor
+                                              : Qt::ArrowCursor);
+}
+
 void PanoramaWidget::mousePressEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::LeftButton) {
-        if (!m_currentViewport.isNull()
-                && m_currentViewport.contains(e->pos())) {
-            m_dragging  = true;
-            m_dragStart = e->pos();
-            m_vpStart   = m_currentViewport.topLeft();
-            setCursor(Qt::ClosedHandCursor);
-            update();
-            e->accept();
-            return;
-        }
+    if (e->button() == Qt::LeftButton && m_currentViewport.contains(e->pos())) {
+        m_dragging  = true;
+        m_dragStart = e->pos();
+        m_vpStart   = m_currentViewport.topLeft();
+        setCursor(Qt::ClosedHandCursor);
+        update();
+        e->accept();
+        return;
     }
     QWidget::mousePressEvent(e);
 }
@@ -184,24 +174,15 @@ void PanoramaWidget::mouseMoveEvent(QMouseEvent *e)
 
     if (m_dragging) {
         const QPoint d = e->pos() - m_dragStart;
-        int nx = m_vpStart.x() + d.x();
-        int ny = m_vpStart.y() + d.y();
-
-        const int minX = m_dx;
-        const int minY = m_dy;
         const int maxX = m_dx + m_dw - m_currentViewport.width();
         const int maxY = m_dy + m_dh - m_currentViewport.height();
-        nx = qMax(minX, qMin(nx, maxX));
-        ny = qMax(minY, qMin(ny, maxY));
-
+        const int nx = qMax(m_dx, qMin(m_vpStart.x() + d.x(), maxX));
+        const int ny = qMax(m_dy, qMin(m_vpStart.y() + d.y(), maxY));
         m_currentViewport.moveTopLeft(QPoint(nx, ny));
-        update();
     } else {
-        setCursor((!m_currentViewport.isNull()
-                    && m_currentViewport.contains(e->pos()))
-                  ? Qt::OpenHandCursor : Qt::ArrowCursor);
-        update();
+        updateHoverCursor(e->pos());
     }
+    update();
 }
 
 void PanoramaWidget::mouseReleaseEvent(QMouseEvent *e)
@@ -229,9 +210,7 @@ void PanoramaWidget::mouseReleaseEvent(QMouseEvent *e)
 
         m_currentViewport = computeViewportRect();
 
-        setCursor((!m_currentViewport.isNull()
-                    && m_currentViewport.contains(e->pos()))
-                  ? Qt::OpenHandCursor : Qt::ArrowCursor);
+        updateHoverCursor(e->pos());
         update();
         e->accept();
         return;

@@ -33,29 +33,23 @@ public:
 
     void rebuild();  // сброс кэша, пересчёт размеров, стоп prefetch
     void clearHover();
-    // Пересчитать, что находится под курсором (после смены геометрии/зеркал).
-    void refreshHover();
     // Смещение (0..7) выбранного пикселя внутри байта для 1–4 bpp; для
     // остальных форматов 0.
     int  selectedBitOffset() const
     {
         return m_locked ? m_lockedBitOffset : m_hoverBitOffset;
     }
-    void setForceRedraw() { m_forceRedraw = true; update(); }
     void setRegionPickMode(bool enabled);
-    bool regionPickMode() const { return m_regionPickMode; }
     void clearLock();
+    void setLockedAddress(qint64 addr, int bitOffset = 0);
     bool hasLockedPixel() const
     {
         return m_locked && m_lockedAddr >= 0 && m_lockedSourcePixelValid;
     }
     QPoint lockedSourcePixelPosition() const { return m_lockedSourcePixel; }
 
-    QImage renderToImage(const QSize &targetSize);  // для PNG-экспорта
-    QSize  scaledSize() const;
-
+    QSize        scaledSize() const;
     TileManager *tileManager() const { return m_tiles; }
-	void setLockedAddress(qint64 addr, int bitOffset = 0);
 
 signals:
     void hoverChanged(qint64 addr);  // -1 = вне картинки
@@ -86,6 +80,16 @@ private:
     bool          pixelForAddress(qint64 address, int bitOffset,
                                   int *x, int *y) const;
 
+    // Пересчитать, что находится под курсором (после смены геометрии/зеркал).
+    void refreshHover();
+    // Состояние «закреплённого» байта (без сигналов и перерисовки).
+    void lockAt(qint64 addr, int bitOffset, const QPoint &sourcePixel);
+    void resetLock();
+    // Снимок видимой части холста, пока тайлы перестраиваются.
+    void captureSnapshot();
+    void dropSnapshot();
+    void drawSelectionMarker(QPainter &painter, const QRegion &dirtyRegion);
+
     MainWindow *m_main = nullptr;
 
     int m_imageWidth  = 0;
@@ -105,8 +109,6 @@ private:
     bool   m_dragging       = false;
     QPoint m_dragStart;
 
-    bool m_forceRedraw = true;
-
     QTimer *m_hoverTimer = nullptr;
     QPoint  m_pendingHoverPos;
 
@@ -122,5 +124,4 @@ private:
     QImage  m_frozenSnapshot;
     QRect   m_snapshotRect;
     bool    m_snapshotActive = false;
-    bool    allVisibleTilesReady() const;
 };

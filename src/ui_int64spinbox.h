@@ -26,13 +26,11 @@ public:
     static qint64 maxAllowed() { return qint64(1) << 53; }
 
     qint64 value64() const;
-    qint64 minimum64() const;
     qint64 maximum64() const;
 
     void setValue64(qint64 v);
     void setRange64(qint64 minimum, qint64 maximum);
 
-    bool hexMode() const { return m_hex; }
     void setHexMode(bool hex);
 
     QSize sizeHint() const override;

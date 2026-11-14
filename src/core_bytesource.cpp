@@ -7,8 +7,6 @@
 #include "qt_compat.h"
 
 #include <QCoreApplication>
-#include <QFile>
-#include <QFileInfo>
 #include <limits>
 
 #ifdef Q_OS_WIN
@@ -27,8 +25,37 @@
 #define BS_BYTES_PER_KB             1024LL
 #define BS_BYTES_PER_MB             (1024.0 * 1024.0)
 
-BytesSource::BytesSource() {}
-BytesSource::~BytesSource() { close(); }
+namespace {
+
+// Открывает файл на чтение и определяет его размер; при ошибке пишет
+// сообщение в *error.
+bool openForRead(QFile &file, qint64 *size, QString *error)
+{
+    if (!file.open(QIODevice::ReadOnly)) {
+        *error = QCoreApplication::translate(
+                     "BytesSource", "Failed to open file:\n%1")
+                     .arg(file.errorString());
+        return false;
+    }
+    *size = file.size();
+    if (*size < 0) {
+        *error = QCoreApplication::translate(
+            "BytesSource", "Failed to determine file size.");
+        return false;
+    }
+    return true;
+}
+
+#ifdef Q_OS_LINUX
+// Значение строки /proc/meminfo вида "Name:   1234 kB" в байтах.
+qint64 meminfoBytes(const QByteArray &line, int prefixLen)
+{
+    return line.mid(prefixLen).trimmed().split(' ').value(0).toLongLong()
+           * BS_BYTES_PER_KB;
+}
+#endif
+
+} // namespace
 
 qint64 BytesSource::availableMemory()
 {
@@ -50,14 +77,10 @@ qint64 BytesSource::availableMemory()
     qint64 memAvailable = -1, memFree = -1, buffers = 0, cached = 0;
     while (!f.atEnd()) {
         const QByteArray line = f.readLine();
-        auto value = [&](int prefixLen) -> qint64 {
-            return line.mid(prefixLen).trimmed().split(' ').value(0).toLongLong()
-                   * BS_BYTES_PER_KB;
-        };
-        if (line.startsWith("MemAvailable:"))      memAvailable = value(13);
-        else if (line.startsWith("MemFree:"))      memFree      = value(8);
-        else if (line.startsWith("Buffers:"))      buffers      = value(8);
-        else if (line.startsWith("Cached:"))       cached       = value(7);
+        if (line.startsWith("MemAvailable:"))      memAvailable = meminfoBytes(line, 13);
+        else if (line.startsWith("MemFree:"))      memFree      = meminfoBytes(line, 8);
+        else if (line.startsWith("Buffers:"))      buffers      = meminfoBytes(line, 8);
+        else if (line.startsWith("Cached:"))       cached       = meminfoBytes(line, 7);
     }
 
     if (memAvailable > 0)
@@ -73,31 +96,17 @@ qint64 BytesSource::availableMemory()
 bool BytesSource::open(const QString &path, bool loadIntoMemory)
 {
     close();
-    m_lastError.clear();
+    return loadIntoMemory ? openInMemory(path) : openMapped(path);
+}
 
-    if (!loadIntoMemory) {
-        // ---------- mmap (по умолчанию) ----------
-        auto mf = std::make_shared<MappedFile>(path);
+bool BytesSource::openMapped(const QString &path)
+{
+    const auto mf = std::make_shared<MappedFile>(path);
+    if (!openForRead(mf->file, &mf->size, &m_lastError))
+        return false;
 
-        if (!mf->file.open(QIODevice::ReadOnly)) {
-            m_lastError = QCoreApplication::translate(
-                              "BytesSource", "Failed to open file:\n%1")
-                              .arg(mf->file.errorString());
-            return false;
-        }
-
-        mf->size = mf->file.size();
-        if (mf->size < 0) {
-            m_lastError = QCoreApplication::translate(
-                "BytesSource", "Failed to determine file size.");
-            return false;
-        }
-        if (mf->size == 0) {
-            m_path = path;
-            m_open = true;
-            return true;
-        }
-
+    // Пустой файл отображать нечего: источник открыт, но без mmap.
+    if (mf->size > 0) {
         mf->mapped = mf->file.map(0, mf->size);
         if (!mf->mapped) {
             m_lastError = QCoreApplication::translate(
@@ -117,34 +126,24 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
                     "\n\nThis is a 32-bit build: it can address only 2-4 GB of "
                     "memory in total. Use the 64-bit build to open large files.");
             }
-            mf->file.close();
             return false;
         }
-
         m_mapped = mf;
-        m_path   = path;
-        m_open   = true;
-        return true;
     }
 
-    // ---------- readAll ----------
-    const qint64 qbaMax = QtCompat::byteArrayMaxSize();
+    m_path = path;
+    m_open = true;
+    return true;
+}
 
+bool BytesSource::openInMemory(const QString &path)
+{
     QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        m_lastError = QCoreApplication::translate(
-                          "BytesSource", "Failed to open file:\n%1")
-                          .arg(f.errorString());
+    qint64 fileSize = 0;
+    if (!openForRead(f, &fileSize, &m_lastError))
         return false;
-    }
 
-    const qint64 fileSize = f.size();
-    if (fileSize < 0) {
-        m_lastError = QCoreApplication::translate(
-            "BytesSource", "Failed to determine file size.");
-        return false;
-    }
-
+    const qint64 qbaMax = QtCompat::byteArrayMaxSize();
     if (fileSize > qbaMax) {
         m_lastError = QCoreApplication::translate(
             "BytesSource",
@@ -196,9 +195,7 @@ bool BytesSource::open(const QString &path, bool loadIntoMemory)
 
 qint64 BytesSource::size() const
 {
-    if (m_mapped)
-        return m_mapped->size;
-    return m_data.size();
+    return m_mapped ? m_mapped->size : qint64(m_data.size());
 }
 
 void BytesSource::close()
@@ -212,59 +209,41 @@ void BytesSource::close()
 
 QByteArray BytesSource::data() const
 {
-    if (m_mapped && m_mapped->mapped) {
-        const qint64 sz = m_mapped->size;
-        if (sz > std::numeric_limits<int>::max()) {
-            return QByteArray();
-        }
-        return QByteArray::fromRawData(
-            reinterpret_cast<const char *>(m_mapped->mapped), int(sz));
-    }
-    return m_data;
+    if (!m_mapped)
+        return m_data;
+    if (m_mapped->size > std::numeric_limits<int>::max())
+        return QByteArray();
+    return QByteArray::fromRawData(
+        reinterpret_cast<const char *>(m_mapped->mapped), int(m_mapped->size));
 }
 
 quint8 BytesSource::at(qint64 offset) const
 {
-    if (offset < 0)
+    if (offset < 0 || offset >= size())
         return 0;
-    if (m_mapped && m_mapped->mapped) {
-        if (offset >= m_mapped->size)
-            return 0;
-        return m_mapped->mapped[offset];
-    }
-    if (offset >= m_data.size())
-        return 0;
-    return quint8(m_data.at(int(offset)));
+    return rawData()[offset];
 }
 
 QByteArray BytesSource::mid(qint64 offset, qint64 length) const
 {
-    if (length <= 0 || offset < 0)
+    if (length <= 0 || offset < 0 || offset >= size())
         return QByteArray();
 
-    if (m_mapped && m_mapped->mapped) {
-        if (offset >= m_mapped->size)
-            return QByteArray();
-        const qint64 avail = m_mapped->size - offset;
-        // QByteArray size is int in Qt 5: never let it wrap around.
-        const qint64 take  = qMin(qMin(length, avail),
-                                  qint64(std::numeric_limits<int>::max()));
+    // QByteArray size is int in Qt 5: never let it wrap around.
+    const int take = int(qMin(length, qint64(std::numeric_limits<int>::max())));
+    if (m_mapped) {
         return QByteArray(reinterpret_cast<const char *>(m_mapped->mapped) + offset,
-                          int(take));
+                          int(qMin<qint64>(take, m_mapped->size - offset)));
     }
-    if (offset >= m_data.size())
-        return QByteArray();
-    // int(length) could wrap to a negative value, and mid(pos, -1) returns
-    // everything up to the end - clamp first.
-    return m_data.mid(int(offset),
-                      int(qMin(length, qint64(std::numeric_limits<int>::max()))));
+    // Не int(length): оно может стать отрицательным, а mid(pos, -1) вернёт
+    // всё до конца. mid() сам обрежет длину и разделит буфер без копирования.
+    return m_data.mid(int(offset), take);
 }
 
 const uchar *BytesSource::rawData() const
 {
-    if (m_mapped && m_mapped->mapped)
-        return m_mapped->mapped;
-    return reinterpret_cast<const uchar *>(m_data.constData());
+    return m_mapped ? m_mapped->mapped
+                    : reinterpret_cast<const uchar *>(m_data.constData());
 }
 
 void BytesSource::setData(const QByteArray &data)

@@ -14,7 +14,6 @@
 class MainWindow;
 class QScrollBar;
 class QPushButton;
-class QVBoxLayout;
 class QWheelEvent;
 class QMouseEvent;
 class QResizeEvent;
@@ -26,7 +25,6 @@ class HexViewWidget : public QWidget {
 
 public:
     explicit HexViewWidget(MainWindow *parent);
-    ~HexViewWidget() override;
 
     void refresh();                 // данные могли измениться (файл/xor/training)
     void updateTheme();             // тема переключилась
@@ -38,7 +36,6 @@ public:
 public slots:
     void setSelectedAddress(qint64 addr, int bitOffset = 0);
     void clearSelection();
-
 
 signals:
     void byteSelected(qint64 addr, int bitOffset);
@@ -60,14 +57,15 @@ private:
 
     // Метрики
     QRect dragHandleRect() const;
-    QRect textAreaRect()   const;
     QRect sidebarRect()    const;
-    int   textTop()        const;
-    int   textLeft()       const;
     int   visibleRows()    const;
+    int   contentPixels()  const;
+    void  applyFontMetrics();
 
     // Раскладка символов в строке
-    int hexCharCount()  const;
+    int addrDigits()     const;
+    int addrChars()      const;
+    int hexCharCount()   const;
     int asciiStartChar() const;
     int byteHexChar(int byteInRow)   const;
     int byteAsciiChar(int byteInRow) const;
@@ -75,36 +73,47 @@ private:
 
     // Hit-test
     qint64 byteAtPoint(const QPoint &p) const;
-    QRect  rectForByte(qint64 addr)    const;
 
     // Отрисовка
+    void drawDragHandle(QPainter &p);
+    void drawHeaderRow(QPainter &p);
     void drawHexArea(QPainter &p);
-	void drawHeaderRow(QPainter &p);
     void drawRow(QPainter &p, int row, qint64 baseAddr, int addrDigits,
                  int baseX, int baseY);
-    void drawDragHandle(QPainter &p);
-	int addrDigits() const;
-    int addrChars() const;
 
-    // Sidebar
-    void buildSidebar();
-    void updateSidebarTheme();
+    // Дочерние виджеты: sidebar, полосы прокрутки
+    void  buildSidebar();
+    void  buildScrollbars();
+    void  layoutChildren();
+    void  updateScrollbarRanges();
+    void  updateSidebarTheme();
+    void  updateSidebarButtons();
+    QFont sidebarButtonFont() const;
 
     // Вспомогательное
     void   scrollRows(int rows);
     void   ensureAddressVisible(qint64 addr);
     qint64 fileSize() const;
 
-    MainWindow  *m_main = nullptr;
+    MainWindow *m_main = nullptr;
 
-    int    m_bytesPerLine   = 16;
-    qint64 m_scrollTopAddr  = 0;
-    qint64 m_selectedAddr   = -1;
+    int    m_bytesPerLine      = 16;
+    qint64 m_scrollTopAddr     = 0;
+    qint64 m_selectedAddr      = -1;
     int    m_selectedBitOffset = 0;
-    qint64 m_hoverAddr      = -1;
+    qint64 m_hoverAddr         = -1;
 
-    QWidget     *m_sidebar       = nullptr;
-    QVBoxLayout *m_sidebarLayout = nullptr;
+    QWidget     *m_sidebar      = nullptr;
+    QPushButton *m_bplMinusBtn  = nullptr;
+    QPushButton *m_bplPlusBtn   = nullptr;
+    QPushButton *m_gotoBtn      = nullptr;
+    QPushButton *m_fontMinusBtn = nullptr;
+    QPushButton *m_fontPlusBtn  = nullptr;
+
+    QScrollBar *m_vScroll = nullptr;
+    QScrollBar *m_hScroll = nullptr;
+    int         m_hScrollOffset = 0;
+    QRect       m_viewRect;
 
     DragMode m_dragMode = DragMode::None;
     QPoint   m_dragStartGlobal;
@@ -112,6 +121,7 @@ private:
 
     QFont m_mono;
     QFont m_monoBold;
+    int   m_fontPt     = 9;
     int   m_charWidth  = 8;
     int   m_rowHeight  = 14;
     int   m_ascent     = 10;
@@ -119,25 +129,4 @@ private:
     QColor m_bg, m_bgAlt, m_text, m_addr;
     QColor m_selBg, m_selText, m_hoverBg;
     QColor m_border, m_handle, m_handleActive;
-	
-	// Раскладка (drag handle, text area, sidebar, scrollbars)
-	void layoutChildren();
-    void updateScrollbarRanges();
-    void buildScrollbars();
-
-    int  contentPixels() const;
-    int  hScrollOffset() const { return m_hScrollOffset; }
-
-    QScrollBar *m_vScroll = nullptr;
-    QScrollBar *m_hScroll = nullptr;
-    int         m_hScrollOffset = 0;
-    QRect       m_viewRect;
-	
-	void applyFontMetrics();
-    void updateSidebarButtons();
-	QPushButton *m_bplMinusBtn  = nullptr;
-    QPushButton *m_bplPlusBtn   = nullptr;
-    QPushButton *m_fontMinusBtn = nullptr;
-    QPushButton *m_fontPlusBtn  = nullptr;
-    int m_fontPt = 9;
 };

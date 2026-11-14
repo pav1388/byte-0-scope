@@ -4,14 +4,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "app_thememanager.h"
+#include "qt_compat.h"
 
 #include <QApplication>
-#include <QMap>
 #include <QPalette>
-#include <QStyle>
-#include <QStyleFactory>
 #include <QWidget>
-#include <QtGlobal>
 
 // ---------- Тёмная палитра ----------
 static const QMap<QString, QColor> kDarkPal = {
@@ -207,19 +204,12 @@ QTabBar::tab {
 QTabBar::tab:selected { background: #3c7fb1; color: #ffffff; }
 )";
 
-const char *kLightQss = "";
-
 void repaintAll(QApplication *app)
 {
+    // allWidgets() уже содержит и дочерние виджеты.
     const QWidgetList all = app->allWidgets();
-    for (QWidget *w : all) {
-        if (!w)
-            continue;
+    for (QWidget *w : all)
         w->update();
-        const QList<QWidget *> kids = w->findChildren<QWidget *>();
-        for (QWidget *k : kids)
-            if (k) k->update();
-    }
 }
 
 } // namespace
@@ -231,8 +221,7 @@ ThemeManager::ThemeManager()
 
 void ThemeManager::toggle()
 {
-    m_isDark = !m_isDark;
-    m_current = build(m_isDark);
+    setDark(!m_isDark);
 }
 
 void ThemeManager::setDark(bool dark)
@@ -246,21 +235,18 @@ void ThemeManager::setDark(bool dark)
 Theme ThemeManager::build(bool dark) const
 {
     Theme t;
-    t.name   = dark ? "dark" : "light";
     t.colors = dark ? kDarkPal : kLightPal;
 
     if (dark) {
         t.styles["byte_info"] =
             "background:#2b2b2b;border:1px solid #555;padding:9px;"
             "color:#dcdcdc;";
-        t.styles["hint"]       = "font-size:9pt;";
         t.styles["info_label"] = "font-size:8pt;color:#dcdcdc;"
                                  "background-color:transparent;";
     } else {
         t.styles["byte_info"] =
             "background:#ffffff;border:1px solid #aaa;padding:9px;"
             "color:#000000;";
-        t.styles["hint"]       = "font-size:9pt;";
         t.styles["info_label"] = "font-size:8pt;background-color:transparent;";
     }
     return t;
@@ -273,37 +259,36 @@ void ThemeManager::apply(QApplication *app)
     if (!app)
         return;
 
-    if (m_isDark) {
-        app->setStyleSheet(QString::fromLatin1(kDarkQss));
-    } else {
-        app->setStyleSheet(QString::fromLatin1(kLightQss));
-    }
+    app->setStyleSheet(m_isDark ? QString::fromLatin1(kDarkQss) : QString());
+
+    static const struct { QPalette::ColorRole role; const char *key; } kRoles[] = {
+        { QPalette::Window,          "window" },
+        { QPalette::WindowText,      "window_text" },
+        { QPalette::Base,            "base" },
+        { QPalette::AlternateBase,   "alternate_base" },
+        { QPalette::Text,            "text" },
+        { QPalette::Button,          "button" },
+        { QPalette::ButtonText,      "button_text" },
+        { QPalette::Highlight,       "highlight" },
+        { QPalette::HighlightedText, "highlighted_text" },
+    };
 
     QPalette p;
-    if (m_isDark) {
-        p.setColor(QPalette::Window,          m_current.colors.value("window"));
-        p.setColor(QPalette::WindowText,      m_current.colors.value("window_text"));
-        p.setColor(QPalette::Base,            m_current.colors.value("base"));
-        p.setColor(QPalette::AlternateBase,   m_current.colors.value("alternate_base"));
-        p.setColor(QPalette::Text,            m_current.colors.value("text"));
-        p.setColor(QPalette::Button,          m_current.colors.value("button"));
-        p.setColor(QPalette::ButtonText,      m_current.colors.value("button_text"));
-        p.setColor(QPalette::Highlight,       m_current.colors.value("highlight"));
-        p.setColor(QPalette::HighlightedText, m_current.colors.value("highlighted_text"));
+    for (const auto &r : kRoles)
+        p.setColor(r.role, m_current.colors.value(QLatin1String(r.key)));
+    p.setColor(QPalette::BrightText, Qt::red);
+    p.setColor(QPalette::Shadow,     QColor(0, 0, 0));
 
+    if (m_isDark) {
         p.setColor(QPalette::ToolTipBase,     QColor(43, 43, 43));
         p.setColor(QPalette::ToolTipText,     QColor(220, 220, 220));
-        p.setColor(QPalette::BrightText,      Qt::red);
         p.setColor(QPalette::Link,            QColor(42, 130, 218));
 
         p.setColor(QPalette::Light,           QColor(86, 86, 86));
         p.setColor(QPalette::Midlight,        QColor(64, 64, 64));
         p.setColor(QPalette::Mid,             QColor(52, 52, 52));
         p.setColor(QPalette::Dark,            QColor(28, 28, 28));
-        p.setColor(QPalette::Shadow,          QColor(0, 0, 0));
-#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
-        p.setColor(QPalette::PlaceholderText, QColor(140, 140, 140));
-#endif
+        QtCompat::setPlaceholderTextColor(p,  QColor(140, 140, 140));
 
         p.setColor(QPalette::Disabled, QPalette::WindowText,      QColor(120, 120, 120));
         p.setColor(QPalette::Disabled, QPalette::Text,            QColor(120, 120, 120));
@@ -311,25 +296,13 @@ void ThemeManager::apply(QApplication *app)
         p.setColor(QPalette::Disabled, QPalette::Highlight,       QColor(80, 80, 80));
         p.setColor(QPalette::Disabled, QPalette::HighlightedText, QColor(160, 160, 160));
     } else {
-        p = QPalette();
-        p.setColor(QPalette::Window,          m_current.colors.value("window"));
-        p.setColor(QPalette::WindowText,      m_current.colors.value("window_text"));
-        p.setColor(QPalette::Base,            m_current.colors.value("base"));
-        p.setColor(QPalette::AlternateBase,   m_current.colors.value("alternate_base"));
-        p.setColor(QPalette::Text,            m_current.colors.value("text"));
-        p.setColor(QPalette::Button,          m_current.colors.value("button"));
-        p.setColor(QPalette::ButtonText,      m_current.colors.value("button_text"));
-        p.setColor(QPalette::Highlight,       m_current.colors.value("highlight"));
-        p.setColor(QPalette::HighlightedText, m_current.colors.value("highlighted_text"));
         p.setColor(QPalette::ToolTipBase,     QColor(255, 255, 220));
         p.setColor(QPalette::ToolTipText,     QColor(0, 0, 0));
-        p.setColor(QPalette::BrightText,      Qt::red);
         p.setColor(QPalette::Link,            QColor(0, 0, 255));
         p.setColor(QPalette::Light,           QColor(255, 255, 255));
         p.setColor(QPalette::Midlight,        QColor(227, 227, 227));
         p.setColor(QPalette::Mid,             QColor(160, 160, 160));
         p.setColor(QPalette::Dark,            QColor(128, 128, 128));
-        p.setColor(QPalette::Shadow,          QColor(0, 0, 0));
     }
     app->setPalette(p);
 

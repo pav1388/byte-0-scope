@@ -14,13 +14,9 @@
 
 namespace {
 
-constexpr quint32 kMaxValue = 0xFFFFFFFFu;
-
-QRegularExpressionValidator *makeValidator(const QString &pattern,
-                                           QObject *parent)
+QString hexText(quint32 v)
 {
-    return new QRegularExpressionValidator(
-        QRegularExpression(pattern), parent);
+    return QStringLiteral("%1").arg(uint(v), 8, 16, QLatin1Char('0')).toUpper();
 }
 
 } // namespace
@@ -48,7 +44,8 @@ void ByteConverterWidget::buildUi()
     auto addEdit = [&](int col, QLineEdit *&edit,
                        const QString &regex, int maxLen, int minWidth) {
         edit = new QLineEdit(this);
-        edit->setValidator(makeValidator(regex, edit));
+        edit->setValidator(new QRegularExpressionValidator(
+            QRegularExpression(regex), edit));
         edit->setAlignment(Qt::AlignRight);
         edit->setMaxLength(maxLen);
         edit->setMinimumWidth(minWidth);
@@ -72,87 +69,47 @@ void ByteConverterWidget::buildUi()
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 }
 
+void ByteConverterWidget::showValue(const QLineEdit *skip)
+{
+    if (skip != m_decEdit) {
+        QSignalBlocker b(m_decEdit);
+        m_decEdit->setText(QString::number(m_value));
+    }
+    if (skip != m_hexEdit) {
+        QSignalBlocker b(m_hexEdit);
+        m_hexEdit->setText(hexText(m_value));
+    }
+}
+
 void ByteConverterWidget::setValue(quint32 v)
 {
     const bool changed = (v != m_value);
     m_value = v;
-
-    {
-        QSignalBlocker b1(m_decEdit), b2(m_hexEdit);
-        m_decEdit->setText(QString::number(v));
-        m_hexEdit->setText(QStringLiteral("%1")
-                               .arg(uint(v), 8, 16, QLatin1Char('0'))
-                               .toUpper());
-    }
-
+    showValue(nullptr);
     if (changed)
         emit valueChanged(m_value);
 }
 
 void ByteConverterWidget::updateFromSource(QLineEdit *source)
 {
-    if (m_updating)
-        return;
+    const bool isDec = (source == m_decEdit);
 
     const QString text = source->text();
-
     if (text.isEmpty()) {
-        m_updating = true;
-        if (source != m_decEdit) {
-            QSignalBlocker b(m_decEdit);
-            m_decEdit->clear();
-        }
-        if (source != m_hexEdit) {
-            QSignalBlocker b(m_hexEdit);
-            m_hexEdit->clear();
-        }
-        m_updating = false;
+        QLineEdit *other = isDec ? m_hexEdit : m_decEdit;
+        QSignalBlocker b(other);
+        other->clear();
         return;
     }
 
-    m_updating = true;
-
-    bool parsedOk = false;
-    quint32 parsed = 0;
-
-    if (source == m_decEdit) {
-        bool ok = false;
-        const qulonglong v = text.toULongLong(&ok, 10);
-        if (ok && v <= qulonglong(kMaxValue)) {
-            parsed = quint32(v);
-            parsedOk = true;
-        }
-    } else if (source == m_hexEdit) {
-        bool ok = false;
-        const qulonglong v = text.toULongLong(&ok, 16);
-        if (ok && v <= qulonglong(kMaxValue)) {
-            parsed = quint32(v);
-            parsedOk = true;
-        }
-    }
-
-    if (!parsedOk) {
-        m_updating = false;
+    bool ok = false;
+    const qulonglong parsed = text.toULongLong(&ok, isDec ? 10 : 16);
+    if (!ok || parsed > 0xFFFFFFFFull)
         return;
-    }
 
-    const quint32 v = parsed;
-    const bool changed = (v != m_value);
-    m_value = v;
-
-    if (source != m_decEdit) {
-        QSignalBlocker b(m_decEdit);
-        m_decEdit->setText(QString::number(v));
-    }
-    if (source != m_hexEdit) {
-        QSignalBlocker b(m_hexEdit);
-        m_hexEdit->setText(QStringLiteral("%1")
-                               .arg(uint(v), 8, 16, QLatin1Char('0'))
-                               .toUpper());
-    }
-
-    m_updating = false;
-
+    const bool changed = (quint32(parsed) != m_value);
+    m_value = quint32(parsed);
+    showValue(source);
     if (changed)
-        emit valueChanged(v);
+        emit valueChanged(m_value);
 }

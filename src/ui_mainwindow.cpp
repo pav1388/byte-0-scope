@@ -26,9 +26,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
-#include <QCheckBox>
 #include <QCloseEvent>
-#include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDragEnterEvent>
@@ -39,10 +37,7 @@
 #include <QFileInfo>
 #include <QGroupBox>
 #include <QHBoxLayout>
-#include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonValue>
 #include <QLabel>
 #include <QLocale>
 #include <QMenuBar>
@@ -50,16 +45,12 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QResizeEvent>
-#include <QSaveFile>
-#include <QScreen>
 #include <QScrollArea>
 #include <QScrollBar>
-#include <QSettings>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QStatusBar>
 #include <QTimer>
-#include <QTranslator>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QtMath>
@@ -90,13 +81,14 @@
 #define MW_CACHE_MAX_MB_64          1000
 #define MW_CACHE_MAX_MB_32          400
 #define MW_SHORTEN_NAME_MAX         30
-#define MW_BYTES_PER_KB             1024LL
 #define MW_BYTES_PER_MB             (1024.0 * 1024.0)
 #define MW_MEMORY_RESERVE_MIN       (512LL * 1024 * 1024)
 #define MW_MEMORY_RESERVE_FRACTION  4
 #define MW_MAX_SCALE                32
 
-static int calcPowerOfTwoWidth(int pixelsCount, int maxWidth = 4096)
+namespace {
+
+int calcPowerOfTwoWidth(int pixelsCount, int maxWidth = 4096)
 {
     int w = 1;
     while (w * 2 <= pixelsCount && w < maxWidth)
@@ -104,14 +96,14 @@ static int calcPowerOfTwoWidth(int pixelsCount, int maxWidth = 4096)
     return w;
 }
 
-static int aspectWidth(int pixels, int rw, int rh)
+int aspectWidth(int pixels, int rw, int rh)
 {
     return qMax(1, int(qSqrt(double(pixels) * double(rw) / double(rh))));
 }
 
-static int nearestNiceWidth(int pixels)
+int nearestNiceWidth(int pixels)
 {
-    static const int kNice[] = {
+    const int kNice[] = {
         64, 128, 192, 256, 320, 384, 448, 512,
         640, 768, 800, 896, 1024, 1280, 1536, 1920, 2048
     };
@@ -128,7 +120,7 @@ static int nearestNiceWidth(int pixels)
     return best;
 }
 
-static int largestDivisorLE(int n, int cap)
+int largestDivisorLE(int n, int cap)
 {
     if (n <= 0)
         return 1;
@@ -141,7 +133,7 @@ static int largestDivisorLE(int n, int cap)
     return 1;
 }
 
-static QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX)
+QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX)
 {
     if (name.size() <= maxLen)
         return name;
@@ -154,7 +146,7 @@ static QString shortenName(const QString &name, int maxLen = MW_SHORTEN_NAME_MAX
     return name.left(maxLen - 1) + QChar(0x2026);
 }
 
-static QString diffPercentText(qint64 diffBytes, qint64 totalBytes)
+QString diffPercentText(qint64 diffBytes, qint64 totalBytes)
 {
     if (diffBytes <= 0 || totalBytes <= 0)
         return QStringLiteral("0");
@@ -164,20 +156,34 @@ static QString diffPercentText(qint64 diffBytes, qint64 totalBytes)
     return QString::number(percent, 'f', 2);
 }
 
-static bool paletteNeedsHistogram(const QString &id)
+bool paletteNeedsHistogram(const QString &id)
 {
     return id == QLatin1String(PaletteIds::ByteFrequency)
         || id == QLatin1String(PaletteIds::Repeats);
 }
+
+// Принимает перетаскивание только если в нём есть URL'ы.
+bool acceptUrlDrag(QDropEvent *e)
+{
+    if (!e->mimeData() || !e->mimeData()->hasUrls()) {
+        e->ignore();
+        return false;
+    }
+    e->setDropAction(Qt::CopyAction);
+    e->accept();
+    return true;
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setAcceptDrops(true);
 
-    m_theme          = new ThemeManager();
-    m_paletteManager = new PaletteManager();
-    m_settings       = new SettingsManager();
+    m_theme.reset(new ThemeManager());
+    m_paletteManager.reset(new PaletteManager());
+    m_settings.reset(new SettingsManager());
 
     initDemo();
     loadSettings();
@@ -186,11 +192,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_theme->apply(qApp);
 
     if (m_startupDefaults.hasAny) {
-        if (m_controls)
-            m_controls->setConfig(startupDefaultsToConfig(m_startupDefaults));
-        const QString paletteId = m_controls
-            ? m_controls->currentPaletteId()
-            : QStringLiteral(CFG_DEF_PALETTE);
+        m_controls->setConfig(startupDefaultsToConfig(m_startupDefaults));
+        const QString paletteId = m_controls->currentPaletteId();
         onPaletteChanged(paletteId.isEmpty()
                              ? QStringLiteral(CFG_DEF_PALETTE)
                              : paletteId);
@@ -198,8 +201,7 @@ MainWindow::MainWindow(QWidget *parent)
         applyDefaultConfig();
     }
 
-    if (m_byteInfo && m_byteTooltipAct)
-        m_byteInfo->setPopupEnabled(m_startupDefaults.byteTooltip);
+    m_byteInfo->setPopupEnabled(m_startupDefaults.byteTooltip);
 
     recomputeGeometry();
     refreshTitle();
@@ -225,21 +227,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_perfDebounceTimer, &QTimer::timeout,
             this, &MainWindow::applyPerfSettings);
 
-    QTimer::singleShot(0, this, [this]() {
-        if (m_canvas)
-            m_canvas->rebuild();
-    });
+    QTimer::singleShot(0, this, [this]() { m_canvas->rebuild(); });
 }
 
-MainWindow::~MainWindow()
-{
-    delete m_theme;
-    delete m_paletteManager;
-    delete m_settings;
-    m_theme = nullptr;
-    m_paletteManager = nullptr;
-    m_settings = nullptr;
-}
+MainWindow::~MainWindow() = default;
 
 bool MainWindow::isBitpacked() const
 {
@@ -325,19 +316,19 @@ void MainWindow::buildMenus()
 
     QAction *closeFileAct = fileMenu->addAction(tr("Close current file"));
     closeFileAct->setShortcut(QKeySequence("Ctrl+W"));
-    connect(closeFileAct, &QAction::triggered, this, &MainWindow::closeCurrentFile);
+    connect(closeFileAct, &QAction::triggered, this, &MainWindow::resetToDemo);
 
     QAction *quitAct = fileMenu->addAction(tr("Exit"));
     quitAct->setShortcut(QKeySequence("Ctrl+Q"));
     connect(quitAct, &QAction::triggered, this, &QWidget::close);
 
     QMenu *viewMenu = menuBar()->addMenu(tr("View"));
-	
+
     QAction *resetCfgAct = viewMenu->addAction(tr("Reset display settings"));
     resetCfgAct->setShortcut(QKeySequence("Ctrl+R"));
     connect(resetCfgAct, &QAction::triggered, this, &MainWindow::applyDefaultConfig);
-	viewMenu->addSeparator();
-	
+    viewMenu->addSeparator();
+
     m_mirrorHAct = viewMenu->addAction(tr("Flip horizontally"));
     m_mirrorHAct->setCheckable(true);
     m_mirrorHAct->setChecked(m_mirrorH);
@@ -353,11 +344,11 @@ void MainWindow::buildMenus()
         onMirrorChanged();
     });
     viewMenu->addAction(tr("Reset flips"), this, &MainWindow::resetMirror);
-	viewMenu->addSeparator();
-	m_hexViewAct = viewMenu->addAction(tr("Hex view"));
-	m_hexViewAct->setCheckable(true);
-	m_hexViewAct->setChecked(false);
-	connect(m_hexViewAct, &QAction::toggled, this, &MainWindow::onHexViewToggled);
+    viewMenu->addSeparator();
+    m_hexViewAct = viewMenu->addAction(tr("Hex view"));
+    m_hexViewAct->setCheckable(true);
+    m_hexViewAct->setChecked(false);
+    connect(m_hexViewAct, &QAction::toggled, this, &MainWindow::onHexViewToggled);
 
     m_settingsMenu = menuBar()->addMenu(tr("Settings"));
 
@@ -393,10 +384,8 @@ void MainWindow::buildMenus()
     m_byteTooltipAct = m_settingsMenu->addAction(tr("Byte tooltip"));
     m_byteTooltipAct->setCheckable(true);
     m_byteTooltipAct->setChecked(m_startupDefaults.byteTooltip);
-    connect(m_byteTooltipAct, &QAction::toggled, this, [this](bool checked) {
-        if (m_byteInfo)
-            m_byteInfo->setPopupEnabled(checked);
-    });
+    connect(m_byteTooltipAct, &QAction::toggled,
+            this, [this](bool checked) { m_byteInfo->setPopupEnabled(checked); });
 
     m_settingsMenu->addSeparator();
 
@@ -442,8 +431,6 @@ void MainWindow::buildMenus()
 
     m_settingsMenu->addAction(tr("Open settings folder"),
         this, [this]() {
-            if (!m_settings)
-                return;
             const QString dir = QFileInfo(m_settings->configPath()).absolutePath();
             if (!QDir(dir).exists())
                 QDir().mkpath(dir);
@@ -493,7 +480,7 @@ void MainWindow::buildUi()
     connect(m_controls, &ControlsPanel::settingsChanged,
             this, &MainWindow::onSettingsChanged);
     connect(m_controls, &ControlsPanel::resetDisplayRequested,
-            this, &MainWindow::resetDisplaySettings);
+            this, &MainWindow::applyDefaultConfig);
     leftScroll->setWidget(m_controls);
     lay->addWidget(leftScroll);
 
@@ -516,32 +503,29 @@ void MainWindow::buildUi()
             this, &MainWindow::onScaleDelta);
     connect(m_canvas, &CanvasWidget::widthStepRequested,
             this, &MainWindow::onWidthStep);
-    if (m_controls)
-        m_controls->setCanvasWidget(m_canvas);
+    m_controls->setCanvasWidget(m_canvas);
     centerLay->addWidget(m_centerScroll, 1);
-	
-	m_hexView = new HexViewWidget(this);
-	m_hexView->setVisible(false);
-	if (m_hexBytesPerLine != 16)
-		m_hexView->setBytesPerLine(m_hexBytesPerLine);
-	if (m_hexFontPt != 9)
-		m_hexView->setFontPt(m_hexFontPt);
-	if (m_hexViewHeight > 0)
-		m_hexView->setFixedHeight(m_hexViewHeight);
 
-	connect(m_hexView, &HexViewWidget::heightChanged, this,
-			[this](int h) { m_hexViewHeight = h; });
+    m_hexView = new HexViewWidget(this);
+    m_hexView->setVisible(false);
+    if (m_hexBytesPerLine != 16)
+        m_hexView->setBytesPerLine(m_hexBytesPerLine);
+    if (m_hexFontPt != 9)
+        m_hexView->setFontPt(m_hexFontPt);
+    if (m_hexViewHeight > 0)
+        m_hexView->setFixedHeight(m_hexViewHeight);
 
-	connect(m_hexView, &HexViewWidget::byteSelected, this,
-			[this](qint64 addr, int bitOffset) {
-				if (!m_canvas)
-					return;
-				m_canvas->setLockedAddress(addr, bitOffset);
-				if (m_canvas->hasLockedPixel())
-					centerViewportOnSourcePixel(
-						m_canvas->lockedSourcePixelPosition());
-			});
-	centerLay->addWidget(m_hexView, 0);
+    connect(m_hexView, &HexViewWidget::heightChanged, this,
+            [this](int h) { m_hexViewHeight = h; });
+
+    connect(m_hexView, &HexViewWidget::byteSelected, this,
+            [this](qint64 addr, int bitOffset) {
+                m_canvas->setLockedAddress(addr, bitOffset);
+                if (m_canvas->hasLockedPixel())
+                    centerViewportOnSourcePixel(
+                        m_canvas->lockedSourcePixelPosition());
+            });
+    centerLay->addWidget(m_hexView, 0);
 
     m_hintContainer = new QWidget(this);
     auto *hintLay = new QVBoxLayout(m_hintContainer);
@@ -559,7 +543,7 @@ void MainWindow::buildUi()
     m_trainingBtn = new QPushButton(tr("# Tutorial on a demo file"), this);
     m_trainingBtn->setAutoDefault(false);
     connect(m_trainingBtn, &QPushButton::clicked,
-            this, &MainWindow::onTrainingButtonClicked);
+            this, &MainWindow::startTraining);
     hintLay->addWidget(m_trainingBtn, 0, Qt::AlignLeft);
 
     hintLay->addStretch();
@@ -595,7 +579,7 @@ void MainWindow::buildUi()
             this, &MainWindow::onScrollTo);
     panLay->addWidget(m_panorama);
     rightLay->addWidget(panGroup);
-	
+
     auto *convGroup = new QGroupBox(tr("Byte converter"), this);
     auto *convLay = new QVBoxLayout(convGroup);
     convLay->setContentsMargins(6, 6, 6, 6);
@@ -648,9 +632,9 @@ void MainWindow::buildUi()
     auto *dbgLay = new QVBoxLayout(m_debugGroup);
     m_debugLabel = new QLabel(this);
     QFont debugFont(QStringLiteral("Monospace"));
-	debugFont.setStyleHint(QFont::TypeWriter);
-	debugFont.setPointSize(8);
-	m_debugLabel->setFont(debugFont);
+    debugFont.setStyleHint(QFont::TypeWriter);
+    debugFont.setPointSize(8);
+    m_debugLabel->setFont(debugFont);
     m_debugLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_debugLabel->setWordWrap(true);
     m_debugLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
@@ -663,34 +647,25 @@ void MainWindow::buildUi()
     rightScroll->setWidget(rightInner);
     lay->addWidget(rightScroll);
 
-    if (m_canvas && m_canvas->tileManager()) {
-        connect(m_canvas->tileManager(), &TileManager::activeTasksChanged,
-                this, &MainWindow::onActiveTasksChanged);
-        connect(m_canvas->tileManager(), &TileManager::pngExportFinished,
-                this, &MainWindow::onPngExportFinished);
-    }
+    TileManager *tiles = m_canvas->tileManager();
+    connect(tiles, &TileManager::activeTasksChanged,
+            this, &MainWindow::onActiveTasksChanged);
+    connect(tiles, &TileManager::pngExportFinished,
+            this, &MainWindow::onPngExportFinished);
     applyPerfFromSlider(m_perfSliderValue);
 
-    if (m_centerScroll && m_panorama) {
-        QScrollBar *h = m_centerScroll->horizontalScrollBar();
-        QScrollBar *v = m_centerScroll->verticalScrollBar();
+    QScrollBar *h = m_centerScroll->horizontalScrollBar();
+    QScrollBar *v = m_centerScroll->verticalScrollBar();
+    auto refreshPanorama = [this]() { m_panorama->updatePanorama(); };
+    connect(h, &QScrollBar::valueChanged, this, refreshPanorama);
+    connect(v, &QScrollBar::valueChanged, this, refreshPanorama);
+    connect(h, &QScrollBar::rangeChanged, this,
+            [refreshPanorama](int, int) { refreshPanorama(); });
+    connect(v, &QScrollBar::rangeChanged, this,
+            [refreshPanorama](int, int) { refreshPanorama(); });
 
-        auto refreshPanorama = [this]() {
-            if (m_panorama)
-                m_panorama->updatePanorama();
-        };
+    m_hexViewAct->setChecked(m_hexViewVisible);
 
-        connect(h, &QScrollBar::valueChanged, this, refreshPanorama);
-        connect(v, &QScrollBar::valueChanged, this, refreshPanorama);
-        connect(h, &QScrollBar::rangeChanged, this,
-                [refreshPanorama](int, int) { refreshPanorama(); });
-        connect(v, &QScrollBar::rangeChanged, this,
-                [refreshPanorama](int, int) { refreshPanorama(); });
-    }
-	
-	if (m_hexViewAct)
-		m_hexViewAct->setChecked(m_hexViewVisible);
-	
     statusBar()->showMessage(tr("Ready"));
 }
 
@@ -761,17 +736,14 @@ void MainWindow::finishLoad()
     applySquareWidthHint();
     recomputeGeometry();
     refreshTitle();
-    if (m_panorama)
-        m_panorama->updatePanorama();
-    if (m_hexView)
-        m_hexView->refresh();
+    m_panorama->updatePanorama();
+    m_hexView->refresh();
 }
 
 void MainWindow::leaveTrainingMode()
 {
     m_trainingMode = false;
-    if (m_trainingBtn)
-        m_trainingBtn->setVisible(false);
+    m_trainingBtn->setVisible(false);
 }
 
 void MainWindow::addRecent(const QString &path)
@@ -848,8 +820,6 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
 
     const QByteArray a = f1.readAll();
     const QByteArray b = f2.readAll();
-    f1.close();
-    f2.close();
 
     if (a.size() != sizeA || b.size() != sizeB) {
         QMessageBox::critical(this, tr("Read error"),
@@ -918,18 +888,11 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     return true;
 }
 
-void MainWindow::closeCurrentFile()
-{
-    resetToDemo();
-}
-
 void MainWindow::resetToDemo()
 {
     m_source.close();
     initDemo();
     invalidateByteHistogram();
-    m_paletteParams.remove(QString::fromLatin1(PaletteIds::Repeats));
-    m_fileSize = m_source.size();
     m_offset = 0;
     m_length = 0;
     m_lengthMode = false;
@@ -941,19 +904,13 @@ void MainWindow::resetToDemo()
     m_downsample = 1;
 
     m_trainingMode = false;
-    if (m_trainingBtn)
-        m_trainingBtn->setVisible(true);
-    if (m_hintLabel) {
-        m_hintLabel->setText(
-            tr("<b>Byte-0-scope - Interactive binary data visualizer</b>"));
-    }
+    m_trainingBtn->setVisible(true);
+    m_hintLabel->setText(
+        tr("<b>Byte-0-scope - Interactive binary data visualizer</b>"));
 
-    if (m_canvas)
-        m_canvas->clearHover();
-    if (m_byteInfo)
-        m_byteInfo->updateInfo(-1);
-	if (m_hexView)
-        m_hexView->refresh();
+    m_canvas->clearHover();
+    m_byteInfo->updateInfo(-1);
+    m_hexView->refresh();
 
     applyDefaultConfig();
 }
@@ -973,7 +930,7 @@ void MainWindow::rebuildPalette(const QVariantMap &params)
 
 void MainWindow::onPaletteChanged(const QString &id)
 {
-    if (!m_paletteManager || !m_paletteManager->contains(id))
+    if (!m_paletteManager->contains(id))
         return;
 
     m_currentPaletteId = id;
@@ -989,18 +946,15 @@ void MainWindow::onPaletteChanged(const QString &id)
 
     rebuildPalette(m_paletteParams.value(id).toMap());
 
-    if (m_paletteSettings)
-        m_paletteSettings->buildFor(id);
-    if (m_canvas)
-        m_canvas->rebuild();
+    m_paletteSettings->buildFor(id);
+    m_canvas->rebuild();
     emit paletteChanged();
 }
 
 void MainWindow::setPaletteParams(const QString &id, const QVariantMap &params)
 {
-    if (!m_paletteManager || !m_paletteManager->contains(id))
-        return;
-    m_paletteParams[id] = params;
+    if (m_paletteManager->contains(id))
+        m_paletteParams[id] = params;
 }
 
 void MainWindow::onPaletteParamsChanged(const QVariantMap &newParams)
@@ -1013,8 +967,7 @@ void MainWindow::onPaletteParamsChanged(const QVariantMap &newParams)
         return;
 
     rebuildPalette(newParams);
-    if (m_canvas)
-        m_canvas->rebuild();
+    m_canvas->rebuild();
     emit paletteChanged();
 }
 
@@ -1025,18 +978,15 @@ void MainWindow::onPaletteAutoApplyToggled(bool enabled)
         return;
 
     rebuildPalette(m_paletteParams.value(m_currentPaletteId).toMap());
-    if (m_canvas)
-        m_canvas->rebuild();
+    m_canvas->rebuild();
     emit paletteChanged();
 }
 
 void MainWindow::recomputeGeometry()
 {
     calculateDimensions();
-    if (m_canvas)
-        m_canvas->rebuild();
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_canvas->rebuild();
+    m_panorama->updatePanorama();
 }
 
 quint64 MainWindow::regionByteLength() const
@@ -1110,8 +1060,7 @@ void MainWindow::applySquareWidthHint()
 
     const int squareW = qMax(1, int(qSqrt(double(pixels))));
     m_fixedWidth = squareW;
-    if (m_controls)
-        m_controls->setWidthSilent(squareW);
+    m_controls->setWidthSilent(squareW);
 }
 
 void MainWindow::calculateDimensions()
@@ -1125,14 +1074,13 @@ void MainWindow::calculateDimensions()
     m_imageWidth = w;
     m_imageHeight = h;
 
-    if (m_centerScroll) {
-        const QSize vp = m_centerScroll->viewport()->size();
-        m_viewportRect = QRect(
-            m_centerScroll->horizontalScrollBar()->value() / qMax(1, m_scale),
-            m_centerScroll->verticalScrollBar()->value()   / qMax(1, m_scale),
-            vp.width()  / qMax(1, m_scale),
-            vp.height() / qMax(1, m_scale));
-    }
+    const int sc = qMax(1, m_scale);
+    const QSize vp = m_centerScroll->viewport()->size();
+    m_viewportRect = QRect(
+        m_centerScroll->horizontalScrollBar()->value() / sc,
+        m_centerScroll->verticalScrollBar()->value()   / sc,
+        vp.width()  / sc,
+        vp.height() / sc);
 }
 
 void MainWindow::changeScale(int delta)
@@ -1141,25 +1089,19 @@ void MainWindow::changeScale(int delta)
     if (newScale == m_scale)
         return;
     m_scale = newScale;
-    if (m_controls)
-        m_controls->setScaleSilent(m_scale);
-    if (m_canvas)
-        m_canvas->rebuild();
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_controls->setScaleSilent(m_scale);
+    m_canvas->rebuild();
+    m_panorama->updatePanorama();
 }
 
 void MainWindow::changeDownsample(int ds)
 {
     m_downsample = qMax(1, ds);
-    if (m_canvas)
-        m_canvas->rebuild();
+    m_canvas->rebuild();
 }
 
 void MainWindow::onSettingsChanged()
 {
-    if (!m_controls)
-        return;
     const bool wasFitToWindow = m_fitToWindow;
     const int oldBpp = m_bppMode;
     m_bppMode = m_controls->bppMode();
@@ -1191,20 +1133,16 @@ void MainWindow::onSettingsChanged()
 
     if (m_fitToWindow) {
         applyFitToWindow();
-    } else if (m_autoScale) {
-        if (m_canvas && m_downsample != 1)
-            m_downsample = 1;
-        autoFitScale();
     } else {
-        if (m_canvas && m_downsample != 1)
-            m_downsample = 1;
+        m_downsample = 1;
+        if (m_autoScale)
+            autoFitScale();
     }
 
     recomputeGeometry();
     refreshTitle();
 
-    if (wasFitToWindow && !m_fitToWindow && m_canvas
-            && m_canvas->hasLockedPixel()) {
+    if (wasFitToWindow && !m_fitToWindow && m_canvas->hasLockedPixel()) {
         const QPoint selectedPixel = m_canvas->lockedSourcePixelPosition();
         QTimer::singleShot(0, this, [this, selectedPixel]() {
             centerViewportOnSourcePixel(selectedPixel);
@@ -1214,52 +1152,39 @@ void MainWindow::onSettingsChanged()
 
 void MainWindow::onHoverChanged(qint64 addr)
 {
-    if (m_byteInfo)
-        m_byteInfo->updateInfo(
-            addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
+    m_byteInfo->updateInfo(addr, m_canvas->selectedBitOffset());
     m_hoverAddr = addr;
-    if (m_panorama)
-        m_panorama->update();
+    m_panorama->update();
 }
 
 void MainWindow::onLockedChanged(qint64 addr)
 {
-    if (m_byteInfo && addr >= 0)
-        m_byteInfo->updateInfo(
-            addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
-    if (m_hexView) {
-        if (addr >= 0)
-            m_hexView->setSelectedAddress(
-                addr, m_canvas ? m_canvas->selectedBitOffset() : 0);
-        else
-            m_hexView->clearSelection();
+    if (addr >= 0) {
+        m_byteInfo->updateInfo(addr, m_canvas->selectedBitOffset());
+        m_hexView->setSelectedAddress(addr, m_canvas->selectedBitOffset());
+    } else {
+        m_hexView->clearSelection();
     }
 }
 
 void MainWindow::onScrollRequested(int dx, int dy)
 {
-    if (!m_centerScroll)
-        return;
-    auto *h = m_centerScroll->horizontalScrollBar();
-    auto *v = m_centerScroll->verticalScrollBar();
+    QScrollBar *h = m_centerScroll->horizontalScrollBar();
+    QScrollBar *v = m_centerScroll->verticalScrollBar();
     h->setValue(h->value() + dx);
     v->setValue(v->value() + dy);
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_panorama->updatePanorama();
 }
 
 void MainWindow::onScrollTo(int x, int y)
 {
-    if (!m_centerScroll || !m_canvas)
-        return;
-    auto *h = m_centerScroll->horizontalScrollBar();
-    auto *v = m_centerScroll->verticalScrollBar();
+    QScrollBar *h = m_centerScroll->horizontalScrollBar();
+    QScrollBar *v = m_centerScroll->verticalScrollBar();
     const int maxH = qMax(0, m_canvas->width()  - m_centerScroll->viewport()->width());
     const int maxV = qMax(0, m_canvas->height() - m_centerScroll->viewport()->height());
     h->setValue(qMin(x, maxH));
     v->setValue(qMin(y, maxV));
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_panorama->updatePanorama();
 }
 
 void MainWindow::onScaleDelta(int delta)
@@ -1271,8 +1196,6 @@ void MainWindow::onScaleDelta(int delta)
 
 void MainWindow::onWidthStep(int delta)
 {
-    if (!m_controls)
-        return;
     const int step = qMax(1, m_widthStep);
 
     if (m_widthMode != WM_Fixed) {
@@ -1296,33 +1219,25 @@ void MainWindow::toggleTheme()
     m_theme->apply(qApp);
     m_themeAction->setText(
         m_theme->isDark() ? tr("Light theme") : tr("Dark theme"));
-    if (m_canvas)
-        m_canvas->update();
-    if (m_panorama)
-        m_panorama->updateTheme();
-    if (m_byteInfo)
-        m_byteInfo->updateTheme();
-    if (m_paletteSettings && !m_currentPaletteId.isEmpty())
+    m_canvas->update();
+    m_panorama->updateTheme();
+    m_byteInfo->updateTheme();
+    if (!m_currentPaletteId.isEmpty())
         m_paletteSettings->buildFor(m_currentPaletteId);
-    if (m_hexView)
-        m_hexView->updateTheme();
+    m_hexView->updateTheme();
 }
 
 void MainWindow::onLanguageChanged(QAction *action)
 {
-    if (!action)
-        return;
     const QString lang = action->data().toString();
     if (lang.isEmpty() || lang == m_language)
         return;
 
     m_language = lang;
 
-    if (m_settings) {
-        QVariantMap s = m_settings->load();
-        s["language"] = m_language;
-        m_settings->save(s);
-    }
+    QVariantMap s = m_settings->load();
+    s["language"] = m_language;
+    m_settings->save(s);
 
     const QString langName =
         (lang == QLatin1String(AppLimits::LangRu)) ? tr("Russian") : tr("English");
@@ -1337,15 +1252,11 @@ void MainWindow::onLanguageChanged(QAction *action)
 
 void MainWindow::onHexViewToggled(bool enabled)
 {
-    if (!m_hexView)
-        return;
-
     if (enabled) {
         if (m_hexViewHeight > 0) {
             m_hexView->setFixedHeight(m_hexViewHeight);
         } else {
-            const int vh = m_centerScroll
-                ? m_centerScroll->viewport()->height() : 600;
+            const int vh = m_centerScroll->viewport()->height();
             m_hexView->setFixedHeight(qMax(160, vh / 3));
             m_hexViewHeight = m_hexView->height();
         }
@@ -1361,7 +1272,7 @@ void MainWindow::exportPng(PngExportMode mode)
         statusBar()->showMessage(tr("A PNG export is already running."), 4000);
         return;
     }
-    if (m_fileSize <= 0 || !m_canvas || !m_canvas->tileManager())
+    if (m_fileSize <= 0)
         return;
 
     QString dir;
@@ -1391,8 +1302,6 @@ void MainWindow::exportPng(PngExportMode mode)
     case ExportVisibleArea: {
         exportScale = qMax(1, m_canvas->scale());
         exportDownsample = qMax(1, m_canvas->downsample());
-        if (!m_centerScroll || !m_centerScroll->viewport())
-            return;
         const QPoint canvasOrigin = m_canvas->mapTo(
             m_centerScroll->viewport(), QPoint(0, 0));
         const QRect canvasInViewport(canvasOrigin, m_canvas->size());
@@ -1486,16 +1395,15 @@ void MainWindow::exportPng(PngExportMode mode)
             &exportError)) {
         QMessageBox::warning(
             this, tr("Export to PNG"),
-			exportError.isEmpty()
-				? tr("The requested PNG dimensions are invalid, "
-					 "or the export task could not be started.")
-				: exportError);
+            exportError.isEmpty()
+                ? tr("The requested PNG dimensions are invalid, "
+                     "or the export task could not be started.")
+                : exportError);
         return;
     }
 
     m_busyPngExport = true;
-    if (m_exportMenu)
-        m_exportMenu->setEnabled(false);
+    m_exportMenu->setEnabled(false);
     updateBusyLabel();
     statusBar()->showMessage(tr("PNG export started…"));
 }
@@ -1504,8 +1412,7 @@ void MainWindow::onPngExportFinished(const QString &path, bool success,
                                      const QString &errorMessage)
 {
     m_busyPngExport = false;
-    if (m_exportMenu)
-        m_exportMenu->setEnabled(true);
+    m_exportMenu->setEnabled(true);
     updateBusyLabel();
 
     if (success) {
@@ -1550,31 +1457,18 @@ void MainWindow::refreshTitle()
         setWindowTitle(t);
     }
 
-    if (m_hintContainer) {
-        const bool hexViewVisible = m_hexViewAct && m_hexViewAct->isChecked();
-        m_hintContainer->setVisible(!hexViewVisible
-                                    && (m_trainingMode || !hasFile));
-    }
+    m_hintContainer->setVisible(!m_hexViewAct->isChecked()
+                                && (m_trainingMode || !hasFile));
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *e)
 {
-    if (!e->mimeData() || !e->mimeData()->hasUrls()) {
-        e->ignore();
-        return;
-    }
-    e->setDropAction(Qt::CopyAction);
-    e->accept();
+    acceptUrlDrag(e);
 }
 
 void MainWindow::dragMoveEvent(QDragMoveEvent *e)
 {
-    if (!e->mimeData() || !e->mimeData()->hasUrls()) {
-        e->ignore();
-        return;
-    }
-    e->setDropAction(Qt::CopyAction);
-    e->accept();
+    acceptUrlDrag(e);
 }
 
 void MainWindow::dropEvent(QDropEvent *e)
@@ -1617,8 +1511,6 @@ void MainWindow::resizeEvent(QResizeEvent *e)
 
 void MainWindow::applyFitToWindow()
 {
-    if (!m_centerScroll || !m_canvas)
-        return;
     if (m_fileSize <= 0)
         return;
 
@@ -1634,26 +1526,22 @@ void MainWindow::applyFitToWindow()
     const double ideal = qMin(qMin(double(availW) / w,
                                    double(availH) / h), 32.0);
     int newScale = 1, newDs = 1;
-    if (ideal >= 1.0) {
+    if (ideal >= 1.0)
         newScale = qMax(1, int(ideal));
-    } else {
-        newScale = 1;
+    else
         newDs = qMax(1, int(std::ceil(1.0 / ideal)));
-    }
 
     if (newScale != m_scale || newDs != m_downsample) {
         m_scale = newScale;
         m_downsample = newDs;
-        if (m_controls)
-            m_controls->setScaleSilent(m_scale);
+        m_controls->setScaleSilent(m_scale);
         m_canvas->rebuild();
     }
 }
 
 void MainWindow::centerViewportOnSourcePixel(const QPoint &sourcePixel)
 {
-    if (!m_centerScroll || !m_canvas
-            || sourcePixel.x() < 0 || sourcePixel.y() < 0
+    if (sourcePixel.x() < 0 || sourcePixel.y() < 0
             || sourcePixel.x() >= m_imageWidth
             || sourcePixel.y() >= m_imageHeight)
         return;
@@ -1661,12 +1549,10 @@ void MainWindow::centerViewportOnSourcePixel(const QPoint &sourcePixel)
     QScrollBar *h = m_centerScroll->horizontalScrollBar();
     QScrollBar *v = m_centerScroll->verticalScrollBar();
     QWidget *viewport = m_centerScroll->viewport();
-    if (!h || !v || !viewport)
-        return;
 
-    int displayX = m_mirrorH ? (m_imageWidth - 1 - sourcePixel.x())
+    const int displayX = m_mirrorH ? (m_imageWidth - 1 - sourcePixel.x())
                              : sourcePixel.x();
-    int displayY = m_mirrorV ? (m_imageHeight - 1 - sourcePixel.y())
+    const int displayY = m_mirrorV ? (m_imageHeight - 1 - sourcePixel.y())
                              : sourcePixel.y();
 
     const int ds = qMax(1, m_downsample);
@@ -1681,14 +1567,11 @@ void MainWindow::centerViewportOnSourcePixel(const QPoint &sourcePixel)
     h->setValue(newH);
     v->setValue(newV);
 
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_panorama->updatePanorama();
 }
 
 void MainWindow::autoFitScale()
 {
-    if (!m_centerScroll || !m_canvas)
-        return;
     if (m_fileSize <= 0)
         return;
 
@@ -1707,19 +1590,16 @@ void MainWindow::autoFitScale()
     if (newScale != m_scale) {
         m_scale = newScale;
         m_downsample = 1;
-        if (m_controls)
-            m_controls->setScaleSilent(m_scale);
+        m_controls->setScaleSilent(m_scale);
         m_canvas->rebuild();
-        if (m_panorama)
-            m_panorama->updatePanorama();
+        m_panorama->updatePanorama();
     }
 }
 
 void MainWindow::onPerfSliderMoved(int value)
 {
     m_pendingPerfValue = value;
-    if (m_perfDebounceTimer)
-        m_perfDebounceTimer->start(MW_PERF_DEBOUNCE_MS);
+    m_perfDebounceTimer->start(MW_PERF_DEBOUNCE_MS);
 }
 
 void MainWindow::applyPerfSettings()
@@ -1748,10 +1628,8 @@ void MainWindow::applyPerfFromSlider(int value)
     const double logC = std::log(180.0) + norm * (std::log(double(cacheMaxMb)) - std::log(180.0));
     const int cacheMb = qBound(180, int(std::exp(logC) + 0.5), cacheMaxMb);
 
-    if (m_canvas && m_canvas->tileManager()) {
-        m_canvas->tileManager()->setCacheLimitMb(cacheMb);
-        m_canvas->rebuild();
-    }
+    m_canvas->tileManager()->setCacheLimitMb(cacheMb);
+    m_canvas->rebuild();
 }
 
 void MainWindow::onActiveTasksChanged(int count)
@@ -1762,8 +1640,6 @@ void MainWindow::onActiveTasksChanged(int count)
 
 void MainWindow::updateBusyLabel()
 {
-    if (!m_busyLabel)
-        return;
     if (m_busyPngExport) {
         m_busyLabel->setText(tr("[ Saving to PNG...]"));
     } else if (m_activeTileTasks > 0) {
@@ -1775,9 +1651,6 @@ void MainWindow::updateBusyLabel()
 
 void MainWindow::updateMemoryLabel()
 {
-    if (!m_memoryLabel)
-        return;
-
     qint64 rss = 0;
 #ifdef Q_OS_WIN
     PROCESS_MEMORY_COUNTERS_EX pmc;
@@ -1789,8 +1662,7 @@ void MainWindow::updateMemoryLabel()
 #else
     QFile f("/proc/self/statm");
     if (f.open(QIODevice::ReadOnly)) {
-        QByteArray line = f.readLine();
-        f.close();
+        const QByteArray line = f.readLine();
         const QList<QByteArray> parts = line.simplified().split(' ');
         if (parts.size() >= 2) {
             const qint64 pages = parts[1].toLongLong();
@@ -1800,15 +1672,11 @@ void MainWindow::updateMemoryLabel()
     }
 #endif
 
-    qint64 cacheBytes = 0;
-    int    cacheLimit = 0;
-    if (m_canvas && m_canvas->tileManager()) {
-        cacheBytes = m_canvas->tileManager()->cacheBytes();
-        cacheLimit = m_canvas->tileManager()->cacheLimitMb();
-    }
+    const TileManager *tiles = m_canvas->tileManager();
+    const int cacheLimit = tiles->cacheLimitMb();
 
     const double mbRss   = rss / MW_BYTES_PER_MB;
-    const double mbCache = cacheBytes / MW_BYTES_PER_MB;
+    const double mbCache = tiles->cacheBytes() / MW_BYTES_PER_MB;
 
     const QString rssLine = (rss > 0)
         ? tr("· Process memory: %1 MB").arg(mbRss, 0, 'f', 0)
@@ -1825,36 +1693,23 @@ void MainWindow::updateMemoryLabel()
 
 void MainWindow::onMirrorChanged()
 {
-    if (m_canvas)
-        m_canvas->rebuild();
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_canvas->rebuild();
+    m_panorama->updatePanorama();
 }
 
 void MainWindow::setMirrorState(bool horizontal, bool vertical)
 {
     m_mirrorH = horizontal;
     m_mirrorV = vertical;
-    if (m_mirrorHAct) {
-        QSignalBlocker b(m_mirrorHAct);
-        m_mirrorHAct->setChecked(m_mirrorH);
-    }
-    if (m_mirrorVAct) {
-        QSignalBlocker b(m_mirrorVAct);
-        m_mirrorVAct->setChecked(m_mirrorV);
-    }
+    QSignalBlocker bh(m_mirrorHAct), bv(m_mirrorVAct);
+    m_mirrorHAct->setChecked(m_mirrorH);
+    m_mirrorVAct->setChecked(m_mirrorV);
 }
 
 void MainWindow::resetMirror()
 {
     setMirrorState(false, false);
-    if (m_canvas)
-        m_canvas->rebuild();
-}
-
-void MainWindow::resetDisplaySettings()
-{
-    applyDefaultConfig();
+    m_canvas->rebuild();
 }
 
 void MainWindow::applyDefaultConfig()
@@ -1862,12 +1717,9 @@ void MainWindow::applyDefaultConfig()
     m_paletteParams.remove(QString::fromLatin1(PaletteIds::Repeats));
     setMirrorState(false, false);
 
-    if (m_controls)
-        m_controls->setConfig(defaultDisplayConfig());
+    m_controls->setConfig(defaultDisplayConfig());
 
-    const QString paletteId = m_controls
-        ? m_controls->currentPaletteId()
-        : QStringLiteral(CFG_DEF_PALETTE);
+    const QString paletteId = m_controls->currentPaletteId();
     onPaletteChanged(paletteId.isEmpty() ? QStringLiteral(CFG_DEF_PALETTE)
                                          : paletteId);
 }
@@ -1941,11 +1793,6 @@ void MainWindow::ensureByteHistogram()
     m_byteHistogramValid = true;
 }
 
-void MainWindow::onTrainingButtonClicked()
-{
-    startTraining();
-}
-
 void MainWindow::startTraining()
 {
     const QByteArray data = DemoBuilder::buildTrainingDemo();
@@ -1960,21 +1807,16 @@ void MainWindow::startTraining()
 
     applyDefaultConfig();
 
-    if (m_canvas)
-        m_canvas->clearHover();
+    m_canvas->clearHover();
     recomputeGeometry();
     refreshTitle();
-    if (m_panorama)
-        m_panorama->updatePanorama();
+    m_panorama->updatePanorama();
 
-    if (m_trainingBtn)
-        m_trainingBtn->setVisible(false);
-    if (m_hintLabel)
-        m_hintLabel->setText(DemoBuilder::trainingHintHtml());
-	if (m_hexView)
-        m_hexView->refresh();
-    
-	statusBar()->showMessage(
+    m_trainingBtn->setVisible(false);
+    m_hintLabel->setText(DemoBuilder::trainingHintHtml());
+    m_hexView->refresh();
+
+    statusBar()->showMessage(
         tr("Tutorial: adjust the display settings to reveal the image."),
         8000);
 }

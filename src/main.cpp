@@ -11,7 +11,6 @@
 #include <QDir>
 #include <QTranslator>
 #include <QLibraryInfo>
-#include <QLocale>
 
 #ifdef QT_STATIC
 #  include <QtPlugin>
@@ -42,44 +41,30 @@
 #define MAIN_TR_RES_PREFIX      ":/translations/"
 #define MAIN_LANG_DEFAULT       "en"
 
-// Пытается загрузить <prefix><lang> из каталога рядом с exe, затем из ресурсов.
-// Возвращает установленный QTranslator или nullptr.
-static QTranslator *loadTranslator(QApplication &app,
-                                   const QString &prefix,
-                                   const QString &lang,
-                                   const QString &externalDir)
+// Пытается загрузить <prefix><lang> (затем <prefix><lang из 2 букв>) из каталога
+// рядом с exe, затем из системного каталога переводов Qt, затем из ресурсов.
+// При успехе устанавливает переводчик в приложение.
+static void loadTranslator(QApplication &app,
+                           const QString &prefix,
+                           const QString &lang,
+                           const QString &externalDir)
 {
-    const QStringList candidates = {
-        prefix + lang,
-        prefix + lang.left(2)
-    };
+    QStringList names(prefix + lang);
+    if (lang.size() > 2)
+        names << prefix + lang.left(2);
 
-    for (const QString &name : candidates) {
-        // 1) внешний файл рядом с exe
-        if (!externalDir.isEmpty()) {
-            QTranslator *tr = new QTranslator(&app);
-            if (tr->load(name, externalDir)) {
-                app.installTranslator(tr);
-                return tr;
-            }
-            delete tr;
-        }
-        // 2) системный каталог переводов Qt (для qtbase_*)
+    for (const QString &name : names) {
+        // QTranslator::load() при неудаче оставляет объект пустым, поэтому
+        // один экземпляр можно пробовать на всех источниках.
         QTranslator *tr = new QTranslator(&app);
-        if (tr->load(name, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) {
+        if ((!externalDir.isEmpty() && tr->load(name, externalDir))
+                || tr->load(name, QLibraryInfo::location(QLibraryInfo::TranslationsPath))
+                || tr->load(QStringLiteral(MAIN_TR_RES_PREFIX) + name)) {
             app.installTranslator(tr);
-            return tr;
-        }
-        delete tr;
-        // 3) встроенный ресурс
-        tr = new QTranslator(&app);
-        if (tr->load(QStringLiteral(MAIN_TR_RES_PREFIX) + name)) {
-            app.installTranslator(tr);
-            return tr;
+            return;
         }
         delete tr;
     }
-    return nullptr;
 }
 
 static void installTranslators(QApplication &app)

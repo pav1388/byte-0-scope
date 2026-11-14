@@ -6,6 +6,7 @@
 #include "ui_hexviewwidget.h"
 #include "ui_mainwindow.h"
 #include "app_thememanager.h"
+#include "qt_compat.h"
 
 #include <QFontMetrics>
 #include <QMouseEvent>
@@ -21,7 +22,6 @@
 // --- HexViewWidget module settings (prefix HV_) ---
 
 #define HV_DRAG_HANDLE_HEIGHT      6
-#define HV_TEXT_TOP_MARGIN         4
 #define HV_TEXT_LEFT_MARGIN        4
 #define HV_ROW_HEIGHT_EXTRA        2
 #define HV_SIDEBAR_CHARS           3
@@ -36,7 +36,6 @@
 #define HV_BPL_STEP                8
 #define HV_FONT_PT_MIN             5
 #define HV_FONT_PT_MAX             22
-#define HV_FONT_PT			       9
 
 HexViewWidget::HexViewWidget(MainWindow *parent)
     : QWidget(parent), m_main(parent)
@@ -58,8 +57,6 @@ HexViewWidget::HexViewWidget(MainWindow *parent)
     updateScrollbarRanges();
     updateSidebarButtons();
 }
-
-HexViewWidget::~HexViewWidget() = default;
 
 qint64 HexViewWidget::fileSize() const
 {
@@ -88,39 +85,23 @@ void HexViewWidget::buildScrollbars()
 
 void HexViewWidget::updateTheme()
 {
-    if (m_main && m_main->themeManager()) {
-        const Theme &cur = m_main->themeManager()->current();
-        m_bg           = cur.colors.value(QStringLiteral("hex_bg"),
-                                          cur.colors.value(QStringLiteral("base"), QColor(30, 30, 30)));
-        m_bgAlt        = cur.colors.value(QStringLiteral("hex_bg_alt"),
-                                          cur.colors.value(QStringLiteral("alternate_base"), QColor(48, 48, 48)));
-        m_text         = cur.colors.value(QStringLiteral("hex_text"),
-                                          cur.colors.value(QStringLiteral("text"), QColor(220, 220, 220)));
-        m_addr         = cur.colors.value(QStringLiteral("hex_addr"),
-                                          cur.colors.value(QStringLiteral("window_text"), QColor(180, 180, 180)));
-        m_selBg        = cur.colors.value(QStringLiteral("hex_sel_bg"),
-                                          cur.colors.value(QStringLiteral("highlight"), QColor(42, 130, 218)));
-        m_selText      = cur.colors.value(QStringLiteral("hex_sel_text"),
-                                          cur.colors.value(QStringLiteral("highlighted_text"), QColor(255, 255, 255)));
-        m_hoverBg      = cur.colors.value(QStringLiteral("hex_hover_bg"), QColor(80, 80, 80, 120));
-        m_border       = cur.colors.value(QStringLiteral("hex_border"),
-                                          cur.colors.value(QStringLiteral("button"), QColor(74, 74, 74)));
-        m_handle       = cur.colors.value(QStringLiteral("hex_handle"),
-                                          cur.colors.value(QStringLiteral("button"), QColor(74, 74, 74)));
-        m_handleActive = cur.colors.value(QStringLiteral("hex_handle_active"),
-                                          cur.colors.value(QStringLiteral("highlight"), QColor(42, 130, 218)));
-    } else {
-        m_bg = QColor(30, 30, 30);
-        m_bgAlt = QColor(48, 48, 48);
-        m_text = QColor(220, 220, 220);
-        m_addr = QColor(150, 150, 150);
-        m_selBg = QColor(42, 130, 218);
-        m_selText = QColor(255, 255, 255);
-        m_hoverBg = QColor(80, 80, 80, 120);
-        m_border = QColor(74, 74, 74);
-        m_handle = QColor(74, 74, 74);
-        m_handleActive = QColor(42, 130, 218);
-    }
+    const QMap<QString, QColor> &colors = m_main->themeManager()->current().colors;
+    // hex_<key> - необязательное переопределение; иначе берём базовый цвет темы.
+    auto pick = [&colors](const char *key, const char *baseKey, const QColor &def) {
+        return colors.value(QLatin1String(key),
+                            colors.value(QLatin1String(baseKey), def));
+    };
+    m_bg           = pick("hex_bg",            "base",             QColor(30, 30, 30));
+    m_bgAlt        = pick("hex_bg_alt",        "alternate_base",   QColor(48, 48, 48));
+    m_text         = pick("hex_text",          "text",             QColor(220, 220, 220));
+    m_addr         = pick("hex_addr",          "window_text",      QColor(180, 180, 180));
+    m_selBg        = pick("hex_sel_bg",        "highlight",        QColor(42, 130, 218));
+    m_selText      = pick("hex_sel_text",      "highlighted_text", QColor(255, 255, 255));
+    m_hoverBg      = colors.value(QLatin1String("hex_hover_bg"), QColor(80, 80, 80, 120));
+    m_border       = pick("hex_border",        "button",           QColor(74, 74, 74));
+    m_handle       = pick("hex_handle",        "button",           QColor(74, 74, 74));
+    m_handleActive = pick("hex_handle_active", "highlight",        QColor(42, 130, 218));
+
     updateSidebarTheme();
     update();
 }
@@ -132,16 +113,6 @@ void HexViewWidget::updateTheme()
 QRect HexViewWidget::dragHandleRect() const
 {
     return QRect(0, 0, width(), HV_DRAG_HANDLE_HEIGHT);
-}
-
-int HexViewWidget::textTop()  const { return HV_DRAG_HANDLE_HEIGHT + HV_TEXT_TOP_MARGIN; }
-int HexViewWidget::textLeft() const { return HV_TEXT_LEFT_MARGIN; }
-
-QRect HexViewWidget::textAreaRect() const
-{
-    const int sw = sidebarRect().width();
-    return QRect(0, HV_DRAG_HANDLE_HEIGHT,
-                 width() - sw, height() - HV_DRAG_HANDLE_HEIGHT);
 }
 
 QRect HexViewWidget::sidebarRect() const
@@ -260,14 +231,10 @@ void HexViewWidget::clearSelection()
 void HexViewWidget::applyFontMetrics()
 {
     m_mono.setPointSize(m_fontPt);
-	m_monoBold = m_mono;
+    m_monoBold = m_mono;
     m_monoBold.setBold(true);
     const QFontMetrics fm(m_mono);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-    m_charWidth = qMax(4, fm.horizontalAdvance(QLatin1Char('0')));
-#else
-    m_charWidth = qMax(4, fm.width(QLatin1Char('0')));
-#endif
+    m_charWidth = qMax(4, QtCompat::charWidth(fm, QLatin1Char('0')));
     m_rowHeight = fm.height() + HV_ROW_HEIGHT_EXTRA;
     m_ascent    = fm.ascent();
 }
@@ -295,14 +262,11 @@ void HexViewWidget::setFontPt(int pt)
     m_fontPt = clamped;
     applyFontMetrics();
 
-    QFont btnFont = m_mono;
-    btnFont.setPointSize(qMax(7, m_fontPt - 1));
-    for (QPushButton *b : { m_bplMinusBtn, m_bplPlusBtn,
-                             m_fontMinusBtn, m_fontPlusBtn }) {
-        if (b) {
-            b->setFont(btnFont);
-            b->setFixedHeight(m_rowHeight + 4);
-        }
+    const QFont btnFont = sidebarButtonFont();
+    for (QPushButton *b : { m_bplMinusBtn, m_bplPlusBtn, m_gotoBtn,
+                            m_fontMinusBtn, m_fontPlusBtn }) {
+        b->setFont(btnFont);
+        b->setFixedHeight(m_rowHeight + 4);
     }
 
     layoutChildren();
@@ -314,14 +278,17 @@ void HexViewWidget::setFontPt(int pt)
 
 void HexViewWidget::updateSidebarButtons()
 {
-    if (m_bplMinusBtn)
-        m_bplMinusBtn->setEnabled(m_bytesPerLine > HV_BPL_MIN);
-    if (m_bplPlusBtn)
-        m_bplPlusBtn->setEnabled(m_bytesPerLine < HV_BPL_MAX);
-    if (m_fontMinusBtn)
-        m_fontMinusBtn->setEnabled(m_fontPt > HV_FONT_PT_MIN);
-    if (m_fontPlusBtn)
-        m_fontPlusBtn->setEnabled(m_fontPt < HV_FONT_PT_MAX);
+    m_bplMinusBtn->setEnabled(m_bytesPerLine > HV_BPL_MIN);
+    m_bplPlusBtn->setEnabled(m_bytesPerLine < HV_BPL_MAX);
+    m_fontMinusBtn->setEnabled(m_fontPt > HV_FONT_PT_MIN);
+    m_fontPlusBtn->setEnabled(m_fontPt < HV_FONT_PT_MAX);
+}
+
+QFont HexViewWidget::sidebarButtonFont() const
+{
+    QFont f = m_mono;
+    f.setPointSize(qMax(7, m_fontPt - 1));
+    return f;
 }
 
 void HexViewWidget::scrollRows(int rows)
@@ -360,13 +327,12 @@ void HexViewWidget::buildSidebar()
     m_sidebar = new QWidget(this);
     m_sidebar->setAutoFillBackground(true);
 
-    m_sidebarLayout = new QVBoxLayout(m_sidebar);
-    m_sidebarLayout->setContentsMargins(HV_SIDEBAR_MARGIN, HV_SIDEBAR_MARGIN,
-                                        HV_SIDEBAR_MARGIN, HV_SIDEBAR_MARGIN);
-    m_sidebarLayout->setSpacing(2);
+    auto *layout = new QVBoxLayout(m_sidebar);
+    layout->setContentsMargins(HV_SIDEBAR_MARGIN, HV_SIDEBAR_MARGIN,
+                               HV_SIDEBAR_MARGIN, HV_SIDEBAR_MARGIN);
+    layout->setSpacing(2);
 
-    QFont btnFont = m_mono;
-    btnFont.setPointSize(qMax(7, HV_FONT_PT - 1));
+    const QFont btnFont = sidebarButtonFont();
 
     auto makeBtn = [&](const QString &text, const QString &tip) -> QPushButton * {
         auto *b = new QPushButton(text, m_sidebar);
@@ -379,40 +345,40 @@ void HexViewWidget::buildSidebar()
         return b;
     };
 
-	m_bplMinusBtn = makeBtn(QStringLiteral("-8"),
-							tr("Decrease bytes per line by 8"));
-	m_bplPlusBtn  = makeBtn(QStringLiteral("+8"),
-							tr("Increase bytes per line by 8"));
-	connect(m_bplMinusBtn, &QPushButton::clicked, this, [this]() {
-		setBytesPerLine(m_bytesPerLine - HV_BPL_STEP);
-	});
-	connect(m_bplPlusBtn, &QPushButton::clicked, this, [this]() {
-		setBytesPerLine(m_bytesPerLine + HV_BPL_STEP);
-	});
+    m_bplMinusBtn = makeBtn(QStringLiteral("-8"),
+                            tr("Decrease bytes per line by 8"));
+    m_bplPlusBtn  = makeBtn(QStringLiteral("+8"),
+                            tr("Increase bytes per line by 8"));
+    connect(m_bplMinusBtn, &QPushButton::clicked, this, [this]() {
+        setBytesPerLine(m_bytesPerLine - HV_BPL_STEP);
+    });
+    connect(m_bplPlusBtn, &QPushButton::clicked, this, [this]() {
+        setBytesPerLine(m_bytesPerLine + HV_BPL_STEP);
+    });
 
-    auto *gotoBtn = makeBtn(QStringLiteral(">>"), tr("Go to selection"));
-    connect(gotoBtn, &QPushButton::clicked, this, [this]() {
+    m_gotoBtn = makeBtn(QStringLiteral(">>"), tr("Go to selection"));
+    connect(m_gotoBtn, &QPushButton::clicked, this, [this]() {
         if (m_selectedAddr >= 0)
             ensureAddressVisible(m_selectedAddr);
         update();
     });
-	
-	m_fontMinusBtn = makeBtn(QStringLiteral("A-"), tr("Decrease font size"));
-	m_fontPlusBtn  = makeBtn(QStringLiteral("A+"), tr("Increase font size"));
-	connect(m_fontMinusBtn, &QPushButton::clicked, this, [this]() {
-		setFontPt(m_fontPt - 1);
-	});
-	connect(m_fontPlusBtn, &QPushButton::clicked, this, [this]() {
-		setFontPt(m_fontPt + 1);
-	});
 
-	m_sidebarLayout->addWidget(m_bplMinusBtn);
-	m_sidebarLayout->addWidget(m_bplPlusBtn);
-	m_sidebarLayout->addWidget(gotoBtn);
-	m_sidebarLayout->addSpacing(6);
-	m_sidebarLayout->addWidget(m_fontMinusBtn);
-	m_sidebarLayout->addWidget(m_fontPlusBtn);
-	m_sidebarLayout->addStretch();
+    m_fontMinusBtn = makeBtn(QStringLiteral("A-"), tr("Decrease font size"));
+    m_fontPlusBtn  = makeBtn(QStringLiteral("A+"), tr("Increase font size"));
+    connect(m_fontMinusBtn, &QPushButton::clicked, this, [this]() {
+        setFontPt(m_fontPt - 1);
+    });
+    connect(m_fontPlusBtn, &QPushButton::clicked, this, [this]() {
+        setFontPt(m_fontPt + 1);
+    });
+
+    layout->addWidget(m_bplMinusBtn);
+    layout->addWidget(m_bplPlusBtn);
+    layout->addWidget(m_gotoBtn);
+    layout->addSpacing(6);
+    layout->addWidget(m_fontMinusBtn);
+    layout->addWidget(m_fontPlusBtn);
+    layout->addStretch();
 
     updateSidebarTheme();
 }
@@ -442,6 +408,7 @@ void HexViewWidget::layoutChildren()
     if (m_hScroll)
         m_hScroll->setGeometry(textX, textY + textH - sbH, textW - sbW, sbH);
 }
+
 int HexViewWidget::contentPixels() const
 {
     return (asciiStartChar() + m_bytesPerLine + 1) * m_charWidth;
@@ -498,9 +465,8 @@ void HexViewWidget::resizeEvent(QResizeEvent *e)
 //  Отрисовка
 // =========================================================================
 
-void HexViewWidget::paintEvent(QPaintEvent *e)
+void HexViewWidget::paintEvent(QPaintEvent *)
 {
-    Q_UNUSED(e);
     QPainter p(this);
 
     p.fillRect(rect(), m_bg);
@@ -508,7 +474,7 @@ void HexViewWidget::paintEvent(QPaintEvent *e)
     p.drawRect(rect().adjusted(0, 0, -1, -1));
 
     drawDragHandle(p);
-	drawHeaderRow(p);
+    drawHeaderRow(p);
     drawHexArea(p);
 }
 
@@ -533,10 +499,11 @@ void HexViewWidget::drawHexArea(QPainter &p)
     const int rows = visibleRows();
     const int baseX = m_viewRect.left() - m_hScrollOffset;
     const int baseY = m_viewRect.top();
+    const qint64 fs = fileSize();
 
     for (int row = 0; row < rows; ++row) {
         const qint64 baseAddr = m_scrollTopAddr + qint64(row) * m_bytesPerLine;
-        if (baseAddr >= fileSize())
+        if (baseAddr >= fs)
             break;
         drawRow(p, row, baseAddr, digits, baseX, baseY);
     }
@@ -549,8 +516,7 @@ void HexViewWidget::drawRow(QPainter &p, int row, qint64 baseAddr,
     const int y = baseY + row * m_rowHeight;
     const int baseline = y + (m_rowHeight + m_ascent) / 2 - 2;
 
-	const QString addrText =
-    QStringLiteral("%1:")
+    const QString addrText = QStringLiteral("%1:")
         .arg(baseAddr, addrDigits, 16, QLatin1Char('0'))
         .toUpper();
     p.setFont(m_monoBold);
@@ -558,6 +524,7 @@ void HexViewWidget::drawRow(QPainter &p, int row, qint64 baseAddr,
     p.drawText(baseX, baseline, addrText);
     p.setFont(m_mono);
 
+    static const char kHexDigits[] = "0123456789ABCDEF";
     const qint64 fs = fileSize();
     for (int n = 0; n < m_bytesPerLine; ++n) {
         const qint64 addr = baseAddr + n;
@@ -578,14 +545,13 @@ void HexViewWidget::drawRow(QPainter &p, int row, qint64 baseAddr,
 
         const quint8 byte = m_main ? m_main->readByte(addr) : 0;
 
-        const QString hex = QStringLiteral("%1")
-            .arg(byte, 2, 16, QLatin1Char('0')).toUpper();
+        const QChar hexPair[2] = { QLatin1Char(kHexDigits[byte >> 4]),
+                                   QLatin1Char(kHexDigits[byte & 0x0F]) };
         p.setPen(selected ? m_selText : m_text);
-        p.drawText(hexX, baseline, hex);
+        p.drawText(hexX, baseline, QString(hexPair, 2));
 
         const QChar ch = (byte >= 0x20 && byte <= 0x7E)
             ? QChar(byte) : QChar(0x00B7);
-        p.setPen(selected ? m_selText : m_text);
         p.drawText(asciiX, baseline, QString(ch));
     }
 }
@@ -650,12 +616,12 @@ void HexViewWidget::mouseMoveEvent(QMouseEvent *e)
 
 void HexViewWidget::mouseReleaseEvent(QMouseEvent *e)
 {
-	if (m_dragMode == DragMode::Height && e->button() == Qt::LeftButton) {
-		m_dragMode = DragMode::None;
-		emit heightChanged(height());
-		e->accept();
-		return;
-	}
+    if (m_dragMode == DragMode::Height && e->button() == Qt::LeftButton) {
+        m_dragMode = DragMode::None;
+        emit heightChanged(height());
+        e->accept();
+        return;
+    }
     QWidget::mouseReleaseEvent(e);
 }
 
@@ -719,9 +685,12 @@ void HexViewWidget::drawHeaderRow(QPainter &p)
 
 int HexViewWidget::addrDigits() const
 {
-    const qint64 fs = fileSize();
-    const qint64 lastAddr = qMax<qint64>(0, fs - 1);
-    return qMax(2, QString::number(lastAddr, 16).size());
+    // Число hex-цифр последнего адреса (минимум 2); вызывается на каждый байт
+    // при отрисовке, поэтому без временных QString.
+    int digits = 1;
+    for (qint64 v = qMax<qint64>(0, fileSize() - 1) >> 4; v > 0; v >>= 4)
+        ++digits;
+    return qMax(2, digits);
 }
 
 int HexViewWidget::addrChars() const

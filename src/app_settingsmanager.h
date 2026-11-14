@@ -17,7 +17,7 @@ public:
     QVariantMap load() const;
     bool save(const QVariantMap &settings) const;
     static QStringList filterExisting(const QStringList &paths, int limit = -1);
-    QString configPath() const { return m_path; }
+    const QString &configPath() const { return m_path; }
 
 private:
     QString m_path;

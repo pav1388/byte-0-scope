@@ -172,7 +172,7 @@ endif()
 option(BS_STATIC_QT      "Link against a STATIC Qt SDK (Windows: ON)"      ${_def_static})
 option(BS_STATIC_RUNTIME "Statically link libgcc/libstdc++ (MinGW)"        ON)
 option(BS_LTO            "Enable link-time optimization for project code"  ${_def_lto})
-option(BS_STRIP          "Run strip --strip-all on the executable"         ON)
+option(BS_STRIP          "Strip symbols from the executable (linker -s)"   ON)
 option(BS_UPX            "Pack the executable with UPX"                    OFF)
 option(BS_NO_DEBUG       "Define QT_NO_DEBUG_OUTPUT and QT_NO_DEBUG"       ON)
 option(BS_NO_OPENGL      "Set if the Qt SDK was built with -no-opengl"     OFF)
@@ -256,7 +256,9 @@ if(MINGW)
         set(CMAKE_EXE_LINKER_FLAGS
             "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
     endif()
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")
+    if(BS_STRIP)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s")
+    endif()
     if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4 AND BS_LARGE_ADDRESS_AWARE)
         set(CMAKE_EXE_LINKER_FLAGS
             "${CMAKE_EXE_LINKER_FLAGS} -Wl,--large-address-aware")
@@ -321,7 +323,7 @@ set(BS_SOURCES
     "${BS_SRC_DIR}/pal_palettesettings.cpp"
     "${BS_SRC_DIR}/render_canvaswidget.cpp"
     "${BS_SRC_DIR}/render_pngstream.cpp"
-	"${BS_SRC_DIR}/render_tilemanager.cpp"
+    "${BS_SRC_DIR}/render_tilemanager.cpp"
     "${BS_SRC_DIR}/ui_aboutdialog.cpp"
     "${BS_SRC_DIR}/ui_byteconverter.cpp"
     "${BS_SRC_DIR}/ui_byteinfo.cpp"
@@ -368,7 +370,7 @@ if(COMMAND qt5_import_plugins)
             Qt5::QTiffPlugin
             Qt5::QWbmpPlugin
             Qt5::QWebpPlugin
-			Qt5::QWindowsVistaStylePlugin
+            Qt5::QWindowsVistaStylePlugin
     )
 endif()
 
@@ -582,15 +584,9 @@ elseif(WIN32)
 endif()
 
 # =========================================================================
-# Post-build: strip + UPX
+# Post-build: UPX
 # =========================================================================
 if(MINGW)
-    if(BS_STRIP AND CMAKE_STRIP)
-        add_custom_command(TARGET byte0scope POST_BUILD
-            COMMAND ${CMAKE_STRIP} --strip-all $<TARGET_FILE:byte0scope>
-            COMMENT "Stripping byte0scope.exe")
-    endif()
-
     if(BS_UPX)
         find_program(UPX_EXECUTABLE NAMES upx upx.exe)
         if(NOT UPX_EXECUTABLE)

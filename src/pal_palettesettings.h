@@ -34,12 +34,16 @@ signals:
     void paramsChanged(const QVariantMap &newParams);
     void autoApplyToggled(bool enabled);
 
+private slots:
+    void resetRulesToDefault();
+
 private:
     struct RuleWidget {
         QWidget     *container = nullptr;
         QSpinBox    *start     = nullptr;
         QSpinBox    *end       = nullptr;
         QPushButton *colorBtn  = nullptr;
+        QLabel      *number    = nullptr;
     };
 
     void buildCustomUi(const QVariantMap &params);
@@ -60,10 +64,9 @@ private:
     void addSeparator();
     void clearContent();
 
-    RuleWidget addRuleWidget(int start, int end, const QString &hexColor);
-    void       deleteRuleWidget(QWidget *container);
-    void       resetRulesToDefault();
-    void       renumberRules();
+    void addRuleWidget(int start, int end, const QString &hexColor);
+    void deleteRuleWidget(QWidget *container);
+    void renumberRules();
 
     void updateColorButton(QPushButton *btn, const QString &hex);
     void pickColorForButton(QPushButton *btn);
@@ -100,7 +103,6 @@ private:
     QSpinBox  *m_countSpin      = nullptr;
 
     QCheckBox *m_asciiExtendedCheck = nullptr;
-    QVector<QPushButton*> m_asciiColorButtons;
     QVector<QPushButton*> m_asciiBasicColorButtons;
     QVector<QPushButton*> m_asciiExtendedColorButtons;
 

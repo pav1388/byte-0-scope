@@ -11,7 +11,10 @@
 // здесь, а не в прикладном коде.
 
 #include <QByteArray>
+#include <QColor>
+#include <QFontMetrics>
 #include <QImage>
+#include <QPalette>
 #include <QPoint>
 #include <QRegion>
 #include <QVector>
@@ -69,6 +72,29 @@ inline QPoint wheelPos(const QWheelEvent *e)
     return e->position().toPoint();
 #else
     return e->pos();
+#endif
+}
+
+// Ширина символа в пикселях. QFontMetrics::width() объявлен устаревшим
+// в Qt 5.11 (заменён на horizontalAdvance()).
+inline int charWidth(const QFontMetrics &fm, QChar ch)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    return fm.horizontalAdvance(ch);
+#else
+    return fm.width(ch);
+#endif
+}
+
+// Цвет подсказки в полях ввода (placeholder). Роль QPalette::PlaceholderText
+// появилась только в Qt 5.12; в более старых версиях ничего не делает.
+inline void setPlaceholderTextColor(QPalette &palette, const QColor &color)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 0)
+    palette.setColor(QPalette::PlaceholderText, color);
+#else
+    Q_UNUSED(palette)
+    Q_UNUSED(color)
 #endif
 }
 
