@@ -11,7 +11,7 @@ REM =====================================================================
 
 REM ---------------------- SETTINGS: edit if needed ---------------------
 REM Release name suffix: byte-0-scope-vVERSION-TAG
-set "TAG=win32-static"
+set "TAG=win32"
 
 REM 1 = compress byte0scope.exe with UPX (upx must be in PATH), 0 = do not.
 REM (UPX is on for the XP build, as before.)

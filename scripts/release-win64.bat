@@ -11,7 +11,7 @@ REM =====================================================================
 
 REM ---------------------- SETTINGS: edit if needed ---------------------
 REM Release name suffix: byte-0-scope-vVERSION-TAG
-set "TAG=win64-static"
+set "TAG=win64"
 
 REM 1 = compress byte0scope.exe with UPX (upx must be in PATH), 0 = do not.
 REM (Off for 64-bit: UPX-packed 64-bit exe files are flagged by antivirus more often.)

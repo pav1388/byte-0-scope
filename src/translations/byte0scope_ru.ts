@@ -717,7 +717,7 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="-32"/>
-        <location line="+1041"/>
+        <location line="+1042"/>
         <location line="+17"/>
         <location line="+31"/>
         <location line="+12"/>
@@ -726,7 +726,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1127"/>
+        <location line="-1128"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -782,36 +782,36 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+864"/>
+        <location line="+865"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-864"/>
-        <location line="+864"/>
+        <location line="-865"/>
+        <location line="+865"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-860"/>
-        <location line="+886"/>
+        <location line="-861"/>
+        <location line="+887"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-881"/>
-        <location line="+877"/>
+        <location line="-882"/>
+        <location line="+878"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-872"/>
-        <location line="+872"/>
+        <location line="-873"/>
+        <location line="+873"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-858"/>
+        <location line="-859"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -883,12 +883,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+72"/>
-        <location line="+374"/>
+        <location line="+375"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-366"/>
+        <location line="-367"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -1033,19 +1033,13 @@ Expected: %2</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
     <message>
-        <location line="+11"/>
+        <location line="+12"/>
         <source>Files are too large</source>
         <translation>Файлы слишком большие</translation>
     </message>
+    
     <message>
-        <location line="+1"/>
-        <source>XOR requires ~%1 MB, but the maximum QByteArray is %2 MB.
-Build a 64-bit version or reduce the file sizes.</source>
-        <translation>Для XOR нужно ~%1 МБ, а максимум QByteArray — %2 МБ.
-Соберите 64-битную версию или уменьшите файлы.</translation>
-    </message>
-    <message>
-        <location line="+12"/>
+        <location line="+13"/>
         <source>Not enough memory</source>
         <translation>Недостаточно памяти</translation>
     </message>
@@ -1152,12 +1146,19 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-951"/>
+        <location line="-952"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+1005"/>
+        <location line="+408"/>
+        <source>A file of ~%1 MB exceeds the maximum QByteArray size of %2 MB.
+Reduce the file sizes.</source>
+        <translation>Файл размером ~%1 МБ превышает максимально допустимый размер QByteArray, составляющий %2 МБ.
+Уменьшите размер файлов.</translation>
+    </message>
+    <message>
+        <location line="+598"/>
         <source>The requested PNG dimensions are invalid, or the export task could not be started.</source>
         <translation>Запрошенные размеры PNG-файла недопустимы, либо задачу экспорта не удалось запустить.</translation>
     </message>

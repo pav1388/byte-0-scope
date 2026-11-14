@@ -794,12 +794,13 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     const qint64 needed = sizeA + sizeB + qMin(sizeA, sizeB);
 
     const qint64 qbaMax = QtCompat::byteArrayMaxSize();
+    const qint64 largest = qMax(sizeA, sizeB);
 
-    if (needed > qbaMax) {
+    if (largest > qbaMax) {
         QMessageBox::warning(this, tr("Files are too large"),
-            tr("XOR requires ~%1 MB, but the maximum QByteArray is %2 MB.\n"
-               "Build a 64-bit version or reduce the file sizes.")
-                .arg(needed / MW_BYTES_PER_MB, 0, 'f', 1)
+            tr("A file of ~%1 MB exceeds the maximum QByteArray size of "
+               "%2 MB.\nReduce the file sizes.")
+                .arg(largest / MW_BYTES_PER_MB, 0, 'f', 1)
                 .arg(qbaMax / MW_BYTES_PER_MB, 0, 'f', 1));
         return false;
     }
