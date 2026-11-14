@@ -31,6 +31,8 @@ public:
     QString bitOrder() const;
     QString pixelOrder() const;
     int     rowPaddingBits() const;
+    bool    rowBitStream() const;
+    int     rowStrideBytes() const;
     int     widthMode() const;
     int     fixedWidth() const;
     int     widthStep() const;
@@ -55,6 +57,7 @@ public:
 signals:
     void settingsChanged();
     void resetDisplayRequested();
+    // Нажата кнопка «>>» рядом с полем адреса.
     void gotoAddressRequested(qint64 address);
 
 private slots:
@@ -75,6 +78,7 @@ private:
     void updateDisplayControlsEnabled();
     void updateEndLabel();
     void updateBitSettingsEnabled(int bpp);
+    void updateRowPaddingRange();
     void applyHexModeToSpins(bool useHex);
     void clampRegionBounds(bool startChanged);
 
@@ -96,6 +100,9 @@ private:
     QComboBox *m_pixelOrderCombo = nullptr;
     QLabel    *m_rowPadLabel = nullptr;
     QSpinBox  *m_rowPadSpin = nullptr;
+    QCheckBox *m_rowBitStreamCheck = nullptr;
+    QLabel    *m_rowStrideLabel = nullptr;
+    QSpinBox  *m_rowStrideSpin = nullptr;
 
     // Палитра
     QComboBox *m_paletteCombo = nullptr;

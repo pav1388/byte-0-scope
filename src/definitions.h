@@ -20,6 +20,8 @@
 #define CFG_BYTE_ORDER          "byte_order"
 #define CFG_PIXEL_ORDER         "pixel_order"
 #define CFG_ROW_PADDING_BITS    "row_padding_bits"
+#define CFG_ROW_BIT_STREAM      "row_bit_stream"
+#define CFG_ROW_STRIDE_BYTES    "row_stride_bytes"
 #define CFG_WIDTH_MODE          "width_mode"
 #define CFG_FIXED_WIDTH         "fixed_width"
 #define CFG_WIDTH_STEP          "width_step"
@@ -42,6 +44,8 @@
 #define CFG_DEF_PIXEL_ORDER     "msb"
 #define CFG_DEF_BYTE_ORDER      "big"
 #define CFG_DEF_ROW_PADDING     0
+#define CFG_DEF_ROW_BIT_STREAM  false
+#define CFG_DEF_ROW_STRIDE      0
 #define CFG_DEF_WIDTH_MODE      "fixed"
 #define CFG_DEF_FIXED_WIDTH     256
 #define CFG_DEF_WIDTH_STEP      8
@@ -59,6 +63,7 @@ enum WidthMode {
     WM_BytesPerRow,
     WM_Nice,
     WM_Divisor,
+    WM_Stride,
     WM_Count
 };
 
@@ -72,6 +77,7 @@ inline QString widthModeKey(int mode)
     case WM_BytesPerRow: return QStringLiteral("bytes");
     case WM_Nice:        return QStringLiteral("nice");
     case WM_Divisor:     return QStringLiteral("divisor");
+    case WM_Stride:      return QStringLiteral("stride");
     case WM_Fixed:
     default:             return QStringLiteral("fixed");
     }
@@ -106,6 +112,8 @@ inline QVariantMap defaultDisplayConfig()
     cfg[QStringLiteral(CFG_PIXEL_ORDER)]      = QStringLiteral(CFG_DEF_PIXEL_ORDER);
     cfg[QStringLiteral(CFG_BYTE_ORDER)]       = QStringLiteral(CFG_DEF_BYTE_ORDER);
     cfg[QStringLiteral(CFG_ROW_PADDING_BITS)] = CFG_DEF_ROW_PADDING;
+    cfg[QStringLiteral(CFG_ROW_BIT_STREAM)]   = CFG_DEF_ROW_BIT_STREAM;
+    cfg[QStringLiteral(CFG_ROW_STRIDE_BYTES)] = CFG_DEF_ROW_STRIDE;
     return cfg;
 }
 

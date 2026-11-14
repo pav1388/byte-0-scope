@@ -6,6 +6,7 @@
 #pragma once
 
 #include "core_bytesource.h"
+#include "core_pixelmath.h"
 
 #include <QByteArray>
 #include <QColor>
@@ -96,7 +97,7 @@ struct RenderContext {
     bool bitpacked = false;
     int bppMode = 8;
     int bytesPerPixel = 1;
-    int rowPaddingBits = 0;
+    PixelMath::RowLayout rowLayout;
     QString bitOrder;
     QString pixelOrder;
     QString byteOrder;

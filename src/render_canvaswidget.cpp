@@ -387,15 +387,14 @@ bool CanvasWidget::pixelForAddress(qint64 address, int bitOffset,
     int y = -1;
     if (m_main->isBitpacked()) {
         const int bitsPerPixel = qBound(1, m_main->bppMode(), 8);
-        const qint64 rowBytes = PixelMath::bitpackedRowBytes(
-            m_imageWidth, bitsPerPixel, m_main->rowPaddingBits());
-        if (rowBytes <= 0)
+        const qint64 strideBits = PixelMath::bitpackedStrideBits(
+            m_imageWidth, bitsPerPixel, m_main->rowLayout());
+        if (strideBits <= 0)
             return false;
         // Абсолютная позиция бита от начала региона.
         const qint64 bitPos = relative * 8 + qBound(0, bitOffset, 7);
-        const qint64 rowBits = rowBytes * 8;
-        const qint64 row = bitPos / rowBits;
-        const qint64 column = (bitPos % rowBits) / bitsPerPixel;
+        const qint64 row = bitPos / strideBits;
+        const qint64 column = (bitPos % strideBits) / bitsPerPixel;
         // column >= width — это биты паддинга в конце строки.
         if (row >= m_imageHeight || column >= m_imageWidth)
             return false;
@@ -403,12 +402,15 @@ bool CanvasWidget::pixelForAddress(qint64 address, int bitOffset,
         y = int(row);
     } else {
         const int bytesPerPixel = qBound(1, m_main->bytesPerPixel(), 8);
-        const qint64 pixelIndex = relative / bytesPerPixel;
-        const qint64 totalPixels = qint64(m_imageWidth) * m_imageHeight;
-        if (pixelIndex >= totalPixels)
+        const qint64 stride = PixelMath::packedStrideBytes(
+            m_imageWidth, bytesPerPixel, m_main->rowLayout());
+        const qint64 row = relative / stride;
+        const qint64 column = (relative % stride) / bytesPerPixel;
+        // column >= width — это байты шага (stride) за концом строки.
+        if (row >= m_imageHeight || column >= m_imageWidth)
             return false;
-        x = int(pixelIndex % m_imageWidth);
-        y = int(pixelIndex / m_imageWidth);
+        x = int(column);
+        y = int(row);
     }
 
     *outX = x;
@@ -453,20 +455,19 @@ qint64 CanvasWidget::byteAddressAt(const QPoint &pos, QPoint *sourcePixel,
     qint64 relative = 0;
     if (m_main->isBitpacked()) {
         const int bpp = qBound(1, m_main->bppMode(), 8);
-        const qint64 rowBytes = PixelMath::bitpackedRowBytes(
-            m_imageWidth, bpp, m_main->rowPaddingBits());
-        if (rowBytes <= 0)
+        const qint64 strideBits = PixelMath::bitpackedStrideBits(
+            m_imageWidth, bpp, m_main->rowLayout());
+        if (strideBits <= 0)
             return -1;
-        const qint64 bitInRow = qint64(x) * bpp;
-        relative = qint64(y) * rowBytes + bitInRow / 8;
+        const qint64 bitPos = qint64(y) * strideBits + qint64(x) * bpp;
+        relative = bitPos / 8;
         if (bitOffset)
-            *bitOffset = int(bitInRow % 8);
+            *bitOffset = int(bitPos % 8);
     } else {
         const int bytesPerPixel = qBound(1, m_main->bytesPerPixel(), 8);
-        const qint64 pixelIndex = qint64(y) * m_imageWidth + x;
-        if (pixelIndex > std::numeric_limits<qint64>::max() / bytesPerPixel)
-            return -1;
-        relative = pixelIndex * bytesPerPixel;
+        const qint64 stride = PixelMath::packedStrideBytes(
+            m_imageWidth, bytesPerPixel, m_main->rowLayout());
+        relative = qint64(y) * stride + qint64(x) * bytesPerPixel;
     }
 
     if (relative < 0 || quint64(relative) >= regionLength)

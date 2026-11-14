@@ -55,6 +55,10 @@ StartupDisplayDefaults loadStartupDisplayDefaults(const QVariantMap &ini)
                              QStringLiteral(CFG_DEF_PIXEL_ORDER)).toString();
     s.rowPaddingBits = ini.value(QStringLiteral(CFG_ROW_PADDING_BITS),
                                  CFG_DEF_ROW_PADDING).toInt();
+    s.rowBitStream = ini.value(QStringLiteral(CFG_ROW_BIT_STREAM),
+                               CFG_DEF_ROW_BIT_STREAM).toBool();
+    s.rowStrideBytes = ini.value(QStringLiteral(CFG_ROW_STRIDE_BYTES),
+                                 CFG_DEF_ROW_STRIDE).toInt();
 
     s.scale = ini.value(QStringLiteral(CFG_SCALE),
                         CFG_DEF_SCALE).toInt();
@@ -83,6 +87,8 @@ QVariantMap startupDefaultsToConfig(const StartupDisplayDefaults &s)
     cfg[QStringLiteral(CFG_BYTE_ORDER)]       = s.byteOrder;
     cfg[QStringLiteral(CFG_PIXEL_ORDER)]      = s.pixelOrder;
     cfg[QStringLiteral(CFG_ROW_PADDING_BITS)] = s.rowPaddingBits;
+    cfg[QStringLiteral(CFG_ROW_BIT_STREAM)]   = s.rowBitStream;
+    cfg[QStringLiteral(CFG_ROW_STRIDE_BYTES)] = s.rowStrideBytes;
     cfg[QStringLiteral(CFG_SCALE)]            = s.scale;
     cfg[QStringLiteral(CFG_WIDTH_MODE)]       = s.widthModeKey;
     cfg[QStringLiteral(CFG_FIXED_WIDTH)]      = s.fixedWidth;
@@ -169,6 +175,8 @@ void MainWindow::saveSettings()
     s[QStringLiteral(CFG_BYTE_ORDER)]       = m_byteOrder;
     s[QStringLiteral(CFG_PIXEL_ORDER)]      = m_pixelOrder;
     s[QStringLiteral(CFG_ROW_PADDING_BITS)] = m_rowPaddingBits;
+    s[QStringLiteral(CFG_ROW_BIT_STREAM)]   = m_rowBitStream;
+    s[QStringLiteral(CFG_ROW_STRIDE_BYTES)] = m_rowStrideBytes;
     s[QStringLiteral(CFG_SCALE)]            = m_scale;
     s[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(m_widthMode);
     s[QStringLiteral(CFG_BYTES_PER_ROW)]    = m_bytesPerRow;
@@ -262,6 +270,8 @@ QJsonObject MainWindow::configToJson() const
     c[QStringLiteral(CFG_PIXEL_ORDER)]      = m_pixelOrder;
     c[QStringLiteral(CFG_BYTE_ORDER)]       = m_byteOrder;
     c[QStringLiteral(CFG_ROW_PADDING_BITS)] = m_rowPaddingBits;
+    c[QStringLiteral(CFG_ROW_BIT_STREAM)]   = m_rowBitStream;
+    c[QStringLiteral(CFG_ROW_STRIDE_BYTES)] = m_rowStrideBytes;
     c[QStringLiteral(CFG_SCALE)]            = m_scale;
     c[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(m_widthMode);
     c[QStringLiteral(CFG_BYTES_PER_ROW)]    = m_bytesPerRow;

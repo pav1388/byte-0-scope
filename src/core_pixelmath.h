@@ -46,6 +46,42 @@ inline qint64 bitpackedRowBytes(qint64 width, int bitsPerPixel,
     return (rowBits + 7) / 8;
 }
 
+// Раскладка строк в источнике.
+//   strideBytes > 0 - явный шаг строки в байтах (для любого режима, главнее
+//                     остальных полей);
+//   bitStream       - bit-packed строки идут сплошным потоком бит: шаг
+//                     = ширина*bpp + paddingBits (paddingBits может быть < 0),
+//                     без выравнивания строк по байту;
+//   иначе           - строка bit-packed округляется вверх до целых байт.
+struct RowLayout {
+    int    paddingBits = 0;
+    bool   bitStream   = false;
+    qint64 strideBytes = 0;
+};
+
+// Шаг строки bit-packed в битах; 0 - раскладка некорректна.
+inline qint64 bitpackedStrideBits(qint64 width, int bitsPerPixel,
+                                  const RowLayout &layout) noexcept
+{
+    if (layout.strideBytes > 0)
+        return layout.strideBytes * 8;
+    if (layout.bitStream) {
+        const qint64 bits = width * qBound(1, bitsPerPixel, 8)
+                          + layout.paddingBits;
+        return bits > 0 ? bits : 0;
+    }
+    return bitpackedRowBytes(width, bitsPerPixel, layout.paddingBits) * 8;
+}
+
+// Шаг строки в байтах для режимов 8+ bpp.
+inline qint64 packedStrideBytes(qint64 width, int bytesPerPixel,
+                                const RowLayout &layout) noexcept
+{
+    return layout.strideBytes > 0
+        ? layout.strideBytes
+        : width * qBound(1, bytesPerPixel, 8);
+}
+
 // Количество пикселей в byteCount байтах (с насыщением до INT_MAX).
 inline int pixelCountForBytes(quint64 byteCount, bool bitpacked,
                               int bitsPerPixel, int bytesPerPixel) noexcept
@@ -63,21 +99,28 @@ inline int pixelCountForBytes(quint64 byteCount, bool bitpacked,
 // Высота изображения (в строках) для byteCount байт при заданной ширине.
 inline qint64 imageHeightForBytes(quint64 byteCount, int width,
                                   bool bitpacked, int bitsPerPixel,
-                                  int rowPaddingBits,
+                                  const RowLayout &layout,
                                   int bytesPerPixel) noexcept
 {
     if (byteCount == 0 || width <= 0)
         return 0;
 
-    // total - число единиц (байт или пикселей), perRow - единиц в строке.
+    // total - число единиц (бит, байт или пикселей), perRow - единиц в строке.
     quint64 total = byteCount;
     quint64 perRow = 0;
     if (bitpacked) {
-        perRow = quint64(bitpackedRowBytes(width, bitsPerPixel, rowPaddingBits));
+        perRow = quint64(bitpackedStrideBits(width, bitsPerPixel, layout));
+        if (total > std::numeric_limits<quint64>::max() / 8)
+            total = std::numeric_limits<quint64>::max() / 8;
+        total *= 8;
+    } else if (layout.strideBytes > 0) {
+        perRow = quint64(layout.strideBytes);
     } else {
         total /= quint64(qMax(1, bytesPerPixel));
         perRow = quint64(width);
     }
+    if (perRow == 0)
+        return 0;
 
     const quint64 rows = total / perRow + (total % perRow != 0 ? 1 : 0);
     return rows > quint64(std::numeric_limits<qint64>::max())

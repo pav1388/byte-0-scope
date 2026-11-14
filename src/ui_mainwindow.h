@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "core_bytesource.h"
+#include "core_pixelmath.h"
 #include "definitions.h"
 #include "ui_hexviewwidget.h"
 #include "ui_mainwindowconfig.h"
@@ -64,7 +65,17 @@ public:
     QString bitOrder() const        { return m_bitOrder; }
     QString byteOrder() const       { return m_byteOrder; }
     QString pixelOrder() const      { return m_pixelOrder; }
-    int     rowPaddingBits() const  { return m_rowPaddingBits; }
+    PixelMath::RowLayout rowLayout() const
+    {
+        PixelMath::RowLayout l;
+        l.bitStream = m_rowBitStream;
+        // Отрицательный паддинг имеет смысл только в режиме bit stream.
+        l.paddingBits = m_rowBitStream ? m_rowPaddingBits
+                                       : qMax(0, m_rowPaddingBits);
+        // Явный шаг строки действует только в режиме ширины «Row stride».
+        l.strideBytes = m_widthMode == WM_Stride ? qMax(0, m_rowStrideBytes) : 0;
+        return l;
+    }
     bool    mirrorHorizontal() const{ return m_mirrorH; }
     bool    mirrorVertical() const  { return m_mirrorV; }
     bool    fitToWindow() const     { return m_fitToWindow; }
@@ -212,6 +223,8 @@ private:
     QString m_pixelOrder = QStringLiteral(CFG_DEF_PIXEL_ORDER);
     QString m_byteOrder = QStringLiteral(CFG_DEF_BYTE_ORDER);
     int m_rowPaddingBits = 0;
+    bool m_rowBitStream = false;
+    int m_rowStrideBytes = 0;
     quint64 m_offset = 0;
     quint64 m_length = 0;
     bool m_lengthMode = false;

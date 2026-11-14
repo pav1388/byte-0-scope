@@ -19,6 +19,8 @@ struct StartupDisplayDefaults {
     QString byteOrder;
     QString pixelOrder;
     int rowPaddingBits = 0;
+    bool rowBitStream = false;
+    int rowStrideBytes = 0;
 
     int scale = 1;
     QString widthModeKey;

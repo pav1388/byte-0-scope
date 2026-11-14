@@ -793,6 +793,8 @@ bool MainWindow::loadFileXor(const QString &p1, const QString &p2)
     const qint64 sizeB = f2.size();
     const qint64 needed = sizeA + sizeB + qMin(sizeA, sizeB);
 
+    // Лимит QByteArray (в Qt 5 это int, и на 64-битной сборке тоже)
+    // относится к каждому массиву отдельно, а не к их сумме.
     const qint64 qbaMax = QtCompat::byteArrayMaxSize();
     const qint64 largest = qMax(sizeA, sizeB);
 
@@ -1005,7 +1007,7 @@ qint64 MainWindow::imageHeightFor(int width) const
 {
     return PixelMath::imageHeightForBytes(
         regionByteLength(), width, isBitpacked(), m_bppMode,
-        m_rowPaddingBits, bytesPerPixel());
+        rowLayout(), bytesPerPixel());
 }
 
 bool MainWindow::computeImageSize(int *width, int *height) const
@@ -1034,7 +1036,8 @@ int MainWindow::calculateWidth() const
 
     const int bp = qMax(1, bytesPerPixel());
     switch (m_widthMode) {
-    case WM_Fixed:        return qMax(1, m_fixedWidth);
+    case WM_Fixed:
+    case WM_Stride:       return qMax(1, m_fixedWidth);
     case WM_Auto:         return qMax(1, int(qSqrt(double(pixels))));
     case WM_Power:        return calcPowerOfTwoWidth(pixels);
     case WM_Aspect16x9:   return aspectWidth(pixels, 16, 9);
@@ -1117,6 +1120,8 @@ void MainWindow::onSettingsChanged()
     m_byteOrder = m_controls->byteOrder();
     m_pixelOrder = m_controls->pixelOrder();
     m_rowPaddingBits = m_controls->rowPaddingBits();
+    m_rowBitStream = m_controls->rowBitStream();
+    m_rowStrideBytes = m_controls->rowStrideBytes();
     m_widthMode = m_controls->widthMode();
     m_fixedWidth = m_controls->fixedWidth();
     m_widthStep = m_controls->widthStep();
@@ -1198,7 +1203,7 @@ void MainWindow::onWidthStep(int delta)
 {
     const int step = qMax(1, m_widthStep);
 
-    if (m_widthMode != WM_Fixed) {
+    if (m_widthMode != WM_Fixed && m_widthMode != WM_Stride) {
         const int curW = calculateWidth();
         if (curW > 0)
             m_fixedWidth = curW;

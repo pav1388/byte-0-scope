@@ -17,11 +17,14 @@ public:
     BitPackedReader(int bitsPerPixel, const QString &bitOrder,
                     const QString &pixelOrder);
 
-    // Значение пикселя с номером index в строке из availableBytes байт.
-    unsigned valueAt(const uchar *row, qint64 availableBytes, int index) const
+    // Значение пикселя с номером index в строке из availableBytes байт;
+    // startBit - смещение начала строки внутри первого байта (0..7).
+    unsigned valueAt(const uchar *row, qint64 availableBytes, int index,
+                     int startBit = 0) const
     {
         return PixelMath::bitpackedValue(row, availableBytes,
-                                         qint64(index) * m_bpp, m_bpp,
+                                         startBit + qint64(index) * m_bpp,
+                                         m_bpp,
                                          m_lsbBits, m_lsbPixels);
     }
 

@@ -84,19 +84,11 @@ bool sampledCoordinate(int tileSourceOrigin, int localOutputCoordinate,
     return true;
 }
 
-bool sourcePixelOffset(qint64 pixelIndex, int bytesPerPixel,
-                       qint64 regionLength, qint64 *relativeOffset)
+// Проверяет, что size байт по смещению relative лежат внутри региона.
+bool byteRangeInRegion(qint64 relative, int size, qint64 regionLength)
 {
-    if (!relativeOffset || pixelIndex < 0 || bytesPerPixel <= 0
-            || regionLength < bytesPerPixel)
-        return false;
-
-    const qint64 bpp = bytesPerPixel;
-    if (pixelIndex > (regionLength - bpp) / bpp)
-        return false;
-
-    *relativeOffset = pixelIndex * bpp;
-    return true;
+    return relative >= 0 && size > 0 && regionLength >= size
+        && relative <= regionLength - size;
 }
 
 QVector<int> buildAxisMap(int sourceOrigin, int count, int downsample,
@@ -120,9 +112,9 @@ void fillBitpacked(QImage &img, const RenderContext &ctx,
     if (bpp < 1 || bpp > 8)
         return;
 
-    const qint64 rowBytes = PixelMath::bitpackedRowBytes(
-        ctx.imageWidth, bpp, ctx.rowPaddingBits);
-    if (rowBytes <= 0)
+    const qint64 strideBits = PixelMath::bitpackedStrideBits(
+        ctx.imageWidth, bpp, ctx.rowLayout);
+    if (strideBits <= 0)
         return;
 
     const BitPackedReader reader(bpp, ctx.bitOrder, ctx.pixelOrder);
@@ -137,20 +129,23 @@ void fillBitpacked(QImage &img, const RenderContext &ctx,
         if (gy < 0)
             continue;
 
-        const qint64 rowRelative = qint64(gy) * rowBytes;
+        // Строка может начинаться не с границы байта (режим bit stream).
+        const qint64 startBit = qint64(gy) * strideBits;
+        const qint64 rowRelative = startBit >> 3;
         if (rowRelative >= regionLength)
             continue;
 
-        const qint64 available = qMin(rowBytes, regionLength - rowRelative);
-        const uchar *row = (raw && available > 0)
-            ? raw + ctx.regionStart + rowRelative : nullptr;
+        const int bitShift = int(startBit & 7);
+        const qint64 available = regionLength - rowRelative;
+        const uchar *row = raw ? raw + ctx.regionStart + rowRelative : nullptr;
 
         QRgb *line = reinterpret_cast<QRgb *>(img.scanLine(y));
         for (int x = 0; x < cols.size(); ++x) {
             const int gx = cols[x];
             if (gx < 0)
                 continue;
-            line[x] = lut.value(int(reader.valueAt(row, available, gx)), black);
+            line[x] = lut.value(
+                int(reader.valueAt(row, available, gx, bitShift)), black);
         }
     }
 }
@@ -162,6 +157,8 @@ void fillSingleByte(QImage &img, const RenderContext &ctx,
 {
     const QRgb *lut = ctx.singleByteReverse ? ctx.singleByteLutReverse
                                             : ctx.singleByteLut;
+    const qint64 stride =
+        PixelMath::packedStrideBytes(ctx.imageWidth, 1, ctx.rowLayout);
 
     for (int y = 0; y < rows.size(); ++y) {
         if (shouldAbort(ctx, y))
@@ -177,9 +174,8 @@ void fillSingleByte(QImage &img, const RenderContext &ctx,
             if (gx < 0)
                 continue;
 
-            const qint64 pixelIndex = qint64(gy) * ctx.imageWidth + gx;
-            qint64 relative = 0;
-            if (!sourcePixelOffset(pixelIndex, 1, regionLength, &relative))
+            const qint64 relative = qint64(gy) * stride + gx;
+            if (!byteRangeInRegion(relative, 1, regionLength))
                 continue;
 
             line[x] = lut[raw[ctx.regionStart + relative]];
@@ -194,6 +190,8 @@ void fillMultibyte(QImage &img, const RenderContext &ctx,
     const int bpp = qBound(1, ctx.bytesPerPixel, 8);
     const PixelDecoder::Decoder decoder(ctx.paletteId, ctx.bitOrder,
                                         ctx.byteOrder, ctx.paletteParams);
+    const qint64 stride =
+        PixelMath::packedStrideBytes(ctx.imageWidth, bpp, ctx.rowLayout);
 
     for (int y = 0; y < rows.size(); ++y) {
         if (shouldAbort(ctx, y))
@@ -209,9 +207,8 @@ void fillMultibyte(QImage &img, const RenderContext &ctx,
             if (gx < 0)
                 continue;
 
-            const qint64 pixelIndex = qint64(gy) * ctx.imageWidth + gx;
-            qint64 relative = 0;
-            if (!sourcePixelOffset(pixelIndex, bpp, regionLength, &relative))
+            const qint64 relative = qint64(gy) * stride + qint64(gx) * bpp;
+            if (!byteRangeInRegion(relative, bpp, regionLength))
                 continue;
 
             line[x] = decoder.decode(raw + ctx.regionStart + relative, bpp);
@@ -324,7 +321,7 @@ RenderContextPtr TileManager::buildContext() const
     context->bitpacked = mw->isBitpacked();
     context->bppMode = qBound(1, mw->bppMode(), 8);
     context->bytesPerPixel = qBound(1, mw->bytesPerPixel(), 8);
-    context->rowPaddingBits = qMax(0, mw->rowPaddingBits());
+    context->rowLayout = mw->rowLayout();
     context->bitOrder = mw->bitOrder();
     context->pixelOrder = mw->pixelOrder();
     context->byteOrder = mw->byteOrder();

@@ -123,6 +123,8 @@ void MainWindow::updateDebugInfo()
     L << kv("byte_order", m_byteOrder);
     L << kv("pixel_order", m_pixelOrder);
     L << kvNum("row_padding_bits", m_rowPaddingBits);
+    L << kvBool("row_bit_stream", m_rowBitStream);
+    L << kvNum("row_stride_bytes", m_rowStrideBytes);
 
     // ────── Geometry ──────
     L << QString() << QStringLiteral("GEOMETRY:");

@@ -245,7 +245,7 @@ Read %1 of %2 bytes.
 <context>
     <name>ControlsPanel</name>
     <message>
-        <location filename="../ui_controlspanel.cpp" line="+32"/>
+        <location filename="../ui_controlspanel.cpp" line="+35"/>
         <source>End:</source>
         <translation>Конец:</translation>
     </message>
@@ -260,7 +260,7 @@ Read %1 of %2 bytes.
         <translation>Формат пикселей</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Bits per pixel:</source>
         <translation>Бит на пиксель:</translation>
     </message>
@@ -275,7 +275,7 @@ Read %1 of %2 bytes.
         <translation>Порядок байтов:</translation>
     </message>
     <message>
-        <location line="+6"/>
+        <location line="+8"/>
         <source>Byte order within multi-byte pixel values (16/24/32/64 bpp).
 For RGB/RGBA palettes it also reverses the channel order
 (e.g. RGB + little = BGR).</source>
@@ -288,19 +288,9 @@ For RGB/RGBA palettes it also reverses the channel order
         <source>Padding (bits):</source>
         <translation>Паддинг (бит):</translation>
     </message>
+    
     <message>
-        <location line="+6"/>
-        <source>Row alignment. 0 — no padding.
-8 — rows are multiples of 1 byte.
-16 — multiples of 2 bytes.
-32 — multiples of 4 bytes.</source>
-        <translation>Выравнивание строк. 0 — без паддинга.
-8 — строки кратны 1 байту.
-16 — кратны 2 байтам.
-32 — кратны 4 байтам.</translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location line="+26"/>
         <source>Pixel order:</source>
         <translation>Порядок пикселей:</translation>
     </message>
@@ -364,19 +354,42 @@ Click again or press Esc to cancel.</source>
         <translation>Перейти по адресу</translation>
     </message>
     <message>
-        <location line="+98"/>
+        <location line="+116"/>
         <source>[X] Reset display
 settings</source>
         <translation>[X] Сбросить настройки
 отображения</translation>
     </message>
     <message>
-        <location line="-135"/>
+        <location line="-153"/>
         <source>hex</source>
         <translation>hex</translation>
     </message>
     <message>
+        <location line="-102"/>
+        <source>Extra bits at the end of each row.
+Rows are rounded up to whole bytes, so only
+values that change the byte count matter.
+With &quot;Bit stream&quot; the row step is exactly
+width*bpp + padding bits (may be negative).</source>
+        <translation>Дополнительные биты в конце каждой строки.
+Количество байтов в строке округляется в большую сторону до целого числа, поэтому учитываются только те значения, которые меняют общее число байтов.
+В случае «битового потока» (bit stream) шаг строки в точности равен `ширина * бит-на-пиксель (bpp) + дополнительные биты` (значение может быть отрицательным).</translation>
+    </message>
+    <message>
+        <location line="+8"/>
+        <source>Bit stream (no row alignment)</source>
+        <translation>Поток битов (паддинг)</translation>
+    </message>
+    <message>
         <location line="+2"/>
+        <source>Rows are not aligned to bytes: a row may start in the middle of
+a byte. Every padding value changes the picture; negative values
+are allowed. Ignored when the row stride is set.</source>
+        <translation>Строки не выровнены по байтам: строка может начинаться в середине байта. Любое значение отступа (padding) меняет картину; допускаются отрицательные значения. Параметр игнорируется, если задан шаг строки (row stride).</translation>
+    </message>
+    <message>
+        <location line="+94"/>
         <source>Use hexadecimal input (0x…)</source>
         <translation>Использовать шестнадцатеричный ввод (0x…)</translation>
     </message>
@@ -396,7 +409,7 @@ settings</source>
         <translation>Отображение</translation>
     </message>
     <message>
-        <location line="+4"/>
+        <location line="+5"/>
         <source>Width mode:</source>
         <translation>Режим ширины:</translation>
     </message>
@@ -441,50 +454,75 @@ settings</source>
         <translation>Делитель ≤ N</translation>
     </message>
     <message>
-        <location line="+18"/>
+        <location line="+1"/>
+        <source>Row stride</source>
+        <translation>Шаг строки</translation>
+    </message>
+    <message>
+        <location line="+19"/>
+        <source>Stride (bytes):</source>
+        <translation>Шаг (байт):</translation>
+    </message>
+    <message>
+        <location line="+6"/>
+        <source>Auto</source>
+        <translation>Авто</translation>
+    </message>
+    <message>
+        <location line="+1"/>
+        <source>Distance between row starts in bytes, for any pixel format.
+The width is taken from the Width field.
+Auto (0) - derived from the width. Overrides the padding
+and the bit stream option.</source>
+        <translation>Расстояние между началами строк в байтах для любого формата пикселей.
+Ширина берется из поля Ширина.
+Авто (0) — значение вычисляется на основе ширины. Этот параметр имеет приоритет над настройками выравнивания и параметрами битового потока.</translation>
+    </message>
+    <message>
+        <location line="+8"/>
         <source>Width / N:</source>
         <translation>Ширина / N:</translation>
     </message>
     <message>
-        <location line="+290"/>
-        <source>For &quot;Manual&quot; — width in pixels.
-For &quot;Divisor ≤ N&quot; — upper width limit.</source>
-        <translation>Для «Ручной» — ширина в пикселях.
-Для «Делитель ≤ N» — верхний предел ширины.</translation>
+        <location line="+300"/>
+        <source>Width change step with Ctrl+mouse wheel.
+Used in &quot;Manual&quot; and &quot;Row stride&quot; modes.</source>
+        <translation>Шаг изменения ширины при использовании Ctrl+колеса мыши.
+Применяется в режимах Ручной и Шаг ряда.</translation>
     </message>
     <message>
-        <location line="-282"/>
+        <location line="+2"/>
+        <source>Available only in &quot;Manual&quot; and &quot;Row stride&quot; modes.</source>
+        <translation>Доступно только в режимах Ручной и Шаг по строкам.</translation>
+    </message>
+    
+    <message>
+        <location line="-294"/>
         <source>Width step:</source>
         <translation>Шаг ширины:</translation>
     </message>
+    
     <message>
-        <location line="+288"/>
-        <source>Width change step with Ctrl+mouse wheel.
-Used in manual mode.</source>
-        <translation>Шаг изменения ширины колесом мыши с Ctrl.
-Используется в ручном режиме.</translation>
-    </message>
-    <message>
-        <location line="-306"/>
+        <location line="-34"/>
         <source>Bytes per row:</source>
         <translation>Байт в строке:</translation>
     </message>
     <message>
-        <location line="+5"/>
+        <location line="+6"/>
         <source>Only for &quot;Bytes per row&quot; mode.
 Pixels per row = bytes / bytesPerPixel.</source>
         <translation>Только для режима «Байт в строке».
 Пикселей в строке = байт / bytesPerPixel.</translation>
     </message>
     <message>
-        <location line="+22"/>
+        <location line="+37"/>
         <source>Zoom:</source>
         <translation>Масштаб:</translation>
     </message>
     <message>
         <location line="+8"/>
         <source>Auto zoom</source>
-        <translation>Автомасштаб</translation>
+        <translation>Авто</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -498,7 +536,7 @@ Mutually exclusive with &quot;Fit to window&quot;.</source>
     <message>
         <location line="+5"/>
         <source>Fit to window</source>
-        <translation>Вписать в окно</translation>
+        <translation>Вписать</translation>
     </message>
     <message>
         <location line="+2"/>
@@ -533,17 +571,20 @@ MSB-first: обычный байт.
 LSB-first: биты в байте расположены в обратном порядке.</translation>
     </message>
     <message>
-        <location line="+29"/>
+        <location line="+31"/>
+        <source>For &quot;Manual&quot; and &quot;Row stride&quot; — width in pixels.
+For &quot;Divisor ≤ N&quot; — upper width limit.</source>
+        <translation>Для Ручной и Шаг строки - ширина в пикселях.
+Для «Делитель ≤ N» — верхний предел ширины.</translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Controlled by the current width mode.</source>
         <translation>Управляется текущим режимом ширины.</translation>
     </message>
+    
     <message>
-        <location line="+6"/>
-        <source>Available only in &quot;Manual&quot; mode.</source>
-        <translation>Доступно только в «ручном» режиме.</translation>
-    </message>
-    <message>
-        <location line="+7"/>
+        <location line="+14"/>
         <source>Controlled by &quot;Auto zoom&quot; or &quot;Fit to window&quot;.</source>
         <translation>Управляется «Автомасштабом» или «Вписать в окно».</translation>
     </message>
@@ -717,7 +758,7 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="-32"/>
-        <location line="+1042"/>
+        <location line="+1047"/>
         <location line="+17"/>
         <location line="+31"/>
         <location line="+12"/>
@@ -726,7 +767,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1128"/>
+        <location line="-1133"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -782,36 +823,36 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+865"/>
+        <location line="+870"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-865"/>
-        <location line="+865"/>
+        <location line="-870"/>
+        <location line="+870"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-861"/>
-        <location line="+887"/>
+        <location line="-866"/>
+        <location line="+892"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-882"/>
-        <location line="+878"/>
+        <location line="-887"/>
+        <location line="+883"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-873"/>
-        <location line="+873"/>
+        <location line="-878"/>
+        <location line="+878"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-859"/>
+        <location line="-864"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -883,12 +924,12 @@ Applied the next time a file is opened.</source>
     </message>
     <message>
         <location line="+72"/>
-        <location line="+375"/>
+        <location line="+377"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
     </message>
     <message>
-        <location line="-367"/>
+        <location line="-369"/>
         <source># Tutorial on a demo file</source>
         <translation># Обучение на демо-файле</translation>
     </message>
@@ -1033,11 +1074,10 @@ Expected: %2</source>
         <translation>Не удалось открыть один из файлов для сравнения.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+14"/>
         <source>Files are too large</source>
         <translation>Файлы слишком большие</translation>
     </message>
-    
     <message>
         <location line="+13"/>
         <source>Not enough memory</source>
@@ -1080,7 +1120,7 @@ Expected: %2</source>
         <translation>Первые %1 байтов файлов идентичны, но размеры файлов различаются (%2 и %3 байта).</translation>
     </message>
     <message>
-        <location line="+365"/>
+        <location line="+368"/>
         <source>Language set to %1.
 
 Restart the application to apply the change.</source>
@@ -1146,19 +1186,19 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-952"/>
+        <location line="-957"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+408"/>
+        <location line="+410"/>
         <source>A file of ~%1 MB exceeds the maximum QByteArray size of %2 MB.
 Reduce the file sizes.</source>
         <translation>Файл размером ~%1 МБ превышает максимально допустимый размер QByteArray, составляющий %2 МБ.
 Уменьшите размер файлов.</translation>
     </message>
     <message>
-        <location line="+598"/>
+        <location line="+601"/>
         <source>The requested PNG dimensions are invalid, or the export task could not be started.</source>
         <translation>Запрошенные размеры PNG-файла недопустимы, либо задачу экспорта не удалось запустить.</translation>
     </message>
@@ -1203,7 +1243,7 @@ Reduce the file sizes.</source>
         <translation>· Кэш тайлов: %1 МБ / %2 МБ</translation>
     </message>
     <message>
-        <location filename="../ui_mainwindowconfig.cpp" line="+290"/>
+        <location filename="../ui_mainwindowconfig.cpp" line="+300"/>
         <source>The .b0s settings file is empty.</source>
         <translation>Файл настроек .b0s пуст.</translation>
     </message>
@@ -1873,7 +1913,7 @@ Auto-count: %1.</source>
 <context>
     <name>TileManager</name>
     <message>
-        <location filename="../render_tilemanager.cpp" line="+487"/>
+        <location filename="../render_tilemanager.cpp" line="+484"/>
         <location line="+197"/>
         <source>Invalid export dimensions.</source>
         <translation>Недопустимые размеры экспорта.</translation>

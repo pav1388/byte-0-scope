@@ -27,8 +27,11 @@
 #define CP_PANEL_FIXED_WIDTH        258
 #define CP_LAYOUT_MARGIN            2
 #define CP_LAYOUT_SPACING           4
+#define CP_GRID_V_SPACING           2
 #define CP_LAYOUT_COL_MIN_WIDTH     150
 #define CP_BUTTON_COMPACT_WIDTH     32
+#define CP_ROW_PADDING_MAX          65536
+#define CP_ROW_STRIDE_MAX           16777216
 #define CP_LABEL_END                QT_TRANSLATE_NOOP("ControlsPanel", "End:")
 #define CP_LABEL_LENGTH             QT_TRANSLATE_NOOP("ControlsPanel", "Length:")
 
@@ -119,9 +122,10 @@ void ControlsPanel::buildUi()
     // --- Формат пикселей ---
     auto *fmtGroup = new QGroupBox(tr("Pixel format"), this);
     auto *fmtLay = new QGridLayout(fmtGroup);
-    int row = 0;
+    fmtLay->setHorizontalSpacing(CP_LAYOUT_SPACING);
+    fmtLay->setVerticalSpacing(CP_GRID_V_SPACING);
 
-    fmtLay->addWidget(new QLabel(tr("Bits per pixel:")), row, 0);
+    fmtLay->addWidget(new QLabel(tr("Bits per pixel:")), 0, 0);
     m_bppCombo = new QComboBox(this);
     m_bppCombo->setObjectName("bppCombo");
     for (int bpp : { 64, 32, 24, 16, 8, 4, 3, 2, 1 })
@@ -130,19 +134,21 @@ void ControlsPanel::buildUi()
     connect(m_bppCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ControlsPanel::onBppChanged);
-    fmtLay->addWidget(m_bppCombo, row++, 1);
+    fmtLay->addWidget(m_bppCombo, 1, 0);
 
     m_bitOrderLabel = new QLabel(tr("Bit order:"), this);
-    fmtLay->addWidget(m_bitOrderLabel, row, 0);
+    fmtLay->addWidget(m_bitOrderLabel, 0, 1);
     m_bitOrderCombo = new QComboBox(this);
     m_bitOrderCombo->setObjectName("bitOrderCombo");
     m_bitOrderCombo->addItem(QStringLiteral("MSB-first"), QStringLiteral("msb"));
     m_bitOrderCombo->addItem(QStringLiteral("LSB-first"), QStringLiteral("lsb"));
     watch(m_bitOrderCombo);
-    fmtLay->addWidget(m_bitOrderCombo, row++, 1);
+    fmtLay->addWidget(m_bitOrderCombo, 1, 1);
 
     m_byteOrderLabel = new QLabel(tr("Byte order:"), this);
-    fmtLay->addWidget(m_byteOrderLabel, row, 0);
+    // Byte order (16+ bpp) и Pixel order (1–4 bpp) не бывают видны одновременно
+    // и делят одну ячейку.
+    fmtLay->addWidget(m_byteOrderLabel, 2, 0);
     m_byteOrderCombo = new QComboBox(this);
     m_byteOrderCombo->setObjectName("byteOrderCombo");
     m_byteOrderCombo->addItem(QStringLiteral("Big-endian"), QStringLiteral("big"));
@@ -152,29 +158,42 @@ void ControlsPanel::buildUi()
         "For RGB/RGBA palettes it also reverses the channel order\n"
         "(e.g. RGB + little = BGR)."));
     watch(m_byteOrderCombo);
-    fmtLay->addWidget(m_byteOrderCombo, row++, 1);
+    fmtLay->addWidget(m_byteOrderCombo, 3, 0);
 
     m_rowPadLabel = new QLabel(tr("Padding (bits):"), this);
-    fmtLay->addWidget(m_rowPadLabel, row, 0);
+    fmtLay->addWidget(m_rowPadLabel, 2, 1);
     m_rowPadSpin = new QSpinBox(this);
     m_rowPadSpin->setObjectName("rowPadSpin");
-    m_rowPadSpin->setRange(0, 1024);
+    m_rowPadSpin->setRange(0, CP_ROW_PADDING_MAX);
     m_rowPadSpin->setValue(0);
-    m_rowPadSpin->setToolTip(tr("Row alignment. 0 — no padding.\n"
-                                "8 — rows are multiples of 1 byte.\n"
-                                "16 — multiples of 2 bytes.\n"
-                                "32 — multiples of 4 bytes."));
+    m_rowPadSpin->setToolTip(tr("Extra bits at the end of each row.\n"
+                                "Rows are rounded up to whole bytes, so only\n"
+                                "values that change the byte count matter.\n"
+                                "With \"Bit stream\" the row step is exactly\n"
+                                "width*bpp + padding bits (may be negative)."));
     watch(m_rowPadSpin);
-    fmtLay->addWidget(m_rowPadSpin, row++, 1);
+    fmtLay->addWidget(m_rowPadSpin, 3, 1);
+
+    m_rowBitStreamCheck = new QCheckBox(tr("Bit stream (no row alignment)"), this);
+    m_rowBitStreamCheck->setObjectName("rowBitStreamCheck");
+    m_rowBitStreamCheck->setToolTip(tr(
+        "Rows are not aligned to bytes: a row may start in the middle of\n"
+        "a byte. Every padding value changes the picture; negative values\n"
+        "are allowed. Ignored when the row stride is set."));
+    connect(m_rowBitStreamCheck, &QCheckBox::toggled, this, [this]() {
+        updateRowPaddingRange();
+        notifyChanged();
+    });
+    fmtLay->addWidget(m_rowBitStreamCheck, 4, 0, 1, 2);
 
     m_pixelOrderLabel = new QLabel(tr("Pixel order:"), this);
-    fmtLay->addWidget(m_pixelOrderLabel, row, 0);
+    fmtLay->addWidget(m_pixelOrderLabel, 2, 0);
     m_pixelOrderCombo = new QComboBox(this);
     m_pixelOrderCombo->setObjectName("pixelOrderCombo");
     m_pixelOrderCombo->addItem(QStringLiteral("MSB-first"), QStringLiteral("msb"));
     m_pixelOrderCombo->addItem(QStringLiteral("LSB-first"), QStringLiteral("lsb"));
     watch(m_pixelOrderCombo);
-    fmtLay->addWidget(m_pixelOrderCombo, row++, 1);
+    fmtLay->addWidget(m_pixelOrderCombo, 3, 0);
 
     layout->addWidget(fmtGroup);
 
@@ -296,9 +315,10 @@ void ControlsPanel::buildUi()
     // --- Отображение ---
     auto *dispGroup = new QGroupBox(tr("Display"), this);
     auto *dispLay = new QGridLayout(dispGroup);
-    int dr = 0;
+    dispLay->setHorizontalSpacing(CP_LAYOUT_SPACING);
+    dispLay->setVerticalSpacing(CP_GRID_V_SPACING);
 
-    dispLay->addWidget(new QLabel(tr("Width mode:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Width mode:")), 0, 0, 1, 2);
     m_widthModeCombo = new QComboBox(this);
     m_widthModeCombo->addItems({
         tr("Manual"),
@@ -309,61 +329,78 @@ void ControlsPanel::buildUi()
         tr("Bytes per row"),
         tr("Nearest \"round\" value"),
         tr("Divisor ≤ N"),
+        tr("Row stride"),
     });
     m_widthModeCombo->setCurrentIndex(WM_Fixed);
     connect(m_widthModeCombo,
             static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ControlsPanel::onWidthModeChanged);
-    dispLay->addWidget(m_widthModeCombo, dr++, 1);
+    dispLay->addWidget(m_widthModeCombo, 1, 0, 1, 2);
 
     m_bytesPerRowLabel = new QLabel(tr("Bytes per row:"), this);
-    dispLay->addWidget(m_bytesPerRowLabel, dr, 0);
+    // Bytes per row и Row stride - разные режимы ширины, делят одну ячейку.
+    dispLay->addWidget(m_bytesPerRowLabel, 4, 1);
     m_bytesPerRowSpin = new QSpinBox(this);
     m_bytesPerRowSpin->setRange(1, 65536);
     m_bytesPerRowSpin->setValue(16);
     m_bytesPerRowSpin->setToolTip(tr("Only for \"Bytes per row\" mode.\n"
                                      "Pixels per row = bytes / bytesPerPixel."));
     watch(m_bytesPerRowSpin);
-    dispLay->addWidget(m_bytesPerRowSpin, dr++, 1);
+    dispLay->addWidget(m_bytesPerRowSpin, 5, 1);
+
+    m_rowStrideLabel = new QLabel(tr("Stride (bytes):"), this);
+    dispLay->addWidget(m_rowStrideLabel, 4, 1);
+    m_rowStrideSpin = new QSpinBox(this);
+    m_rowStrideSpin->setObjectName("rowStrideSpin");
+    m_rowStrideSpin->setRange(0, CP_ROW_STRIDE_MAX);
+    m_rowStrideSpin->setValue(0);
+    m_rowStrideSpin->setSpecialValueText(tr("Auto"));
+    m_rowStrideSpin->setToolTip(tr(
+        "Distance between row starts in bytes, for any pixel format.\n"
+        "The width is taken from the Width field.\n"
+        "Auto (0) - derived from the width. Overrides the padding\n"
+        "and the bit stream option."));
+    watch(m_rowStrideSpin);
+    dispLay->addWidget(m_rowStrideSpin, 5, 1);
 
     m_widthLabel = new QLabel(tr("Width / N:"), this);
-    dispLay->addWidget(m_widthLabel, dr, 0);
+    dispLay->addWidget(m_widthLabel, 2, 0);
     m_widthSpin = new QSpinBox(this);
     m_widthSpin->setRange(1, 65536);
     m_widthSpin->setValue(256);
     watch(m_widthSpin);
-    dispLay->addWidget(m_widthSpin, dr++, 1);
+    dispLay->addWidget(m_widthSpin, 3, 0);
 
     m_widthStepLabel = new QLabel(tr("Width step:"), this);
-    dispLay->addWidget(m_widthStepLabel, dr, 0);
+    dispLay->addWidget(m_widthStepLabel, 2, 1);
     m_widthStepSpin = new QSpinBox(this);
     m_widthStepSpin->setObjectName("widthStepSpin");
     m_widthStepSpin->setRange(1, 65536);
     m_widthStepSpin->setValue(8);
     watch(m_widthStepSpin);
-    dispLay->addWidget(m_widthStepSpin, dr++, 1);
+    dispLay->addWidget(m_widthStepSpin, 3, 1);
 
-    dispLay->addWidget(new QLabel(tr("Zoom:")), dr, 0);
+    dispLay->addWidget(new QLabel(tr("Zoom:")), 4, 0);
     m_scaleSpin = new QSpinBox(this);
     m_scaleSpin->setObjectName("scaleSpin");
     m_scaleSpin->setRange(1, 32);
     m_scaleSpin->setValue(1);
     watch(m_scaleSpin);
-    dispLay->addWidget(m_scaleSpin, dr++, 1);
+    dispLay->addWidget(m_scaleSpin, 5, 0);
 
     m_autoScaleCheck = new QCheckBox(tr("Auto zoom"), this);
     m_autoScaleCheck->setObjectName("autoScaleCheck");
     m_autoScaleCheck->setToolTip(tr("Pick a zoom so the image takes up\n"
                                     "maximum space in the window, but without shrinking.\n"
                                     "Mutually exclusive with \"Fit to window\"."));
-    dispLay->addWidget(m_autoScaleCheck, dr++, 0, 1, 2);
+    dispLay->addWidget(m_autoScaleCheck, 6, 0);
 
     m_fitCheck = new QCheckBox(tr("Fit to window"), this);
     m_fitCheck->setObjectName("fitCheck");
     m_fitCheck->setToolTip(tr("Fit the entire image within the window bounds,\n"
                               "shrinking if necessary.\n"
                               "Mutually exclusive with \"Auto zoom\"."));
-    dispLay->addWidget(m_fitCheck, dr++, 0, 1, 2);
+    dispLay->addWidget(m_fitCheck, 6, 1);
 
     // «Auto zoom» и «Fit to window» взаимоисключающие.
     auto bindExclusive = [this](QCheckBox *self, QCheckBox *other) {
@@ -599,6 +636,9 @@ void ControlsPanel::updateBitSettingsEnabled(int bpp)
     // Pixel order и Padding — только для 1–4 bpp.
     setRowActive(m_pixelOrderLabel, m_pixelOrderCombo, bitpacked);
     setRowActive(m_rowPadLabel, m_rowPadSpin, bitpacked);
+    // Bit stream работает в паре с Padding: показываем и скрываем вместе.
+    m_rowBitStreamCheck->setVisible(bitpacked);
+    m_rowBitStreamCheck->setEnabled(bitpacked);
 }
 
 QString ControlsPanel::byteOrder() const
@@ -610,23 +650,25 @@ void ControlsPanel::updateDisplayControlsEnabled()
 {
     const int idx = m_widthModeCombo->currentIndex();
 
-    const bool widthVisible = (idx == WM_Fixed || idx == WM_Divisor);
-    const bool stepVisible  = (idx == WM_Fixed);
+    const bool widthVisible = (idx == WM_Fixed || idx == WM_Divisor
+                               || idx == WM_Stride);
+    const bool stepVisible  = (idx == WM_Fixed || idx == WM_Stride);
     const bool bprVisible   = (idx == WM_BytesPerRow);
 
     setRowActive(m_widthLabel, m_widthSpin, widthVisible);
     m_widthSpin->setToolTip(widthVisible
-        ? tr("For \"Manual\" — width in pixels.\n"
+        ? tr("For \"Manual\" and \"Row stride\" — width in pixels.\n"
              "For \"Divisor ≤ N\" — upper width limit.")
         : tr("Controlled by the current width mode."));
 
     setRowActive(m_widthStepLabel, m_widthStepSpin, stepVisible);
     m_widthStepSpin->setToolTip(stepVisible
         ? tr("Width change step with Ctrl+mouse wheel.\n"
-             "Used in manual mode.")
-        : tr("Available only in \"Manual\" mode."));
+             "Used in \"Manual\" and \"Row stride\" modes.")
+        : tr("Available only in \"Manual\" and \"Row stride\" modes."));
 
     setRowActive(m_bytesPerRowLabel, m_bytesPerRowSpin, bprVisible);
+    setRowActive(m_rowStrideLabel, m_rowStrideSpin, idx == WM_Stride);
 
     const bool locked = m_autoScaleCheck->isChecked() || m_fitCheck->isChecked();
     m_scaleSpin->setEnabled(!locked);
@@ -709,6 +751,24 @@ int ControlsPanel::rowPaddingBits() const
     return m_rowPadSpin->value();
 }
 
+bool ControlsPanel::rowBitStream() const
+{
+    return m_rowBitStreamCheck->isChecked();
+}
+
+int ControlsPanel::rowStrideBytes() const
+{
+    return m_rowStrideSpin->value();
+}
+
+// Отрицательный паддинг допустим только в режиме bit stream.
+void ControlsPanel::updateRowPaddingRange()
+{
+    m_rowPadSpin->setRange(
+        m_rowBitStreamCheck->isChecked() ? -CP_ROW_PADDING_MAX : 0,
+        CP_ROW_PADDING_MAX);
+}
+
 int ControlsPanel::widthMode() const
 {
     return m_widthModeCombo->currentIndex();
@@ -772,6 +832,8 @@ QVariantMap ControlsPanel::currentConfig() const
     cfg[QStringLiteral(CFG_BYTE_ORDER)]       = byteOrder();
     cfg[QStringLiteral(CFG_PIXEL_ORDER)]      = pixelOrder();
     cfg[QStringLiteral(CFG_ROW_PADDING_BITS)] = rowPaddingBits();
+    cfg[QStringLiteral(CFG_ROW_BIT_STREAM)]   = rowBitStream();
+    cfg[QStringLiteral(CFG_ROW_STRIDE_BYTES)] = rowStrideBytes();
     cfg[QStringLiteral(CFG_WIDTH_MODE)]       = widthModeKey(widthMode());
     cfg[QStringLiteral(CFG_FIXED_WIDTH)]      = fixedWidth();
     cfg[QStringLiteral(CFG_WIDTH_STEP)]       = widthStep();
@@ -840,7 +902,8 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
                    b7(m_widthSpin), b8(m_widthStepSpin), b9(m_scaleSpin),
                    b10(m_offsetSpin), b11(m_endSpin), b12(m_autoScaleCheck),
                    b13(m_fitCheck), b14(m_lengthModeCheck), b15(m_hexModeCheck),
-                   b16(m_byteOrderCombo);
+                   b16(m_byteOrderCombo), b17(m_rowBitStreamCheck),
+                   b18(m_rowStrideSpin);
 
     const int bpp = cfg.value(QStringLiteral(CFG_BPP_MODE),
                               CFG_DEF_BPP_MODE).toInt();
@@ -870,8 +933,14 @@ void ControlsPanel::setConfig(const QVariantMap &cfg)
                            QStringLiteral(CFG_DEF_PIXEL_ORDER)).toString(),
                  "msb", "lsb");
 
+    m_rowBitStreamCheck->setChecked(
+        cfg.value(QStringLiteral(CFG_ROW_BIT_STREAM),
+                  CFG_DEF_ROW_BIT_STREAM).toBool());
+    updateRowPaddingRange();
     m_rowPadSpin->setValue(
         cfg.value(QStringLiteral(CFG_ROW_PADDING_BITS), CFG_DEF_ROW_PADDING).toInt());
+    m_rowStrideSpin->setValue(
+        cfg.value(QStringLiteral(CFG_ROW_STRIDE_BYTES), CFG_DEF_ROW_STRIDE).toInt());
     updateBitSettingsEnabled(bpp);
 
     m_scaleSpin->setValue(
