@@ -481,6 +481,8 @@ void MainWindow::buildUi()
             this, &MainWindow::onSettingsChanged);
     connect(m_controls, &ControlsPanel::resetDisplayRequested,
             this, &MainWindow::applyDefaultConfig);
+    connect(m_controls, &ControlsPanel::gotoAddressRequested, this,
+            [this](qint64 addr) { goToAddress(addr, 0); });
     leftScroll->setWidget(m_controls);
     lay->addWidget(leftScroll);
 
@@ -520,10 +522,7 @@ void MainWindow::buildUi()
 
     connect(m_hexView, &HexViewWidget::byteSelected, this,
             [this](qint64 addr, int bitOffset) {
-                m_canvas->setLockedAddress(addr, bitOffset);
-                if (m_canvas->hasLockedPixel())
-                    centerViewportOnSourcePixel(
-                        m_canvas->lockedSourcePixelPosition());
+                goToAddress(addr, bitOffset);
             });
     centerLay->addWidget(m_hexView, 0);
 
@@ -1537,6 +1536,13 @@ void MainWindow::applyFitToWindow()
         m_controls->setScaleSilent(m_scale);
         m_canvas->rebuild();
     }
+}
+
+void MainWindow::goToAddress(qint64 addr, int bitOffset)
+{
+    m_canvas->setLockedAddress(addr, bitOffset);
+    if (m_canvas->hasLockedPixel())
+        centerViewportOnSourcePixel(m_canvas->lockedSourcePixelPosition());
 }
 
 void MainWindow::centerViewportOnSourcePixel(const QPoint &sourcePixel)

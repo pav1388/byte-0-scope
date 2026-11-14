@@ -159,6 +159,7 @@ private:
     void calculateDimensions();
     void applyFitToWindow();
     void autoFitScale();
+    void goToAddress(qint64 addr, int bitOffset);
     void centerViewportOnSourcePixel(const QPoint &sourcePixel);
     void applyPerfFromSlider(int value);
     void resetToDemo();

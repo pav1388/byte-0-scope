@@ -26,7 +26,7 @@
 #define AD_HOMEPAGE_URL         "https://github.com/pav1388/byte-0-scope"
 
 static const char *kAboutTitle = QT_TRANSLATE_NOOP("AboutDialog",
-    "Byte-0-scope v%1 by pav13 (2026)");
+    "Byte-0-scope v%1 (%2-bit) by pav13 (2026)");
 
 static const char *kAboutSubtitle = QT_TRANSLATE_NOOP("AboutDialog",
     "Interactive binary data visualizer.\n"
@@ -117,11 +117,13 @@ void showAboutDialog(QWidget *parent)
     headerRow->addWidget(iconLabel, 0, Qt::AlignTop);
 
     auto *headerColumn = new QVBoxLayout();
+    headerColumn->setSpacing(2);
 
     auto *titleLabel = new QLabel(
         QStringLiteral("<b>%1</b>")
             .arg(QCoreApplication::translate("AboutDialog", kAboutTitle)
-                     .arg(QStringLiteral(APP_VERSION))),
+                     .arg(QStringLiteral(APP_VERSION))
+                     .arg(int(sizeof(void *) * 8))),
         &dlg);
     titleLabel->setTextFormat(Qt::RichText);
     titleLabel->setWordWrap(true);
@@ -140,7 +142,6 @@ void showAboutDialog(QWidget *parent)
                            .arg(QStringLiteral(AD_HOMEPAGE_URL)));
     headerColumn->addWidget(linkLabel);
 
-    headerColumn->addStretch();
     headerRow->addLayout(headerColumn, 1);
 
     layout->addLayout(headerRow);
@@ -157,7 +158,7 @@ void showAboutDialog(QWidget *parent)
     }.join("\n\n");
 
     txt->setPlainText(aboutText);
-    layout->addWidget(txt);
+    layout->addWidget(txt, 1);
 
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Close, &dlg);
     bb->button(QDialogButtonBox::Close)->setText(

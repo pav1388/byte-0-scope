@@ -55,6 +55,7 @@ public:
 signals:
     void settingsChanged();
     void resetDisplayRequested();
+    void gotoAddressRequested(qint64 address);
 
 private slots:
     void onBppChanged();
@@ -106,6 +107,8 @@ private:
     QPushButton *m_resetRegionBtn = nullptr;
     QPushButton *m_pickStartBtn = nullptr;
     QPushButton *m_pickEndBtn = nullptr;
+    Int64SpinBox *m_gotoSpin = nullptr;
+    QPushButton *m_gotoBtn = nullptr;
     QCheckBox   *m_lengthModeCheck = nullptr;
     QCheckBox   *m_hexModeCheck = nullptr;
     RegionPickTarget m_regionPickTarget = PickNone;

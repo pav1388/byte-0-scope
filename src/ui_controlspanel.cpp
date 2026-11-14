@@ -273,6 +273,24 @@ void ControlsPanel::buildUi()
             this, &ControlsPanel::resetRegionToDefault);
     regLay->addWidget(m_resetRegionBtn, 2, 2, 1, 1);
 
+    m_gotoSpin = new Int64SpinBox(this);
+    m_gotoSpin->setObjectName("gotoSpin");
+    m_gotoSpin->setRange64(0, Int64SpinBox::maxAllowed());
+    m_gotoSpin->setValue64(0);
+    m_gotoSpin->setKeyboardTracking(false);
+    m_gotoSpin->setToolTip(
+        tr("Byte address; filled automatically when a byte is locked"));
+    regLay->addWidget(m_gotoSpin, 3, 0, 1, 2);
+
+    m_gotoBtn = new QPushButton(QStringLiteral(">>"), this);
+    m_gotoBtn->setObjectName("gotoAddressBtn");
+    m_gotoBtn->setFixedWidth(CP_BUTTON_COMPACT_WIDTH);
+    m_gotoBtn->setAutoDefault(false);
+    m_gotoBtn->setToolTip(tr("Go to address"));
+    connect(m_gotoBtn, &QPushButton::clicked, this,
+            [this]() { emit gotoAddressRequested(m_gotoSpin->value64()); });
+    regLay->addWidget(m_gotoBtn, 3, 2, 1, 1);
+
     layout->addWidget(regGroup);
 
     // --- Отображение ---
@@ -619,7 +637,7 @@ void ControlsPanel::updateDisplayControlsEnabled()
 
 void ControlsPanel::applyHexModeToSpins(bool useHex)
 {
-    for (Int64SpinBox *spin : { m_offsetSpin, m_endSpin }) {
+    for (Int64SpinBox *spin : { m_offsetSpin, m_endSpin, m_gotoSpin }) {
         QSignalBlocker b(spin);
         spin->setHexMode(useHex);
     }
@@ -778,7 +796,11 @@ void ControlsPanel::setCanvasWidget(CanvasWidget *canvas)
 
     connect(canvas, &CanvasWidget::lockedChanged, this,
             [this](qint64 address) {
-                if (m_regionPickTarget != PickNone && address >= 0)
+                if (address < 0)
+                    return;
+                QSignalBlocker block(m_gotoSpin);
+                m_gotoSpin->setValue64(address);
+                if (m_regionPickTarget != PickNone)
                     onRegionAddressCaptured(address);
             });
 

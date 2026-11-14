@@ -293,12 +293,11 @@ QFont HexViewWidget::sidebarButtonFont() const
 
 void HexViewWidget::scrollRows(int rows)
 {
-    const qint64 fs = fileSize();
-    const qint64 maxTop = qMax<qint64>(0, fs - 1);
-    m_scrollTopAddr += qint64(rows) * m_bytesPerLine;
-    m_scrollTopAddr = qBound<qint64>(0, m_scrollTopAddr, maxTop);
-    m_scrollTopAddr = (m_scrollTopAddr / m_bytesPerLine) * m_bytesPerLine;
-    update();
+    if (!m_vScroll)
+        return;
+    const int line = int(m_scrollTopAddr / m_bytesPerLine);
+    m_vScroll->setValue(qBound(m_vScroll->minimum(), line + rows,
+                               m_vScroll->maximum()));
 }
 
 void HexViewWidget::ensureAddressVisible(qint64 addr)

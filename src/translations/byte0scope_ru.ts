@@ -5,8 +5,8 @@
     <name>AboutDialog</name>
     <message>
         <location filename="../ui_aboutdialog.cpp" line="+28"/>
-        <source>Byte-0-scope v%1 by pav13 (2026)</source>
-        <translation>Байт-0-скоп v%1, автор pav13 (2026)</translation>
+        <source>Byte-0-scope v%1 (%2-bit) by pav13 (2026)</source>
+        <translation>Байт-0-скоп v%1 (%2-bit), автор pav13 (2026)</translation>
     </message>
     <message>
         <location line="+3"/>
@@ -138,7 +138,7 @@ using AI.</source>
         <translation>О программе</translation>
     </message>
     <message>
-        <location line="+64"/>
+        <location line="+65"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
@@ -354,14 +354,24 @@ Click again or press Esc to cancel.</source>
         <translation>Если включено, поле «Конец» трактуется как «Длина»</translation>
     </message>
     <message>
-        <location line="+107"/>
+        <location line="+20"/>
+        <source>Byte address; filled automatically when a byte is locked</source>
+        <translation>Адрес байта; заполняется автоматически при выборе байта</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>Go to address</source>
+        <translation>Перейти по адресу</translation>
+    </message>
+    <message>
+        <location line="+98"/>
         <source>[X] Reset display
 settings</source>
         <translation>[X] Сбросить настройки
 отображения</translation>
     </message>
     <message>
-        <location line="-117"/>
+        <location line="-135"/>
         <source>hex</source>
         <translation>hex</translation>
     </message>
@@ -381,7 +391,7 @@ settings</source>
         <translation>Сбросить регион: отображать все данные</translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+26"/>
         <source>Display</source>
         <translation>Отображение</translation>
     </message>
@@ -643,7 +653,7 @@ LSB-first: биты в байте расположены в обратном п�
 <context>
     <name>HexViewWidget</name>
     <message>
-        <location filename="../ui_hexviewwidget.cpp" line="+349"/>
+        <location filename="../ui_hexviewwidget.cpp" line="+348"/>
         <source>Decrease bytes per line by 8</source>
         <translation>Уменьшить количество байтов в строке на 8</translation>
     </message>
@@ -707,7 +717,7 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="-32"/>
-        <location line="+1042"/>
+        <location line="+1041"/>
         <location line="+17"/>
         <location line="+31"/>
         <location line="+12"/>
@@ -716,7 +726,7 @@ LSB-first: биты в байте расположены в обратном п�
         <translation>Экспорт в PNG</translation>
     </message>
     <message>
-        <location line="-1128"/>
+        <location line="-1127"/>
         <source>Current visible area…</source>
         <translation>Текущая видимая область…</translation>
     </message>
@@ -772,36 +782,36 @@ LSB-first: биты в байте расположены в обратном п�
     </message>
     <message>
         <location line="+3"/>
-        <location line="+865"/>
+        <location line="+864"/>
         <source>Light theme</source>
         <translation>Светлая тема</translation>
     </message>
     <message>
-        <location line="-865"/>
-        <location line="+865"/>
+        <location line="-864"/>
+        <location line="+864"/>
         <source>Dark theme</source>
         <translation>Тёмная тема</translation>
     </message>
     <message>
-        <location line="-861"/>
-        <location line="+887"/>
+        <location line="-860"/>
+        <location line="+886"/>
         <source>Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location line="-882"/>
-        <location line="+878"/>
+        <location line="-881"/>
+        <location line="+877"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location line="-873"/>
-        <location line="+873"/>
+        <location line="-872"/>
+        <location line="+872"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
     <message>
-        <location line="-859"/>
+        <location line="-858"/>
         <source>Byte tooltip</source>
         <translation>Всплывающая подсказка по байту</translation>
     </message>
@@ -872,7 +882,7 @@ Applied the next time a file is opened.</source>
         <translation>Очистить список</translation>
     </message>
     <message>
-        <location line="+73"/>
+        <location line="+72"/>
         <location line="+374"/>
         <source>&lt;b&gt;Byte-0-scope - Interactive binary data visualizer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Байт-0-скоп — интерактивный визуализатор бинарных данных&lt;/b&gt;</translation>
@@ -1142,12 +1152,12 @@ Restart the application to apply the change.</source>
         <translation>PNG (*.png)</translation>
     </message>
     <message>
-        <location line="-952"/>
+        <location line="-951"/>
         <source>Load the entire file into memory at once</source>
         <translation>Загружать файл сразу целиком в память</translation>
     </message>
     <message>
-        <location line="+1006"/>
+        <location line="+1005"/>
         <source>The requested PNG dimensions are invalid, or the export task could not be started.</source>
         <translation>Запрошенные размеры PNG-файла недопустимы, либо задачу экспорта не удалось запустить.</translation>
     </message>
@@ -1167,7 +1177,7 @@ Restart the application to apply the change.</source>
         <translation> [различие: %1%]</translation>
     </message>
     <message>
-        <location line="+190"/>
+        <location line="+197"/>
         <source>[ Saving to PNG...]</source>
         <translation>[ Сохранение в PNG...]</translation>
     </message>
@@ -1862,13 +1872,13 @@ Auto-count: %1.</source>
 <context>
     <name>TileManager</name>
     <message>
-        <location filename="../render_tilemanager.cpp" line="+485"/>
-        <location line="+139"/>
+        <location filename="../render_tilemanager.cpp" line="+487"/>
+        <location line="+197"/>
         <source>Invalid export dimensions.</source>
         <translation>Недопустимые размеры экспорта.</translation>
     </message>
     <message>
-        <location line="-123"/>
+        <location line="-181"/>
         <source>The requested export area is outside the image.</source>
         <translation>Запрашиваемая область экспорта находится за пределами изображения.</translation>
     </message>
@@ -1878,17 +1888,17 @@ Auto-count: %1.</source>
         <translation>Строка PNG слишком широка для этой сборки.</translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+13"/>
         <source>Not enough memory to buffer a single PNG row.</source>
         <translation>Недостаточно памяти для буферизации одной строки PNG.</translation>
     </message>
     <message>
-        <location line="+78"/>
+        <location line="+135"/>
         <source>PNG export was cancelled.</source>
         <translation>Экспорт в PNG отменён.</translation>
     </message>
     <message>
-        <location line="+118"/>
+        <location line="+143"/>
         <location line="+6"/>
         <source>The export task could not be started.</source>
         <translation>Не удалось запустить задачу экспорта.</translation>
