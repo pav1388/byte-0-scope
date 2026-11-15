@@ -25,6 +25,7 @@ for %%i in ("%~dp0..") do set "PROJECT_ROOT=%%~fi"
 set "SRC_EXE=%PROJECT_ROOT%\build-%PROFILE%\byte0scope.exe"
 set "SRC_README=%PROJECT_ROOT%\README.md"
 set "SRC_README_RU=%PROJECT_ROOT%\README.ru.md"
+set "SRC_LICENSE=%PROJECT_ROOT%\LICENSE"
 set "SRC_SAMPLES=%PROJECT_ROOT%\sample-bin"
 set "SRC_SAMPLES_ZIP=%SRC_SAMPLES%\sample-bin.zip"
 set "RELEASE_ROOT=%PROJECT_ROOT%\releases"
@@ -58,13 +59,13 @@ copy /Y "%SRC_README%" "%DEST%\README.md" >nul
 if errorlevel 1 set "ERR=failed to copy README.md" & goto :fail
 echo [ok] README.md
 
-if exist "%SRC_README_RU%" (
-    copy /Y "%SRC_README_RU%" "%DEST%\README.ru.md" >nul
-    if errorlevel 1 set "ERR=failed to copy README.ru.md" & goto :fail
-    echo [ok] README.ru.md
-) else (
-    echo [--] README.ru.md not found, skipped
-)
+copy /Y "%SRC_README_RU%" "%DEST%\README.ru.md" >nul
+if errorlevel 1 set "ERR=failed to copy README.ru.md" & goto :fail
+echo [ok] README.ru.md
+
+copy /Y "%SRC_LICENSE%" "%DEST%\LICENSE" >nul
+if errorlevel 1 set "ERR=failed to copy LICENSE" & goto :fail
+echo [ok] LICENSE
 
 REM --- sample-tim (extract sample-tim.zip into release sample-tim) ---
 REM if exist "%SRC_SAMPLES%" (

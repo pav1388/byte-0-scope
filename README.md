@@ -150,13 +150,14 @@ a warning is displayed.
 
 ## Building
 
-C++11, static Qt (Core, Gui, Widgets), CMake ≥ 3.5.
-Two build profiles are supported:
+C++11, Qt 5 (Core, Gui, Widgets), CMake ≥ 3.10.
+Three build profiles are supported:
 
-| Profile | Qt        | Toolchain             | Purpose                                 |
-|---------|-----------|-----------------------|-----------------------------------------|
-| `xp32`  | 5.6.3     | MinGW 4.9.2, 32-bit   | Windows XP compatibility                |
-| `win64` | 5.15.2    | MinGW 8.1.0, 64-bit   | modern 64-bit Windows                   |
+| Profile  | Qt                  | Toolchain             | Purpose                                 |
+|----------|---------------------|-----------------------|-----------------------------------------|
+| `xp32`   | 5.6.3, static       | MinGW 4.9.2, 32-bit   | Windows XP compatibility                |
+| `win64`  | 5.15.2, static      | MinGW 8.1.0, 64-bit   | modern 64-bit Windows                   |
+| `native` | system Qt 5, dynamic| system GCC            | Linux (and other non-Windows systems)   |
 
 For each profile in `scripts\` there is an identical set of bat scripts
 (`<profile>` - `xp32` or `win64`):
@@ -185,6 +186,47 @@ cmake -S . -B build-win64 -G "MinGW Makefiles" ^
 cmake --build build-win64 -j4
 ```
 
+### Linux
+
+The `native` profile builds against the system (dynamic) Qt 5.
+Tested on Ubuntu 24.04 (GCC 13, Qt 5.15.13).
+
+```bash
+sudo apt install build-essential cmake qtbase5-dev qttools5-dev qttools5-dev-tools \
+                 zlib1g-dev qttranslations5-l10n
+
+cmake -S . -B build-linux -DBS_PROFILE=native
+cmake --build build-linux -j$(nproc)
+./build-linux/byte0scope
+```
+
+- `qttools5-dev` provides the `Qt5LinguistTools` CMake files; with them the
+  Russian translation (`.qm`) is built and embedded into the executable.
+  If they are missing but a working `lrelease` exists, CMake falls back to it
+  automatically. A specific one can be given with
+  `-DBS_LRELEASE_EXE=/path/to/lrelease`.
+  Note: on some systems `/usr/bin/lrelease` is only a qtchooser stub and fails
+  with `could not exec '/usr/lib/qt5/bin/lrelease'` - install the real
+  `qttools5-dev-tools` or point `BS_LRELEASE_EXE` to an unpacked copy.
+- `qttranslations5-l10n` provides `qtbase_ru.qm` (standard Qt dialogs in Russian).
+- The executable is dynamically linked: the target machine needs the Qt 5
+  runtime (`libqt5widgets5`). For a self-contained file, package it as an
+  AppImage.
+- There are no Linux release scripts yet; pack the release by hand.
+
+Ready-made scripts (run from anywhere; `clean` as the argument = full rebuild):
+
+```
+scripts/build-linux-dynamic.sh [clean]   system Qt 5 (dynamic) -> build-linux-dynamic/byte0scope
+scripts/build-linux-static.sh  [clean]   static Qt 5.15 (Qt, xcb plugin, libgcc/libstdc++ linked in)
+                                         -> build-linux-static/byte0scope
+```
+
+The static variant needs a static Qt SDK (default `../_libs/qt-5.15.2-static-linux`,
+or set `QT_DIR`); how to build it - see `scripts/BUILD-QT-5.15.2-static-linux.md`.
+glibc, X11/xcb and fontconfig remain dynamic, so the file runs on desktop
+Linux systems with a glibc not older than the build machine's.
+
 ## Repository structure
 
 ```
@@ -195,6 +237,7 @@ src/resources/          .qrc and .rc (icons, translations)
 scripts/                bat scripts for build, release and translations
 scripts/_build-menu.bat build menu
 scripts/BUILD-QT-*.md   how to build the static Qt used
+scripts/build-linux-*.sh Linux build scripts (dynamic / static Qt)
 ```
 
 ## License

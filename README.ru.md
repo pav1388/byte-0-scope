@@ -150,13 +150,14 @@ GitHub: https://github.com/pav1388/byte-0-scope
 
 ## Сборка
 
-C++11, статическая Qt (Core, Gui, Widgets), CMake ≥ 3.5.
-Поддерживаются два профиля сборки:
+C++11, Qt 5 (Core, Gui, Widgets), CMake ≥ 3.10.
+Поддерживаются три профиля сборки:
 
-| Профиль | Qt        | Toolchain             | Назначение                              |
-|---------|-----------|-----------------------|-----------------------------------------|
-| `xp32`  | 5.6.3     | MinGW 4.9.2, 32-bit   | совместимость с Windows XP              |
-| `win64` | 5.15.2    | MinGW 8.1.0, 64-bit   | современные 64-битные Windows           |
+| Профиль  | Qt                    | Toolchain             | Назначение                                |
+|----------|-----------------------|-----------------------|-------------------------------------------|
+| `xp32`   | 5.6.3, статическая    | MinGW 4.9.2, 32-bit   | совместимость с Windows XP                |
+| `win64`  | 5.15.2, статическая   | MinGW 8.1.0, 64-bit   | современные 64-битные Windows             |
+| `native` | системная Qt 5, динам.| системный GCC         | Linux (и другие не-Windows системы)       |
 
 Для каждого профиля в `scripts\` есть одинаковый набор bat-скриптов
 (`<profile>` - `xp32` или `win64`):
@@ -185,6 +186,48 @@ cmake -S . -B build-win64 -G "MinGW Makefiles" ^
 cmake --build build-win64 -j4
 ```
 
+### Linux
+
+Профиль `native` собирается с системной (динамической) Qt 5.
+Проверено на Ubuntu 24.04 (GCC 13, Qt 5.15.13).
+
+```bash
+sudo apt install build-essential cmake qtbase5-dev qttools5-dev qttools5-dev-tools \
+                 zlib1g-dev qttranslations5-l10n
+
+cmake -S . -B build-linux -DBS_PROFILE=native
+cmake --build build-linux -j$(nproc)
+./build-linux/byte0scope
+```
+
+- `qttools5-dev` содержит CMake-файлы `Qt5LinguistTools`; с ними русский
+  перевод (`.qm`) собирается и встраивается в исполняемый файл.
+  Если их нет, но есть рабочий `lrelease`, CMake автоматически использует его.
+  Конкретный `lrelease` можно указать так:
+  `-DBS_LRELEASE_EXE=/путь/к/lrelease`.
+  Учтите: в некоторых системах `/usr/bin/lrelease` - лишь заглушка qtchooser и
+  падает с ошибкой `could not exec '/usr/lib/qt5/bin/lrelease'`; установите
+  настоящий `qttools5-dev-tools` или укажите `BS_LRELEASE_EXE` на распакованную копию.
+- `qttranslations5-l10n` даёт `qtbase_ru.qm` (стандартные диалоги Qt на русском).
+- Исполняемый файл линкуется динамически: на целевой машине нужна среда
+  выполнения Qt 5 (`libqt5widgets5`). Для автономного файла упакуйте его
+  в AppImage.
+- Скриптов релиза для Linux пока нет; релиз упаковывается вручную.
+
+Готовые скрипты (запускаются из любого каталога; аргумент `clean` - полная пересборка):
+
+```
+scripts/build-linux-dynamic.sh [clean]   системная Qt 5 (динамическая) -> build-linux-dynamic/byte0scope
+scripts/build-linux-static.sh  [clean]   статическая Qt 5.15 (Qt, плагин xcb, libgcc/libstdc++ внутри)
+                                         -> build-linux-static/byte0scope
+```
+
+Для статического варианта нужна статическая Qt (по умолчанию
+`../_libs/qt-5.15.2-static-linux`, либо задайте `QT_DIR`); как её собрать - см.
+`scripts/BUILD-QT-5.15.2-static-linux.md`. glibc, X11/xcb и fontconfig остаются
+динамическими, поэтому файл запускается на десктопных Linux с glibc не старее,
+чем на машине сборки.
+
 ## Структура репозитория
 
 ```
@@ -195,6 +238,7 @@ src/resources/          .qrc и .rc (иконки, переводы)
 scripts/                bat-скрипты сборки, релиза и переводов
 scripts/_build-menu.bat меню сборки
 scripts/BUILD-QT-*.md   как собрать используемые статические Qt
+scripts/build-linux-*.sh скрипты сборки для Linux (динамическая / статическая Qt)
 ```
 
 ## Лицензия

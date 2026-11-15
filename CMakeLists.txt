@@ -25,9 +25,16 @@
 #         -DBS_PROFILE=win64 -DBS_QT_DIR=qt-5.15-static
 #   cmake --build build-win64 -j4
 #
-#   # --- Linux ---
+#   # --- Linux, system (dynamic) Qt ---
 #   cmake -S . -B build-linux -DBS_PROFILE=native
 #   cmake --build build-linux -j4
+#
+#   # --- Linux, static Qt (Qt + libgcc/libstdc++ linked in) ---
+#   cmake -S . -B build-linux-static -DBS_PROFILE=native \
+#         -DBS_STATIC_QT=ON -DBS_QT_DIR=/path/to/qt-5.15.2-static-linux
+#   cmake --build build-linux-static -j4
+#
+#   (or use scripts/build-linux-dynamic.sh and scripts/build-linux-static.sh)
 
 cmake_minimum_required(VERSION 3.10)
 project(byte0scope VERSION 0.0 LANGUAGES CXX)
@@ -271,6 +278,22 @@ if(MINGW)
     endif()
 endif()
 
+# Linux / other ELF systems (GCC or Clang): strip symbols in Release builds.
+# (Not on macOS: Apple's ld ignores/deprecates -s.)
+if(UNIX AND NOT APPLE AND NOT MINGW)
+    if(BS_STRIP)
+        set(CMAKE_EXE_LINKER_FLAGS_RELEASE
+            "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -s")
+    endif()
+    # Static Qt build on Linux: also link libgcc/libstdc++ statically.
+    # (glibc, X11/xcb and fontconfig stay dynamic - a fully static glibc
+    # executable cannot run the Qt xcb platform plugin reliably.)
+    if(BS_STATIC_QT AND BS_STATIC_RUNTIME)
+        set(CMAKE_EXE_LINKER_FLAGS
+            "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+    endif()
+endif()
+
 if(BS_NO_DEBUG)
     add_definitions(-DQT_NO_DEBUG_OUTPUT -DQT_NO_DEBUG)
 endif()
@@ -421,8 +444,42 @@ elseif(TARGET Qt5::qmake)
     endif()
 endif()
 
-if(Qt5LinguistTools_FOUND AND _existing_ts)
-    qt5_add_translation(BS_QM_FILES ${_existing_ts})
+# Fallback: on some distros (e.g. Ubuntu with broken/missing qttools5-dev)
+# Qt5LinguistTools CMake files are absent although the lrelease binary exists.
+set(_have_lrelease OFF)
+if(Qt5LinguistTools_FOUND)
+    set(_have_lrelease ON)
+else()
+    find_program(BS_LRELEASE_EXE
+        NAMES lrelease-qt5 lrelease
+        HINTS /usr/lib/qt5/bin /usr/lib/x86_64-linux-gnu/qt5/bin
+              /usr/lib/aarch64-linux-gnu/qt5/bin)
+    if(BS_LRELEASE_EXE)
+        set(_have_lrelease ON)
+        message(STATUS "Qt5LinguistTools not found, using lrelease: ${BS_LRELEASE_EXE}")
+    else()
+        message(WARNING "Neither Qt5LinguistTools nor lrelease found: "
+                        "translations will NOT be embedded.")
+    endif()
+endif()
+
+if(_have_lrelease AND _existing_ts)
+    if(Qt5LinguistTools_FOUND)
+        qt5_add_translation(BS_QM_FILES ${_existing_ts})
+    else()
+        set(BS_QM_FILES "")
+        foreach(_ts ${_existing_ts})
+            get_filename_component(_ts_name "${_ts}" NAME_WE)
+            set(_qm "${CMAKE_CURRENT_BINARY_DIR}/${_ts_name}.qm")
+            add_custom_command(
+                OUTPUT "${_qm}"
+                COMMAND "${BS_LRELEASE_EXE}" "${_ts}" -qm "${_qm}"
+                DEPENDS "${_ts}"
+                COMMENT "lrelease ${_ts_name}.ts"
+                VERBATIM)
+            list(APPEND BS_QM_FILES "${_qm}")
+        endforeach()
+    endif()
 
     add_custom_target(translations DEPENDS ${BS_QM_FILES})
     add_dependencies(byte0scope translations)
@@ -514,6 +571,27 @@ if(WIN32)
             message(STATUS "  - ${name}: not found, skipped")
         endif()
     endfunction()
+endif()
+
+# Static Qt on Linux: link the xcb platform plugin (and ICO) statically.
+# Plugin targets carry their own dependencies (.prl): xcb, X11, fontconfig...
+if(UNIX AND NOT APPLE AND BS_STATIC_QT)
+    if(NOT (_qt_dir AND EXISTS "${_qt_dir}"))
+        message(FATAL_ERROR
+            "BS_STATIC_QT=ON on Linux needs a static Qt SDK: "
+            "pass -DBS_QT_DIR=<path> (see scripts/BUILD-QT-5.15.2-static-linux.md).")
+    endif()
+    if(NOT TARGET Qt5::QXcbIntegrationPlugin)
+        message(FATAL_ERROR
+            "Qt5::QXcbIntegrationPlugin not found in ${_qt_dir}.\n"
+            "Is this a STATIC Qt SDK built with xcb support?")
+    endif()
+    target_link_libraries(byte0scope PRIVATE Qt5::QXcbIntegrationPlugin)
+    message(STATUS "Static Qt (Linux): + qxcb: Qt5::QXcbIntegrationPlugin")
+    if(NOT BS_DROP_QICO AND TARGET Qt5::QICOPlugin)
+        target_link_libraries(byte0scope PRIVATE Qt5::QICOPlugin)
+        message(STATUS "Static Qt (Linux): + qico: Qt5::QICOPlugin")
+    endif()
 endif()
 
 if(WIN32 AND BS_STATIC_QT)
