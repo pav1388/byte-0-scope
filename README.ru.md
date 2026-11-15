@@ -212,14 +212,15 @@ cmake --build build-linux -j$(nproc)
 - Исполняемый файл линкуется динамически: на целевой машине нужна среда
   выполнения Qt 5 (`libqt5widgets5`). Для автономного файла упакуйте его
   в AppImage.
-- Скриптов релиза для Linux пока нет; релиз упаковывается вручную.
 
-Готовые скрипты (запускаются из любого каталога; аргумент `clean` - полная пересборка):
+Готовые скрипты (запускаются из любого каталога). Аргументы: `clean` - полная
+пересборка, `release` - после сборки создать `releases/<имя>/` и `releases/<имя>.tar.gz`
+(исполняемый файл, README.md, README.ru.md, LICENSE; выводится SHA-256 архива):
 
 ```
-scripts/build-linux-dynamic.sh [clean]   системная Qt 5 (динамическая) -> build-linux-dynamic/byte0scope
-scripts/build-linux-static.sh  [clean]   статическая Qt 5.15 (Qt, плагин xcb, libgcc/libstdc++ внутри)
-                                         -> build-linux-static/byte0scope
+scripts/build-linux-dynamic.sh [clean] [release]   системная Qt 5 (динамическая) -> build-linux-dynamic/byte0scope
+scripts/build-linux-static.sh  [clean] [release]   статическая Qt 5.15 (Qt, плагин xcb, libgcc/libstdc++ внутри)
+                                                   -> build-linux-static/byte0scope
 ```
 
 Для статического варианта нужна статическая Qt (по умолчанию

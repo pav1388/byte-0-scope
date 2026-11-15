@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  build-linux-dynamic.sh [clean]
+#  build-linux-dynamic.sh [clean] [release]
 #
 #  Linux, system (dynamic) Qt 5 + system GCC.
 #  Output: build-linux-dynamic/byte0scope
-#  "clean" as the argument deletes build-linux-dynamic/ first.
+#  clean    deletes build-linux-dynamic/ first (full rebuild).
+#  release  after the build, makes releases/byte-0-scope-v<ver>-linux-<arch>-dynamic/
+#           (byte0scope, README.md, README.ru.md, LICENSE) and the same .tar.gz
 #
 #  Needs (Debian/Ubuntu):
 #    sudo apt install build-essential cmake qtbase5-dev qttools5-dev \
@@ -29,6 +31,75 @@ EXE_BUILT="$BUILD_DIR/byte0scope"
 
 fail() { echo; echo "ERROR: $*" >&2; exit 1; }
 
+# --- release: releases/<NAME>/ + releases/<NAME>.tar.gz ----------------
+make_release() {
+    local version arch name release_root dest archive f
+    [ -f "$PROJECT_ROOT/version.txt" ] || fail "version.txt not found."
+    version="$(tr -d '[:space:]' < "$PROJECT_ROOT/version.txt")"
+    [ -n "$version" ] || fail "version.txt is empty."
+    arch="$(uname -m)"
+    name="byte-0-scope-v${version}-linux-${arch}-dynamic"
+    release_root="$PROJECT_ROOT/releases"
+    dest="$release_root/$name"
+    archive="$release_root/$name.tar.gz"
+
+    echo
+    echo "==== Byte-0-scope release: $name ===="
+    mkdir -p "$release_root"
+    rm -rf "$dest" "$archive"
+    mkdir -p "$dest"
+
+    install -m 755 "$EXE_BUILT" "$dest/byte0scope" || fail "failed to copy byte0scope"
+    echo "[ok] byte0scope ($(stat -c %s "$dest/byte0scope") bytes)"
+
+    [ -f "$PROJECT_ROOT/README.md" ] || fail "README.md not found."
+    install -m 644 "$PROJECT_ROOT/README.md" "$dest/README.md"
+    echo "[ok] README.md"
+
+    if [ -f "$PROJECT_ROOT/README.ru.md" ]; then
+        install -m 644 "$PROJECT_ROOT/README.ru.md" "$dest/README.ru.md"
+        echo "[ok] README.ru.md"
+    else
+        echo "[--] README.ru.md not found, skipped"
+    fi
+
+    local found_license=0
+    for f in LICENSE LICENSE.md LICENSE.txt; do
+        if [ -f "$PROJECT_ROOT/$f" ]; then
+            install -m 644 "$PROJECT_ROOT/$f" "$dest/$f"
+            echo "[ok] $f"
+            found_license=1
+            break
+        fi
+    done
+    [ "$found_license" = 1 ] || echo "[--] LICENSE not found, skipped"
+
+    tar --owner=0 --group=0 --numeric-owner -czf "$archive" -C "$release_root" "$name" \
+        || fail "failed to create the archive."
+    echo "[ok] $(basename "$archive") ($(stat -c %s "$archive") bytes)"
+
+    echo
+    echo "RELEASE READY"
+    echo "Folder:  $dest"
+    echo "Archive: $archive"
+    (cd "$release_root" && sha256sum "$name.tar.gz")
+}
+
+DO_CLEAN=0
+DO_RELEASE=0
+for arg in "$@"; do
+    case "$arg" in
+        clean)   DO_CLEAN=1 ;;
+        release) DO_RELEASE=1 ;;
+        -h|--help|help)
+            echo "Usage: $0 [clean] [release]"
+            echo "  clean    delete $(basename "$BUILD_DIR")/ first (full rebuild)"
+            echo "  release  after the build: make releases/<name>/ and the .tar.gz"
+            exit 0 ;;
+        *) echo "Unknown argument: $arg" >&2; echo "Usage: $0 [clean] [release]" >&2; exit 2 ;;
+    esac
+done
+
 command -v cmake >/dev/null 2>&1 || fail "cmake not found. Install it: sudo apt install cmake"
 command -v g++   >/dev/null 2>&1 || fail "g++ not found. Install it: sudo apt install build-essential"
 [ -f "$PROJECT_ROOT/CMakeLists.txt" ] || fail "CMakeLists.txt not found in $PROJECT_ROOT"
@@ -46,7 +117,7 @@ echo "Build:  $BUILD_DIR"
 [ -n "$LRELEASE_EXE" ] && echo "lrelease: $LRELEASE_EXE"
 echo
 
-if [ "${1:-}" = "clean" ]; then
+if [ "$DO_CLEAN" = 1 ]; then
     echo "Removing $BUILD_DIR"
     rm -rf "$BUILD_DIR"
 fi
@@ -67,3 +138,6 @@ echo
 echo "BUILD SUCCESSFUL"
 echo "Output: $EXE_BUILT ($(stat -c %s "$EXE_BUILT") bytes)"
 file "$EXE_BUILT" 2>/dev/null || true
+
+[ "$DO_RELEASE" = 1 ] && make_release
+exit 0

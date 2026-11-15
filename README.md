@@ -212,14 +212,15 @@ cmake --build build-linux -j$(nproc)
 - The executable is dynamically linked: the target machine needs the Qt 5
   runtime (`libqt5widgets5`). For a self-contained file, package it as an
   AppImage.
-- There are no Linux release scripts yet; pack the release by hand.
 
-Ready-made scripts (run from anywhere; `clean` as the argument = full rebuild):
+Ready-made scripts (run from anywhere). Arguments: `clean` = full rebuild,
+`release` = after the build, create `releases/<name>/` and `releases/<name>.tar.gz`
+(executable, README.md, README.ru.md, LICENSE; a SHA-256 of the archive is printed):
 
 ```
-scripts/build-linux-dynamic.sh [clean]   system Qt 5 (dynamic) -> build-linux-dynamic/byte0scope
-scripts/build-linux-static.sh  [clean]   static Qt 5.15 (Qt, xcb plugin, libgcc/libstdc++ linked in)
-                                         -> build-linux-static/byte0scope
+scripts/build-linux-dynamic.sh [clean] [release]   system Qt 5 (dynamic) -> build-linux-dynamic/byte0scope
+scripts/build-linux-static.sh  [clean] [release]   static Qt 5.15 (Qt, xcb plugin, libgcc/libstdc++ linked in)
+                                                   -> build-linux-static/byte0scope
 ```
 
 The static variant needs a static Qt SDK (default `../_libs/qt-5.15.2-static-linux`,
